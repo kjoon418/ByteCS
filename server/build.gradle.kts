@@ -17,10 +17,11 @@ dependencies {
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlin.reflect)
     runtimeOnly(libs.postgresql)
-    testImplementation(libs.spring.boot.starter.test)
-    // Docker가 없는 환경에서 통합 테스트를 위한 인메모리 DB.
+    // Docker가 없는 환경에서 local 프로파일 구동 및 통합 테스트에 쓰는 인메모리 DB.
+    // 런타임 기본(운영)은 여전히 Postgres이며, local 프로파일에서만 H2를 사용한다.
     // TODO: Testcontainers(실제 Postgres)로 승급 — Docker 가동 시
-    testRuntimeOnly(libs.h2)
+    runtimeOnly(libs.h2)
+    testImplementation(libs.spring.boot.starter.test)
 }
 
 tasks.withType<Test> {
