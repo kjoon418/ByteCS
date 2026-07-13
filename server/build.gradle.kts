@@ -1,19 +1,21 @@
 plugins {
     alias(libs.plugins.kotlinJvm)
-    alias(libs.plugins.ktor)
+    alias(libs.plugins.kotlinSpring)
+    alias(libs.plugins.springBoot)
+    alias(libs.plugins.springDependencyManagement)
 }
 
 group = "watson.bytecs"
 version = "1.0.0"
-application {
-    mainClass = "watson.bytecs.ApplicationKt"
-}
 
 dependencies {
     api(projects.core)
-    implementation(libs.logback)
-    implementation(libs.ktor.serverCore)
-    implementation(libs.ktor.serverNetty)
-    testImplementation(libs.ktor.serverTestHost)
-    testImplementation(libs.kotlin.testJunit)
+    implementation(libs.spring.boot.starter.web)
+    implementation(libs.jackson.module.kotlin)
+    implementation(libs.kotlin.reflect)
+    testImplementation(libs.spring.boot.starter.test)
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
