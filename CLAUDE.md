@@ -11,7 +11,7 @@
 - **Mobile:** Kotlin & Jetpack Compose
 - **Web**: Compose Multiplatform (Wasm/Canvas)
 - **Backend/API:** Kotlin Spring Boot
-- **Database:** 트레이드 오프를 고려해 선택(확정 후 현재 명세 수정 필요)
+- **Database:** PostgreSQL (관계형·오픈소스·실서비스 표준으로 확정). 접근은 Spring Data JPA(Rich Domain 엔티티) 기반.
 
 ## 에이전트 행동 지침
 - `docs/` 디렉터리 하위에 행동 지침 파일이 배치되어 있습니다.
