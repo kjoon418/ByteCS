@@ -254,20 +254,22 @@ val BcsTypography = Typography(
 - 점 인디케이터: 완료=`success`/`primary` 채운 점, 현재=`primary` 테두리, 남음=`border`. radius full.
 - 담백하게 상단에. 압박 주지 않기.
 
-### 5.5 힌트 위계 — HintStepper + MisconceptionHintCard (⭐️ ByteCS 핵심)
-- **HintButton**(진입점) — GhostButton/TextLink 톤 secondary. "힌트 보기". 사용자 요청(pull)으로만.
-- **HintStepper** — 약→강 레벨을 하나씩 공개. 각 레벨은 카드/아코디언. **이미 연 힌트는 계속 보임**, "더 보기"로 다음 레벨. 레벨 위계 시각화(§6 힌트 위계색):
-  - L1 키워드 힌팅: 가장 옅은 톤(`surfaceSubtle` + `textSecondary`).
-  - L2 배경지식 보충: `primaryContainer`(info) 톤 InfoCard, 내부에 **[더 쉬운 문제로 풀어보기]**(디딤 문제 진입) 버튼.
+### 5.5 힌트 — HintStepper + MisconceptionHintCard (⭐️ ByteCS 핵심)
+- **HintButton**(진입점) — GhostButton/TextLink 톤 secondary. "힌트 보기". 사용자 요청(pull)으로만. **힌트가 없는 문제면 노출하지 않는다.**
+- **HintStepper** — 약→강 순서로 하나씩 공개. 각 힌트는 카드/아코디언. **이미 연 힌트는 계속 보임**, "더 보기"로 다음 것. ⭐️ **문제별 자유 구성(리뷰 반영)** — 고정된 L1/L2 종류·개수 사다리가 아니다. 힌트 개수·종류는 문제마다 다르며(0~N개), 각 힌트는 '학습적'이어야 한다(풀이용 단순 실마리 지양). 강도 차이는 §6.1 위계색(옅음→info)으로 표현.
+  - 선행 개념(배경지식) 힌트에는 내부에 **[더 쉬운 문제로 풀어보기]**(디딤 문제 진입) 버튼을 둘 수 있다.
 - **MisconceptionHintCard**(오답 교정 힌트, push) — 특정 흔한 오답 제출 시 **자동** 표시되는 InfoCard(info 톤). "'프로세스'는 …라 이 문제의 답과는 달라요. 다시 도전!" ⭐️ **정답 비노출, danger 색 금지, 오답 낙인 아님**.
 
-### 5.6 답 피드백 — CorrectFeedback / RetryNudge (⭐️ 무낙인)
-- **CorrectFeedback**(정답) — `success` 액센트 + 체크 아이콘 + **햅틱** + 짧은 축하 모션. "맞았어요!" → 다음 문제로. 이때 `ConceptChip`·해설 노출 가능.
-- **RetryNudge**(불일치) — ⭐️ **경고 아닌 중립 인라인 넛지**(`neutralNudge`). "아직이에요, 다시 해볼까요?" 빨강·경고 아이콘·토스트로 휙 사라짐 금지(설명이 남아야 함). 입력 유지·무제한 재시도.
+### 5.6 답 피드백 — CorrectFeedback / RetryNudge / NearMissNudge (⭐️ 무낙인·또렷)
+- **CorrectFeedback**(정답) — `success` 액센트 + 체크 아이콘 + **햅틱** + **또렷한 짧은 축하 모션**(밋밋함 금지, 리뷰 반영). "맞았어요!" → (선택)더 알아보기 → 다음 문제. 이때 `ConceptChip`·해설 노출 가능.
+- **RetryNudge**(불일치) — ⭐️ **경고 아닌 중립 인라인 넛지**(`neutralNudge`). 제출 순간 **분명한** 상태 변화를 주되 "아직이에요, 다시 해볼까요?" 톤. 빨강·경고 아이콘·토스트로 휙 사라짐 금지(설명이 남아야 함). 입력 유지·무제한 재시도.
+- **NearMissNudge**(근접·오탈자, 리뷰 반영) — 불일치가 오탈자 수준으로 가까울 때 "거의 맞았어요, 오타를 확인해보세요"를 `info`/중립 톤으로. ⭐️ **정답·개념 비노출.** RetryNudge와 구별되는 별도 톤으로 '오타 때문임'을 알린다.
 
-### 5.7 정답 공개 — RevealAnswerButton + ModelAnswerBlock
+### 5.7 정답 공개·따라 입력·심화 — RevealAnswerButton / ModelAnswerBlock / TypeAlongField / EnrichmentBlock
 - **RevealAnswerButton** — secondary(GhostButton/TextLink). **사용자 명시 요청 시에만**. "정답 보기".
 - **ModelAnswerBlock** — 모범답안 + 짧은 해설(코드면 `codeBlock`). 도움 신호지만 **벌점처럼 보이게 하지 않는다**(중립·정보 톤).
+- **TypeAlongField**(정답 따라 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **모범답안을 직접 따라 입력해야 다음으로 진행**. AnswerTextField 재사용 + "정답을 따라 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점.
+- **EnrichmentBlock**('더 알아보기' 심화 정보, 리뷰 반영) — 정답 처리 후 그 개념의 흥미로운 추가 정보를 **선택적으로** 펼치는 확장 카드(InfoCard 톤). 없으면 표시 안 함. 진행을 막지 않음.
 
 ### 5.8 파고들기 맥락 — DrilldownBadge / DrilldownBreadcrumb
 - 디딤 문제로 내려간 상태에서만 상단에 노출. "〈원래 문제〉를 위한 더 쉬운 문제" 배지(info 톤) + **돌아가기**.
@@ -301,19 +303,24 @@ val BcsTypography = Typography(
 - 세션/문제/폼: 좌측 back·나가기 + (해당 시) 맥락 타이틀(`headingS`). 파괴적이지 않은 이동은 경고 모달 없이.
 - 홈: 인사 + 계정 진입점. 하단 내비는 최소(홈/계정) 또는 생략(모바일 우선).
 
+### 5.16 스크랩·스트릭 — ScrapToggle / StreakBadge (리뷰 반영)
+- **ScrapToggle** — 문제를 개인 북마크에 저장/해제하는 토글(별·북마크 아이콘, secondary). 켜짐=`primary`, 꺼짐=`textTertiary`. 문제 풀이 화면(03) 및 스크랩 목록에서 사용.
+- **StreakBadge** — 연속 학습 표시(긍정 동기, 기능 6). 상승은 `success`/`primary` 긍정 톤. ⛔ 끊김에 `danger`·상실 공포·죄책감 연출 금지 — 끊겨도 "다시 시작해요" 중립·격려 톤.
+
 ---
 
 ## 6. 도메인 시각 매핑 (Domain Visual Mapping)
 > Resumaker의 '경험유형 5종 매핑'을 대체하는, CS한입 고유의 시각 규칙. 힌트 위계와 문제 상태를 색·톤으로 못박는다.
 
-### 6.1 힌트 위계 (약 → 강)
-| 단계 | 종류 | 배경 / 전경 | 톤 |
+### 6.1 힌트 위계 (약 → 강 · 문제별 자유 구성)
+⭐️ 고정 종류 사다리가 아니다(리뷰 반영). 순서상 위치로 강도를 나눈다.
+| 위치 | 예시 | 배경 / 전경 | 톤 |
 |------|------|------------|----|
-| L1 | 키워드 힌팅 | `surfaceSubtle` / `textSecondary` | 가장 옅음(스스로 떠올리게) |
-| L2 | 배경지식 보충 | `primaryContainer`(info) / `onPrimaryContainer` | 정보 카드 + 디딤 문제 진입점 |
+| 약(앞쪽) | 가벼운 실마리·관점 | `surfaceSubtle` / `textSecondary` | 가장 옅음(스스로 떠올리게) |
+| 강(뒤쪽) | 배경지식(선행 개념)·코드 예시 | `primaryContainer`(info) / `onPrimaryContainer` | 정보 카드 + (선행 개념이면) 디딤 문제 진입점 |
 | (push) | 오답 교정 힌트 | `primaryContainer`(info) / `onPrimaryContainer` | 자동 표시, 정답 비노출 |
 
-> 힌트는 셋 다 **info 계열(경고색 아님)**. 강도 차이는 명도·레벨 위계로 표현한다.
+> 힌트는 모두 **info 계열(경고색 아님)**. 개수·종류는 문제마다 다르며, 강도 차이는 명도·순서로 표현한다. 각 힌트는 '학습적'이어야 한다.
 
 ### 6.2 문제 상태 색 매핑 (⭐️ 비처벌)
 | 상태 | 색 토큰 | 신호 |
@@ -321,8 +328,9 @@ val BcsTypography = Typography(
 | 미풀림/입력 중 | 뉴트럴(`surface`/`text*`) | 중립 |
 | **정답** | `success` | 긍정·햅틱 |
 | **불일치(재시도)** | `neutralNudge` | ⭐️ 중립·격려(빨강 금지) |
+| **근접(오탈자)** | `info`/중립 | 안내('오타 확인', 정답 비노출) |
 | 오답 교정 힌트 표시 | `info` | 안내(오답 낙인 아님) |
-| 정답 공개 | `info`/뉴트럴 | 정보(벌점 아님) |
+| 정답 공개·따라 입력 | `info`/뉴트럴 | 정보(벌점 아님) |
 
 ### 6.3 난이도
 - 은은한 단계 표시(`difficulty` 색, 점/라벨). 디딤 문제는 '더 쉬움'을 암시. 압박·강조 금지.
@@ -346,7 +354,7 @@ val BcsTypography = Typography(
   | Medium+ | ≥ 600px | 단일 컬럼 max 600dp 중앙 | 24dp |
 
 - **CTA 위치:** 모바일은 하단 고정(엄지영역). 웹 데스크톱은 콘텐츠 하단 인라인 또는 하단 고정 바 유지(모바일 일관성 우선).
-- **스크롤:** 화면 내부 `verticalScroll`. 코드 블록은 가로 `horizontalScroll` 허용(줄바꿈 강제 금지).
+- **스크롤:** 화면 내부 `verticalScroll`. 코드 블록은 **모바일 폭에서 가로 스크롤 없이 읽히도록 짧은 줄로 큐레이션**(리뷰 반영 — 가로 스크롤이 문제 컨텍스트를 끊음); 부득이한 긴 코드만 가로 `horizontalScroll` 컨테이너로 격리하고 본문 흐름은 유지.
 - **글자 확대 대응:** OS 글자 최대 확대에도 안 깨지게(UX 5). 필요 시 바텀시트 등으로 전환.
 - 구현: `BoxWithConstraints`로 폭 측정 → 공통 `BcsScaffold(topBar, contentMax, bottomCta, content)`가 상단 바 + 중앙 컨테이너 + 하단 CTA + 스낵바를 한 곳에서 그린다.
 
@@ -410,3 +418,8 @@ val BcsTypography = Typography(
 - [ ] 콘텐츠 컨테이너 max-width 600dp 중앙, 모바일 주요 CTA 하단 고정.
 - [ ] 각 화면이 §8·`01~07` 요구사항 구조·컴포넌트와 일치.
 - [ ] 접근성: 글자 확대·스크린리더 대체텍스트·포커스 순서(문제→입력→제출→힌트).
+- [ ] 힌트가 문제별 자유 구성(고정 L1/L2 사다리 0건)·모두 info 톤·정답 비노출.
+- [ ] 근접(오탈자) 신호가 RetryNudge와 구별되는 톤으로 표시되고 정답 비노출.
+- [ ] 정답 공개 후 따라 입력(TypeAlongField) 통과해야 진행, 정답 처리 후 [더 알아보기] 선택 노출.
+- [ ] 스크랩 토글·목록, 지난 문제 다시 보기 동작. 완료 화면 축하 연출 또렷.
+- [ ] 오답·불일치·근접·스트릭 끊김에 빨강/경고/죄책감 연출 0건.
