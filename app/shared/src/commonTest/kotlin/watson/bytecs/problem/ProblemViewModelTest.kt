@@ -128,6 +128,34 @@ class ProblemViewModelTest {
         assertNull(viewModel.ready().feedback)
     }
 
+    // ── M6: 다음 문제 진행 ────────────────────────────────────────────────────
+
+    @Test
+    fun loadNext_advancesProgress_andResetsInputAndFeedback() = runTest {
+        val viewModel = newViewModel() // current=1, total=5
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+        assertTrue(viewModel.ready().feedback is Feedback.Correct)
+        assertEquals(1, viewModel.ready().current)
+
+        viewModel.loadNext()
+
+        val state = viewModel.ready()
+        assertEquals(2, state.current, "다음 문제로 진행도가 증가해야 한다")
+        assertEquals("", state.inputText, "새 문제에서 입력은 초기화된다")
+        assertNull(state.feedback, "새 문제에서 피드백은 초기화된다")
+    }
+
+    @Test
+    fun loadNext_atLastProblem_staysAtTotal_withoutCrash() = runTest {
+        val viewModel = ProblemViewModel(FakeProblemRepository(), totalProblems = 5, currentIndex = 5)
+
+        viewModel.loadNext()
+
+        assertEquals(5, viewModel.ready().current, "마지막 문제에서는 진행도를 total로 유지한다")
+    }
+
     // ── no-leak: 불일치·근접은 개념·해설을 절대 흘리지 않는다(무낙인·정답 비노출) ──────────
 
     @Test

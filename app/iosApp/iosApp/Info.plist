@@ -4,5 +4,12 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<!-- 개발용: 시뮬레이터에서 로컬 백엔드(http://localhost:8080) 평문 호출을 허용한다.
+	     로컬 네트워크에 한정되며, 운영은 HTTPS 전제이므로 임의 호스트 예외(NSAllowsArbitraryLoads)는 두지 않는다. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

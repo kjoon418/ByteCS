@@ -9,6 +9,9 @@ interface ProblemRepository {
 
     /** 답을 제출하고 결정적 판정 결과를 받는다. */
     suspend fun submitAttempt(problemId: Long, answer: String): AttemptResult
+
+    /** 보유 자원(HTTP 클라이언트 등)을 정리한다. 자원이 없는 구현은 no-op. */
+    fun close() {}
 }
 
 /**

@@ -38,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
@@ -72,6 +74,8 @@ fun ProblemScreen(
         state = state,
         onInputChange = viewModel::onInputChange,
         onSubmit = viewModel::submit,
+        onNext = viewModel::loadNext,
+        onRetry = viewModel::loadProblem,
         modifier = modifier,
     )
 }
@@ -81,37 +85,44 @@ private fun ProblemScreenContent(
     state: ProblemUiState,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onNext: () -> Unit,
+    onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val ready = state as? ProblemUiState.Ready
+    val solved = ready?.feedback is Feedback.Correct
 
     BcsScaffold(
         modifier = modifier,
         topBar = {
             // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님).
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (ready != null) {
+            if (ready != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     SessionProgress(current = ready.current, total = ready.total)
                 }
             }
         },
         bottomBar = {
             // 엄지 영역 하단 고정 CTA. 화면의 유일한 Primary.
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
-            ) {
-                PrimaryButton(
-                    text = "정답 확인하기",
-                    onClick = onSubmit,
-                    enabled = ready != null && ready.inputText.isNotBlank(),
-                )
+            // 정답을 맞히면 다음 문제로 넘어가는 진행 액션으로 바뀐다(막다른 길 방지).
+            if (ready != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
+                ) {
+                    PrimaryButton(
+                        text = if (solved) "다음 문제" else "정답 확인하기",
+                        onClick = if (solved) onNext else onSubmit,
+                        enabled = solved || ready.inputText.isNotBlank(),
+                        loading = ready.isSubmitting,
+                    )
+                }
             }
         },
     ) {
@@ -133,6 +144,14 @@ private fun ProblemScreenContent(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = BcsDimens.space5),
             )
+
+            is ProblemUiState.Error -> ErrorState(
+                onRetry = onRetry,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = BcsDimens.space5),
+            )
         }
     }
 }
@@ -146,10 +165,18 @@ private fun ReadyContent(
 ) {
     val colors = LocalBcsColors.current
     val focusRequester = remember { FocusRequester() }
+    val haptics = LocalHapticFeedback.current
 
     // 새 문제가 오면 입력 필드에 자동 포커스(§C-7).
     LaunchedEffect(state.problem.id) {
         focusRequester.requestFocus()
+    }
+
+    // ⭐️ 정답 순간 햅틱(§9 "정답 시 햅틱"). 긍정 피드백을 손끝으로도 느끼게.
+    LaunchedEffect(state.feedback) {
+        if (state.feedback is Feedback.Correct) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
     }
 
     Column(modifier = modifier) {
@@ -196,7 +223,51 @@ private fun ReadyContent(
             FeedbackSection(feedback)
         }
 
+        // ⭐️ 시스템 오류는 오답과 구분한다(§5.12). 전송 실패는 학습 기록 안전을 먼저 고지.
+        if (state.submitFailed) {
+            Spacer(Modifier.height(BcsDimens.space4))
+            SubmitErrorNotice()
+        }
+
         Spacer(Modifier.height(BcsDimens.space6))
+    }
+}
+
+/** 제출 전송 실패 안내(시스템 오류). 오답이 아니므로 danger/경고 대신 정보 톤 + 안심 문구. */
+@Composable
+private fun SubmitErrorNotice() {
+    val colors = LocalBcsColors.current
+    NudgeCard(
+        text = "잠시 연결이 원활하지 않았어요. 학습 기록은 안전하니 다시 시도해 주세요.",
+        backgroundColor = colors.infoContainer,
+        stripeColor = colors.info,
+        textColor = colors.onInfoContainer,
+    )
+}
+
+/** §5.12 로드 실패(시스템 오류) — 막다른 길 금지. 자산 안전 고지 + 재시도 경로. */
+@Composable
+private fun ErrorState(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBcsColors.current
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space4, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "문제를 불러오지 못했어요",
+            style = MaterialTheme.typography.titleMedium,
+            color = colors.textPrimary,
+        )
+        Text(
+            text = "학습 기록은 안전해요. 잠시 후 다시 시도해 주세요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.textSecondary,
+        )
+        PrimaryButton(text = "다시 시도하기", onClick = onRetry)
     }
 }
 
