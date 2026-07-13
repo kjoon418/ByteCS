@@ -1,6 +1,19 @@
 spring:
   application:
     name: bytecs-server
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/bytecs}
+    username: ${DB_USERNAME:bytecs}
+    password: ${DB_PASSWORD:bytecs}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      # 슬라이스 단계에서는 단순하게 스키마를 자동 반영한다.
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
 
 server:
   port: 8080

@@ -1,0 +1,23 @@
+spring:
+  # 모든 테스트는 test 프로파일로 실행되어, 시더가 동작하지 않고 각자 데이터를 준비한다.
+  profiles:
+    active: test
+  application:
+    name: bytecs-server
+  datasource:
+    # Docker가 없는 환경이므로 인메모리 H2를 PostgreSQL 호환 모드로 사용한다.
+    # TODO: Testcontainers(실제 Postgres)로 승급 — Docker 가동 시
+    url: jdbc:h2:mem:bytecs;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+server:
+  port: 8080
