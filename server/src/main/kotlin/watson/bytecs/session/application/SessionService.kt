@@ -46,8 +46,10 @@ class SessionService(
     fun getOrCreateToday(userId: Long): SessionStateResponse {
         val session = findOrCreateToday(userId)
         val currentProblem = session.currentItemProblemId()?.let { loadProblem(it) }
+        // 홈 화면이 로드 시점에 바로 스트릭을 보여주도록, 오늘 상태에 사용자의 현재 스트릭을 함께 싣는다.
+        val streak = loadUser(userId).streak
 
-        return responseMapper.toStateResponse(session, currentProblem)
+        return responseMapper.toStateResponse(session, currentProblem, streak)
     }
 
     /**

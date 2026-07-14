@@ -286,6 +286,24 @@ class SessionControllerIntegrationTest(
         }
     }
 
+    @Test
+    fun `오늘 세션 조회는 현재 스트릭을 함께 준다`() {
+        // 새 사용자는 스트릭 0으로 시작한다(홈 화면이 로드 시점에 바로 보여줄 수 있어야 한다).
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.streak.count") { value(0) }
+        }
+
+        // Day1을 완료하면 스트릭이 1이 되고, 다음 날 조회에 그대로 반영된다.
+        completeAllThree(token)
+        clock.setDate(DAY1.plusDays(1))
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.streak.count") { value(1) }
+            jsonPath("$.streak.lastStudyDate") { value(DAY1.toString()) }
+        }
+    }
+
     private fun completeAllThree(bearer: String): ResultActionsDsl {
         getToday(bearer)
         submit(bearer, "정답1")

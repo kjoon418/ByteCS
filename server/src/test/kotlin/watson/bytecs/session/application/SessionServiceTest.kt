@@ -8,11 +8,13 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.springframework.dao.DataIntegrityViolationException
+import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.session.application.dto.SessionStateResponse
+import watson.bytecs.session.application.dto.StreakResponse
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
 import java.time.Clock
@@ -49,6 +51,7 @@ class SessionServiceTest {
     fun `생성 경합에서 진 요청은 500 없이 이미 만들어진 세션을 돌려준다`() {
         val winner = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
         val problem = Problem(questionText = "질문", concept = Concept("개념"), acceptableAnswers = setOf("정답"))
+        val user = User.createGuest()
         val expected = stateResponse()
 
         // 최초 조회는 없음 → 생성 시도가 유니크 경합으로 실패 → 재조회에서 승자의 세션을 본다.
@@ -56,7 +59,8 @@ class SessionServiceTest {
         given(sessionCreator.createInNewTransaction(1L, today))
             .willThrow(DataIntegrityViolationException("uk_study_session_user_date"))
         given(problemRepository.findById(10L)).willReturn(Optional.of(problem))
-        given(responseMapper.toStateResponse(winner, problem)).willReturn(expected)
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+        given(responseMapper.toStateResponse(winner, problem, user.streak)).willReturn(expected)
 
         val result = service.getOrCreateToday(1L)
 
@@ -87,5 +91,6 @@ class SessionServiceTest {
             totalCount = 1,
             position = 0,
             currentProblem = null,
+            streak = StreakResponse(count = 0, lastStudyDate = null),
         )
 }

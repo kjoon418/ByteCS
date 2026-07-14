@@ -29,7 +29,7 @@ class SessionResponseMapper {
             codeSnippet = problem.codeSnippet,
         )
 
-    fun toStateResponse(session: Session, currentProblem: Problem?): SessionStateResponse =
+    fun toStateResponse(session: Session, currentProblem: Problem?, streak: StudyStreak): SessionStateResponse =
         SessionStateResponse(
             sessionId = session.id,
             sessionDate = session.sessionDate,
@@ -38,6 +38,7 @@ class SessionResponseMapper {
             totalCount = session.totalCount,
             position = session.currentPosition,
             currentProblem = currentProblem?.let { toProblemResponse(it) },
+            streak = toStreakResponse(streak),
         )
 
     /**
@@ -63,9 +64,13 @@ class SessionResponseMapper {
             concept = if (correct) attemptedProblem.concept.name else null,
             explanation = if (correct) attemptedProblem.explanation else null,
             currentProblem = nextProblem?.let { toProblemResponse(it) },
-            streak = streak?.let { StreakResponse(it.count, it.lastStudyDate) },
+            streak = streak?.let { toStreakResponse(it) },
         )
     }
+
+    /** 스트릭 도메인 값을 응답 DTO로 변환한다(오늘 상태·완료 신호가 같은 규칙을 공유하도록 한곳에 응집). */
+    private fun toStreakResponse(streak: StudyStreak): StreakResponse =
+        StreakResponse(count = streak.count, lastStudyDate = streak.lastStudyDate)
 
     fun toRevealResponse(problem: Problem): RevealResponse =
         RevealResponse(
