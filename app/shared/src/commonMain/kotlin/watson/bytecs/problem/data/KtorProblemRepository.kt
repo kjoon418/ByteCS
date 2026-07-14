@@ -36,8 +36,7 @@ class KtorProblemRepository(
         return dto.toDomain()
     }
 
-    /** 소유한 HttpClient를 닫는다. 앱 컴포지션 이탈 시 [watson.bytecs.App]에서 호출한다. */
-    override fun close() {
-        client.close()
-    }
+    // close()는 재정의하지 않는다(기본 no-op).
+    // [client]는 App이 문제·계정 저장소에 공유 주입하는 인스턴스이므로, 그 수명은 소유자(App)가 단독으로 닫는다.
+    // 저장소가 주입된 공유 클라이언트를 닫으면 이중 close가 되므로 하지 않는다.
 }

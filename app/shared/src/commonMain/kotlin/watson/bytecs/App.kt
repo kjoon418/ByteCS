@@ -1,33 +1,227 @@
 package watson.bytecs
 
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import watson.bytecs.account.AccountRepository
+import watson.bytecs.account.AccountScreen
+import watson.bytecs.account.AccountViewModel
+import watson.bytecs.account.AuthMode
+import watson.bytecs.account.AuthState
+import watson.bytecs.account.AuthViewModel
+import watson.bytecs.account.LoginScreen
+import watson.bytecs.account.SessionManager
+import watson.bytecs.account.data.KtorAccountRepository
+import watson.bytecs.account.data.TokenStore
+import watson.bytecs.account.data.createAuthenticatedHttpClient
+import watson.bytecs.account.data.createTokenStore
 import watson.bytecs.problem.ProblemRepository
 import watson.bytecs.problem.ProblemScreen
 import watson.bytecs.problem.ProblemViewModel
+import io.ktor.http.Url
 import watson.bytecs.problem.data.KtorProblemRepository
-import watson.bytecs.problem.data.createProblemHttpClient
+import watson.bytecs.problem.data.platformApiBaseUrl
+import watson.bytecs.ui.components.BcsScaffold
+import watson.bytecs.ui.components.PrimaryButton
+import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsTheme
+import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.ThemeController
+import watson.bytecs.ui.theme.ThemeMode
+import watson.bytecs.ui.theme.createThemeController
 
+/**
+ * 앱 루트. 앱 수명 동안 유지되는 싱글턴(토큰 저장소·인증 HTTP 클라이언트·저장소·세션·테마)을 한 번만 만들고,
+ * 부팅 시 인증 상태를 복원한 뒤 [Screen] 상태와 명시적 백스택으로 화면을 그린다.
+ *
+ * 프리뷰·테스트는 [dependencies]에 Fake 저장소를 주입해 백엔드 없이 구동할 수 있다.
+ */
 @Composable
 @Preview
 fun App(
-    // 기본은 실제 백엔드에 붙는 Ktor 저장소. 프리뷰·테스트는 Fake를 주입할 수 있다.
-    repository: ProblemRepository = rememberDefaultRepository(),
+    dependencies: AppDependencies = rememberDefaultAppDependencies(),
 ) {
-    // 컴포지션 이탈 시 저장소(HTTP 클라이언트) 정리. 자원 없는 구현은 no-op이라 안전하다.
-    DisposableEffect(repository) {
-        onDispose { repository.close() }
+    // 컴포지션 이탈 시 공유 HTTP 클라이언트를 정리한다.
+    DisposableEffect(dependencies) {
+        onDispose { dependencies.close() }
     }
-    BcsTheme {
-        val viewModel = viewModel { ProblemViewModel(repository) }
-        ProblemScreen(viewModel = viewModel)
+
+    // 앱 시작 시 인증 상태 복원(토큰 없으면 게스트 발급, 있으면 신원 확인).
+    LaunchedEffect(dependencies) {
+        dependencies.sessionManager.bootstrap()
+    }
+
+    val themeMode by dependencies.themeController.mode.collectAsStateWithLifecycle()
+    val darkTheme = when (themeMode) {
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
+    BcsTheme(darkTheme = darkTheme) {
+        AppNavHost(dependencies)
     }
 }
 
+/**
+ * 상태 기반 내비게이션(내비 라이브러리 없음). 명시적 백스택으로 이동·뒤로가기를 지원한다.
+ * 게스트 발급이 실패(오프라인 등)해 [AuthState.BootstrapFailed]면 화면 대신 재시도 안내를 그려
+ * 막다른 길(영구 로딩)을 만들지 않는다.
+ */
 @Composable
-private fun rememberDefaultRepository(): ProblemRepository =
-    remember { KtorProblemRepository(createProblemHttpClient()) }
+private fun AppNavHost(dependencies: AppDependencies) {
+    val authState by dependencies.sessionManager.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    if (authState is AuthState.BootstrapFailed) {
+        BootstrapErrorScreen(onRetry = { scope.launch { dependencies.sessionManager.retry() } })
+        return
+    }
+
+    // 항상 문제 화면을 밑바닥에 둔다(막다른 길 방지).
+    val backStack = remember { mutableStateListOf<Screen>(Screen.Problem) }
+    val current = backStack.last()
+
+    fun navigate(screen: Screen) {
+        // 같은 화면 중복 push 방지.
+        if (backStack.last() != screen) backStack.add(screen)
+    }
+    fun back() {
+        if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
+    }
+    fun resetTo(screen: Screen) {
+        backStack.clear()
+        backStack.add(screen)
+    }
+
+    when (val screen = current) {
+        Screen.Problem -> {
+            val viewModel = viewModel { ProblemViewModel(dependencies.problemRepository) }
+            ProblemScreen(
+                viewModel = viewModel,
+                onOpenAccount = { navigate(Screen.Account) },
+            )
+        }
+
+        Screen.Account -> {
+            val viewModel = viewModel {
+                AccountViewModel(dependencies.sessionManager, dependencies.themeController)
+            }
+            AccountScreen(
+                viewModel = viewModel,
+                // 게스트 가입 CTA는 가입 모드로 진입해 승계 배너를 바로 보여준다.
+                onNavigateToLogin = { navigate(Screen.Login(AuthMode.Register)) },
+                // 온보딩(01)은 이 슬라이스 범위 밖 → 문제 화면으로 라우팅한다(TODO: 온보딩 연결).
+                onDeleted = { resetTo(Screen.Problem) },
+                onBack = { back() },
+            )
+        }
+
+        is Screen.Login -> {
+            val viewModel = viewModel { AuthViewModel(dependencies.sessionManager, screen.initialMode) }
+            LoginScreen(
+                viewModel = viewModel,
+                initialMode = screen.initialMode,
+                onSuccess = { back() },
+                onBack = { back() },
+            )
+        }
+    }
+}
+
+/** §5.12 부팅 실패(게스트 발급 불가) — 막다른 길 금지. 자산 안전 고지 + 재시도 경로. */
+@Composable
+private fun BootstrapErrorScreen(onRetry: () -> Unit) {
+    val colors = LocalBcsColors.current
+    BcsScaffold {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = BcsDimens.space5),
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space4, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "연결을 준비하지 못했어요",
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.textPrimary,
+            )
+            Text(
+                text = "인터넷 연결을 확인하고 다시 시도해 주세요. 학습 기록은 안전해요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+            )
+            PrimaryButton(text = "다시 시도하기", onClick = onRetry)
+        }
+    }
+}
+
+/** 화면 목적지. */
+sealed interface Screen {
+    data object Problem : Screen
+    data object Account : Screen
+
+    /** 로그인·가입. 진입 모드([initialMode])로 가입/로그인 중 무엇을 먼저 보일지 정한다. */
+    data class Login(val initialMode: AuthMode) : Screen
+}
+
+/**
+ * 앱 전역 의존성 묶음. 앱 수명 동안 한 번만 생성되며, [close]로 보유 자원(HTTP 클라이언트)을 정리한다.
+ * 프리뷰·테스트는 Fake 저장소로 직접 구성할 수 있다.
+ */
+class AppDependencies(
+    val problemRepository: ProblemRepository,
+    val accountRepository: AccountRepository,
+    val sessionManager: SessionManager,
+    val themeController: ThemeController,
+    val tokenStore: TokenStore,
+    private val onClose: () -> Unit = {},
+) {
+    fun close() = onClose()
+}
+
+/**
+ * 실제 백엔드에 붙는 기본 의존성. 문제·계정 요청이 **하나의 인증 클라이언트**를 공유해,
+ * 저장된 토큰이 있으면 자동으로 `Authorization: Bearer`가 붙는다(게스트→회원 교체도 재생성 없이 반영).
+ * 클라이언트 수명은 여기(App)가 단독으로 소유·종료한다 — 저장소는 주입된 공유 클라이언트를 닫지 않는다.
+ */
+@Composable
+private fun rememberDefaultAppDependencies(): AppDependencies = remember {
+    val tokenStore = createTokenStore()
+    // ⭐️ 전송 시점마다 최신 토큰을 읽는다 — 게스트 발급/로그인으로 토큰이 바뀌어도 클라이언트 재생성 불필요.
+    // 토큰은 API 호스트로 가는 요청에만 붙인다(다른 호스트로의 유출 차단).
+    val client = createAuthenticatedHttpClient(
+        tokenProvider = { tokenStore.get() },
+        apiHost = Url(platformApiBaseUrl()).host,
+    )
+    val problemRepository = KtorProblemRepository(client)
+    val accountRepository = KtorAccountRepository(client)
+    val sessionManager = SessionManager(accountRepository, tokenStore)
+    AppDependencies(
+        problemRepository = problemRepository,
+        accountRepository = accountRepository,
+        sessionManager = sessionManager,
+        themeController = createThemeController(),
+        tokenStore = tokenStore,
+        // 공유 클라이언트의 단일 소유자로서 한 번만 닫는다.
+        onClose = { client.close() },
+    )
+}

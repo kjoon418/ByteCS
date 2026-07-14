@@ -11,6 +11,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,6 +43,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.focusRequester
@@ -54,6 +56,7 @@ import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.SessionProgress
+import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.LocalBcsColors
@@ -68,6 +71,8 @@ import watson.bytecs.ui.theme.LocalBcsColors
 fun ProblemScreen(
     viewModel: ProblemViewModel,
     modifier: Modifier = Modifier,
+    // 계정·설정(06) 진입점. 미제공(프리뷰·테스트)이면 상단 액션을 숨긴다.
+    onOpenAccount: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     ProblemScreenContent(
@@ -76,6 +81,7 @@ fun ProblemScreen(
         onSubmit = viewModel::submit,
         onNext = viewModel::loadNext,
         onRetry = viewModel::loadProblem,
+        onOpenAccount = onOpenAccount,
         modifier = modifier,
     )
 }
@@ -87,6 +93,7 @@ private fun ProblemScreenContent(
     onSubmit: () -> Unit,
     onNext: () -> Unit,
     onRetry: () -> Unit,
+    onOpenAccount: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val ready = state as? ProblemUiState.Ready
@@ -95,15 +102,26 @@ private fun ProblemScreenContent(
     BcsScaffold(
         modifier = modifier,
         topBar = {
-            // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님).
-            if (ready != null) {
+            // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님) + 계정 진입점.
+            if (ready != null || onOpenAccount != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    SessionProgress(current = ready.current, total = ready.total)
+                    if (ready != null) {
+                        SessionProgress(current = ready.current, total = ready.total)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (onOpenAccount != null) {
+                        TextLink(
+                            text = "계정",
+                            onClick = onOpenAccount,
+                            color = LocalBcsColors.current.textSecondary,
+                            contentDescription = "계정·설정 열기",
+                        )
+                    }
                 }
             }
         },
