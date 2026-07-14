@@ -2,6 +2,7 @@ package watson.bytecs.common.error
 
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -15,6 +16,10 @@ import watson.bytecs.account.domain.InvalidCredentialsException
 import watson.bytecs.account.domain.InvalidUserStateException
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.problem.domain.ProblemNotFoundException
+import watson.bytecs.session.domain.ItemNotViewableException
+import watson.bytecs.session.domain.RevealNotAllowedException
+import watson.bytecs.session.domain.SessionAlreadyCompletedException
+import watson.bytecs.session.domain.SessionNotFoundException
 
 /**
  * 애플리케이션이 예외를 처리하는 지점을 하나로 통일한다.
@@ -73,12 +78,54 @@ class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response)
     }
 
-    @ExceptionHandler(DataIntegrityViolationException::class)
-    fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> {
-        // 이메일 중복 사전 검사와 저장 사이의 경합(TOCTOU)으로 unique 제약이 최종 방어선이 될 때, 500 대신 409로 매핑한다.
+    @ExceptionHandler(SessionNotFoundException::class)
+    fun handleSessionNotFound(exception: SessionNotFoundException): ResponseEntity<ErrorResponse> {
+        log.warn("[Not Found] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "세션을 찾을 수 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
+    }
+
+    @ExceptionHandler(SessionAlreadyCompletedException::class)
+    fun handleSessionAlreadyCompleted(exception: SessionAlreadyCompletedException): ResponseEntity<ErrorResponse> {
         log.warn("[Conflict] {}", exception.message)
 
-        val response = ErrorResponse("이미 사용 중인 이메일입니다.", ErrorCode.EMAIL_DUPLICATED)
+        val response = ErrorResponse(exception.message ?: "이미 완료된 세션입니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(RevealNotAllowedException::class)
+    fun handleRevealNotAllowed(exception: RevealNotAllowedException): ResponseEntity<ErrorResponse> {
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "아직 정답을 공개할 수 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(ItemNotViewableException::class)
+    fun handleItemNotViewable(exception: ItemNotViewableException): ResponseEntity<ErrorResponse> {
+        log.warn("[Forbidden] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "아직 볼 수 없는 문제입니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response)
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> {
+        // unique 제약 등 무결성 위반이 최종 방어선이 될 때 500 대신 409로 매핑한다.
+        // 어떤 제약인지 단정하지 않는 '중립' 충돌로 응답한다(이메일 중복 같은 도메인 의미 부여는 각 서비스가 책임진다).
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse("요청을 처리할 수 없습니다.", ErrorCode.CONFLICT)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
+    fun handleOptimisticLockingFailure(exception: ObjectOptimisticLockingFailureException): ResponseEntity<ErrorResponse> {
+        // 같은 자원에 대한 동시 갱신 경합(버전 불일치). 조용히 덮어써 상태를 망가뜨리는 대신 409로 되돌려, 클라이언트가 재시도하게 한다.
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse("다른 요청과 충돌했습니다. 다시 시도해 주세요.", ErrorCode.CONFLICT)
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
     }
 

@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 class UserTest {
 
@@ -49,6 +50,53 @@ class UserTest {
 
             assertThatThrownBy { member.promoteToMember(Email("other@bytecs.dev"), "hashed2") }
                 .isInstanceOf(InvalidUserStateException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 학습을_기록해_스트릭을_갱신한다 {
+
+        private val today: LocalDate = LocalDate.of(2026, 7, 14)
+
+        @Test
+        fun 첫_학습이면_스트릭이_1이_된다() {
+            val user = User.createGuest()
+
+            user.recordStudy(today)
+
+            assertThat(user.streak.count).isEqualTo(1)
+            assertThat(user.streak.lastStudyDate).isEqualTo(today)
+        }
+
+        @Test
+        fun 같은_날_다시_기록해도_스트릭은_그대로다() {
+            val user = User.createGuest()
+            user.recordStudy(today)
+
+            user.recordStudy(today)
+
+            assertThat(user.streak.count).isEqualTo(1)
+        }
+
+        @Test
+        fun 이틀_연속_학습하면_스트릭이_2가_된다() {
+            val user = User.createGuest()
+            user.recordStudy(today.minusDays(1))
+
+            user.recordStudy(today)
+
+            assertThat(user.streak.count).isEqualTo(2)
+            assertThat(user.streak.lastStudyDate).isEqualTo(today)
+        }
+
+        @Test
+        fun 하루_이상_건너뛰면_스트릭이_1로_리셋된다() {
+            val user = User.createGuest()
+            user.recordStudy(today.minusDays(2))
+
+            user.recordStudy(today)
+
+            assertThat(user.streak.count).isEqualTo(1)
         }
     }
 }

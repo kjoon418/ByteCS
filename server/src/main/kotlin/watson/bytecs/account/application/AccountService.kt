@@ -1,5 +1,6 @@
 package watson.bytecs.account.application
 
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -50,14 +51,21 @@ class AccountService(
         }
 
         val passwordHash = passwordEncoder.encode(rawPassword.value)
-        val member = if (currentUserId != null) {
-            // 게스트 승격: 같은 id를 유지하므로 그 id에 쌓인 학습 상태가 그대로 넘어온다.
-            val user = userRepository.findById(currentUserId)
-                .orElseThrow { UserNotFoundException.byId(currentUserId) }
-            user.promoteToMember(email, passwordHash)
-            user
-        } else {
-            userRepository.save(User.createMember(email, passwordHash))
+        val member = try {
+            if (currentUserId != null) {
+                // 게스트 승격: 같은 id를 유지하므로 그 id에 쌓인 학습 상태가 그대로 넘어온다.
+                val user = userRepository.findById(currentUserId)
+                    .orElseThrow { UserNotFoundException.byId(currentUserId) }
+                user.promoteToMember(email, passwordHash)
+                userRepository.saveAndFlush(user)
+            } else {
+                userRepository.saveAndFlush(User.createMember(email, passwordHash))
+            }
+        } catch (e: DataIntegrityViolationException) {
+            // 사전 검사(findByEmail)와 저장 사이의 경합(TOCTOU)으로 email unique 제약이 최종 방어선이 될 때,
+            // 이메일 중복이라는 도메인 의미를 여기서 부여한다(전역 DIV 핸들러는 중립 CONFLICT라 이 의미를 알지 못한다).
+            // saveAndFlush로 제약 위반을 이 트랜잭션 경계 안에서 즉시 표출해 잡는다.
+            throw EmailDuplicatedException(email)
         }
 
         val token = jwtTokenProvider.issue(member.id, UserRole.MEMBER)

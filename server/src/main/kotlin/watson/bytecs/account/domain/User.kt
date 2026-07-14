@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import java.time.LocalDate
 
 /**
  * 사용자 애그리거트 루트.
@@ -31,6 +32,9 @@ class User private constructor(
 
     @Embedded
     var settings: UserSettings,
+
+    @Embedded
+    var streak: StudyStreak,
 ) {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -39,6 +43,14 @@ class User private constructor(
 
     val isMember: Boolean
         get() = role == UserRole.MEMBER
+
+    /**
+     * 오늘 학습(세션 완료)을 스트릭에 반영한다.
+     * 갱신 규칙(연속/재시작)은 [StudyStreak]에 위임하고, 애그리거트는 상태 소유만 책임진다.
+     */
+    fun recordStudy(today: LocalDate) {
+        this.streak = streak.record(today)
+    }
 
     /**
      * 게스트를 회원으로 승격한다. 같은 id를 유지해 학습 상태를 승계한다.
@@ -64,6 +76,7 @@ class User private constructor(
                 email = null,
                 passwordHash = null,
                 settings = UserSettings.default(),
+                streak = StudyStreak.initial(),
             )
 
         fun createMember(email: Email, passwordHash: String): User =
@@ -72,6 +85,7 @@ class User private constructor(
                 email = email.value,
                 passwordHash = passwordHash,
                 settings = UserSettings.default(),
+                streak = StudyStreak.initial(),
             )
     }
 }
