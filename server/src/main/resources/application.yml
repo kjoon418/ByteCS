@@ -17,3 +17,9 @@ spring:
 
 server:
   port: 8080
+
+# JWT 서명 키·만료. 운영에서는 반드시 JWT_SECRET 환경변수로 강한 키를 주입한다.
+# 기본값은 로컬 개발 편의용이며, HS256에 필요한 최소 256비트(32바이트) 이상 길이를 만족한다.
+jwt:
+  secret: ${JWT_SECRET:bytecs-local-dev-secret-key-please-change-in-production-0123456789}
+  expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}

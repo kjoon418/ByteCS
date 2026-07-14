@@ -14,8 +14,12 @@ dependencies {
     implementation(libs.spring.boot.starter.web)
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.validation)
+    implementation(libs.spring.boot.starter.security)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlin.reflect)
+    implementation(libs.jjwt.api)
+    runtimeOnly(libs.jjwt.impl)
+    runtimeOnly(libs.jjwt.jackson)
     runtimeOnly(libs.postgresql)
     // H2는 local 프로파일 구동(bootRun)과 통합 테스트에만 쓰는 인메모리 DB.
     // testAndDevelopmentOnly: bootRun과 테스트 클래스패스에는 포함되지만,
@@ -24,6 +28,7 @@ dependencies {
     // TODO: Testcontainers(실제 Postgres)로 승급 — Docker 가동 시
     testAndDevelopmentOnly(libs.h2)
     testImplementation(libs.spring.boot.starter.test)
+    testImplementation(libs.spring.security.test)
 }
 
 tasks.withType<Test> {

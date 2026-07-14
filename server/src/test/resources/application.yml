@@ -21,3 +21,7 @@ spring:
 
 server:
   port: 8080
+
+jwt:
+  secret: test-secret-key-for-bytecs-server-0123456789-abcdefghijklmnop
+  expiration-seconds: 3600
