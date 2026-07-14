@@ -73,6 +73,8 @@ fun ProblemScreen(
     modifier: Modifier = Modifier,
     // 계정·설정(06) 진입점. 미제공(프리뷰·테스트)이면 상단 액션을 숨긴다.
     onOpenAccount: (() -> Unit)? = null,
+    // 나가기 진입점. '조금 더 풀기'(세션 밖 추가 연습)로 재사용될 때 홈으로 돌아갈 경로를 준다.
+    onBack: (() -> Unit)? = null,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     ProblemScreenContent(
@@ -82,6 +84,7 @@ fun ProblemScreen(
         onNext = viewModel::loadNext,
         onRetry = viewModel::loadProblem,
         onOpenAccount = onOpenAccount,
+        onBack = onBack,
         modifier = modifier,
     )
 }
@@ -94,6 +97,7 @@ private fun ProblemScreenContent(
     onNext: () -> Unit,
     onRetry: () -> Unit,
     onOpenAccount: (() -> Unit)? = null,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val ready = state as? ProblemUiState.Ready
@@ -102,14 +106,23 @@ private fun ProblemScreenContent(
     BcsScaffold(
         modifier = modifier,
         topBar = {
-            // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님) + 계정 진입점.
-            if (ready != null || onOpenAccount != null) {
+            // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님) + 계정/나가기 진입점.
+            if (ready != null || onOpenAccount != null || onBack != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (onBack != null) {
+                        TextLink(
+                            text = "나가기",
+                            onClick = onBack,
+                            color = LocalBcsColors.current.textSecondary,
+                            contentDescription = "연습 나가기",
+                        )
+                        Spacer(Modifier.width(BcsDimens.space3))
+                    }
                     if (ready != null) {
                         SessionProgress(current = ready.current, total = ready.total)
                     }

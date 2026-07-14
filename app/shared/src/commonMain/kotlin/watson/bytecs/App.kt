@@ -38,6 +38,14 @@ import watson.bytecs.problem.ProblemViewModel
 import io.ktor.http.Url
 import watson.bytecs.problem.data.KtorProblemRepository
 import watson.bytecs.problem.data.platformApiBaseUrl
+import watson.bytecs.session.CompletionSummary
+import watson.bytecs.session.HomeScreen
+import watson.bytecs.session.HomeViewModel
+import watson.bytecs.session.SessionCompleteScreen
+import watson.bytecs.session.SessionRepository
+import watson.bytecs.session.SessionScreen
+import watson.bytecs.session.SessionViewModel
+import watson.bytecs.session.data.KtorSessionRepository
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.theme.BcsDimens
@@ -95,8 +103,8 @@ private fun AppNavHost(dependencies: AppDependencies) {
         return
     }
 
-    // 항상 문제 화면을 밑바닥에 둔다(막다른 길 방지).
-    val backStack = remember { mutableStateListOf<Screen>(Screen.Problem) }
+    // 항상 홈을 밑바닥에 둔다(재방문 기본 진입점·막다른 길 방지).
+    val backStack = remember { mutableStateListOf<Screen>(Screen.Home) }
     val current = backStack.last()
 
     fun navigate(screen: Screen) {
@@ -112,11 +120,46 @@ private fun AppNavHost(dependencies: AppDependencies) {
     }
 
     when (val screen = current) {
+        Screen.Home -> {
+            val viewModel = viewModel { HomeViewModel(dependencies.sessionRepository, dependencies.sessionManager) }
+            HomeScreen(
+                viewModel = viewModel,
+                onStartOrContinue = { navigate(Screen.Session) },
+                onExtraPractice = { navigate(Screen.Problem) },
+                onOpenAccount = { navigate(Screen.Account) },
+                onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
+            )
+        }
+
+        Screen.Session -> {
+            val viewModel = viewModel { SessionViewModel(dependencies.sessionRepository) }
+            SessionScreen(
+                viewModel = viewModel,
+                onCompleted = { summary ->
+                    // 세션을 백스택에서 걷어내고 완료 화면으로(완료→뒤로가면 홈).
+                    back()
+                    navigate(Screen.SessionComplete(summary))
+                },
+                onExit = { back() },
+            )
+        }
+
+        is Screen.SessionComplete -> {
+            SessionCompleteScreen(
+                summary = screen.summary,
+                isGuest = authState is AuthState.Guest,
+                onDone = { back() },
+                onMore = { navigate(Screen.Problem) },
+                onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
+            )
+        }
+
         Screen.Problem -> {
             val viewModel = viewModel { ProblemViewModel(dependencies.problemRepository) }
             ProblemScreen(
                 viewModel = viewModel,
                 onOpenAccount = { navigate(Screen.Account) },
+                onBack = { back() },
             )
         }
 
@@ -128,8 +171,8 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 viewModel = viewModel,
                 // 게스트 가입 CTA는 가입 모드로 진입해 승계 배너를 바로 보여준다.
                 onNavigateToLogin = { navigate(Screen.Login(AuthMode.Register)) },
-                // 온보딩(01)은 이 슬라이스 범위 밖 → 문제 화면으로 라우팅한다(TODO: 온보딩 연결).
-                onDeleted = { resetTo(Screen.Problem) },
+                // 온보딩(01)은 이 슬라이스 범위 밖 → 홈으로 라우팅한다(TODO: 온보딩 연결).
+                onDeleted = { resetTo(Screen.Home) },
                 onBack = { back() },
             )
         }
@@ -176,8 +219,19 @@ private fun BootstrapErrorScreen(onRetry: () -> Unit) {
 
 /** 화면 목적지. */
 sealed interface Screen {
+    /** 02 홈('오늘의 한입') — 기본 진입점. */
+    data object Home : Screen
+
+    /** 03 세션 풀이. */
+    data object Session : Screen
+
+    /** 추가 연습(세션 밖 standalone 문제 풀이). */
     data object Problem : Screen
+
     data object Account : Screen
+
+    /** 04 세션 완료 — 완료 요약을 실어 넘긴다. */
+    data class SessionComplete(val summary: CompletionSummary) : Screen
 
     /** 로그인·가입. 진입 모드([initialMode])로 가입/로그인 중 무엇을 먼저 보일지 정한다. */
     data class Login(val initialMode: AuthMode) : Screen
@@ -190,6 +244,7 @@ sealed interface Screen {
 class AppDependencies(
     val problemRepository: ProblemRepository,
     val accountRepository: AccountRepository,
+    val sessionRepository: SessionRepository,
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
@@ -214,10 +269,12 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     )
     val problemRepository = KtorProblemRepository(client)
     val accountRepository = KtorAccountRepository(client)
+    val sessionRepository = KtorSessionRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
         problemRepository = problemRepository,
         accountRepository = accountRepository,
+        sessionRepository = sessionRepository,
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,
