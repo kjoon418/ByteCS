@@ -56,6 +56,12 @@ import watson.bytecs.report.ContentReportRepository
 import watson.bytecs.report.ReportScreen
 import watson.bytecs.report.ReportViewModel
 import watson.bytecs.report.data.KtorContentReportRepository
+import watson.bytecs.scrap.ScrapDetailScreen
+import watson.bytecs.scrap.ScrapDetailViewModel
+import watson.bytecs.scrap.ScrapListScreen
+import watson.bytecs.scrap.ScrapListViewModel
+import watson.bytecs.scrap.ScrapRepository
+import watson.bytecs.scrap.data.KtorScrapRepository
 import watson.bytecs.session.data.KtorSessionRepository
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.PrimaryButton
@@ -243,6 +249,26 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 onClose = { back() },
             )
         }
+
+        Screen.ScrapList -> {
+            val viewModel = viewModel { ScrapListViewModel(dependencies.scrapRepository) }
+            ScrapListScreen(
+                viewModel = viewModel,
+                onOpenScrap = { problemId -> navigate(Screen.ScrapDetail(problemId)) },
+                onBack = { back() },
+            )
+        }
+
+        is Screen.ScrapDetail -> {
+            val viewModel = viewModel {
+                ScrapDetailViewModel(dependencies.scrapRepository, screen.problemId)
+            }
+            ScrapDetailScreen(
+                viewModel = viewModel,
+                onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                onBack = { back() },
+            )
+        }
     }
 }
 
@@ -357,6 +383,12 @@ sealed interface Screen {
 
     /** 07 콘텐츠 오류 신고. 신고 대상 문제([problemId])를 실어 넘긴다. */
     data class Report(val problemId: Long) : Screen
+
+    /** 스크랩 목록(기능 5). */
+    data object ScrapList : Screen
+
+    /** 스크랩 재열람(읽기 전용). 재열람할 문제([problemId])를 실어 넘긴다. */
+    data class ScrapDetail(val problemId: Long) : Screen
 }
 
 /**
@@ -368,6 +400,7 @@ class AppDependencies(
     val accountRepository: AccountRepository,
     val sessionRepository: SessionRepository,
     val contentReportRepository: ContentReportRepository,
+    val scrapRepository: ScrapRepository,
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
@@ -395,12 +428,14 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     val accountRepository = KtorAccountRepository(client)
     val sessionRepository = KtorSessionRepository(client)
     val contentReportRepository = KtorContentReportRepository(client)
+    val scrapRepository = KtorScrapRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
         problemRepository = problemRepository,
         accountRepository = accountRepository,
         sessionRepository = sessionRepository,
         contentReportRepository = contentReportRepository,
+        scrapRepository = scrapRepository,
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,

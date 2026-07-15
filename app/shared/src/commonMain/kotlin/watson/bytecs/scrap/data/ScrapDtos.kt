@@ -1,0 +1,39 @@
+package watson.bytecs.scrap.data
+
+import kotlinx.serialization.Serializable
+import watson.bytecs.scrap.ScrapDetail
+import watson.bytecs.scrap.ScrapListItem
+
+/**
+ * 백엔드 `/api/scraps` 계약과 1:1 대응하는 유선(wire) DTO. 도메인 모델과 분리한다.
+ */
+
+/** `GET /api/scraps` 응답 항목. */
+@Serializable
+internal data class ScrapListItemDto(
+    val problemId: Long,
+    val question: String,
+    val scrappedAt: String,
+) {
+    fun toDomain(): ScrapListItem = ScrapListItem(problemId, question, scrappedAt)
+}
+
+/** `GET /api/scraps/{problemId}` 응답. 재열람이므로 모범답안·해설을 담는다. */
+@Serializable
+internal data class ScrapDetailDto(
+    val problemId: Long,
+    val question: String,
+    val codeSnippet: String? = null,
+    val concept: String,
+    val explanation: String? = null,
+    val acceptableAnswers: List<String>,
+) {
+    fun toDomain(): ScrapDetail = ScrapDetail(
+        problemId = problemId,
+        question = question,
+        codeSnippet = codeSnippet,
+        concept = concept,
+        explanation = explanation,
+        acceptableAnswers = acceptableAnswers,
+    )
+}
