@@ -49,6 +49,7 @@ class AccountScreenUiTest {
         var requestDelete = 0
         var cancelDelete = 0
         var confirmDelete = 0
+        var openScrapList = 0
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -63,6 +64,7 @@ class AccountScreenUiTest {
                     appVersion = "0.1.0",
                     onBack = {},
                     onNavigateToLogin = { callbacks.login++ },
+                    onOpenScrapList = { callbacks.openScrapList++ },
                     onSessionSizeChange = {},
                     onSaveSettings = {},
                     onThemeSelect = {},
@@ -85,6 +87,24 @@ class AccountScreenUiTest {
         showScreen(guestState)
 
         onNodeWithText("로그아웃").assertDoesNotExist()
+    }
+
+    // ── 스크랩 목록 진입점(시안 외 최소 진입점 · 기획 리뷰 대상) ────────────────
+
+    /**
+     * 계정 화면에서 스크랩 목록으로 들어갈 수 있다. 게스트·회원 모두 스크랩을 쓰므로 상태와 무관하게 노출되며,
+     * 누르기 전까지는 아무 데도 이동하지 않는다(누른 그 순간에만 콜백).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 스크랩_목록으로_들어갈_수_있다() = runComposeUiTest {
+        val callbacks = showScreen(guestState)
+
+        onNodeWithText("스크랩한 문제").assertIsDisplayed()
+        assertEquals(0, callbacks.openScrapList, "누르기 전에는 이동하지 않는다")
+
+        onNodeWithText("스크랩한 문제").performClick()
+        assertEquals(1, callbacks.openScrapList)
     }
 
     /** ⭐️ 게스트에겐 삭제할 계정이 없다. danger 진입점 자체가 없어야 한다. */

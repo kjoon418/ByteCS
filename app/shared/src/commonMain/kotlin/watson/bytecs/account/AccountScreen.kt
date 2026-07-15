@@ -65,6 +65,7 @@ fun AccountScreen(
     onNavigateToLogin: () -> Unit,
     onDeleted: () -> Unit,
     onBack: () -> Unit,
+    onOpenScrapList: () -> Unit,
     appVersion: String = "0.1.0",
     modifier: Modifier = Modifier,
 ) {
@@ -80,6 +81,7 @@ fun AccountScreen(
         appVersion = appVersion,
         onBack = onBack,
         onNavigateToLogin = onNavigateToLogin,
+        onOpenScrapList = onOpenScrapList,
         onSessionSizeChange = viewModel::onSessionSizeChange,
         onSaveSettings = viewModel::saveSettings,
         onThemeSelect = viewModel::setThemeMode,
@@ -97,6 +99,7 @@ internal fun AccountScreenContent(
     appVersion: String,
     onBack: () -> Unit,
     onNavigateToLogin: () -> Unit,
+    onOpenScrapList: () -> Unit,
     onSessionSizeChange: (Int) -> Unit,
     onSaveSettings: () -> Unit,
     onThemeSelect: (ThemeMode) -> Unit,
@@ -147,6 +150,15 @@ internal fun AccountScreenContent(
                 if (state.profileError) {
                     InfoNotice("프로필을 불러오지 못했어요. 잠시 후 자동으로 다시 채워져요.")
                 }
+
+                // 시안 외 최소 진입점(기획 리뷰 대상) — 스크랩 목록으로 가는 관례적 내비게이션 행.
+                // 게스트·회원 모두 스크랩을 쓸 수 있으므로 상태와 무관하게 노출한다.
+                SectionTitle("내 학습")
+                GhostButton(
+                    text = "스크랩한 문제",
+                    onClick = onOpenScrapList,
+                    contentColor = colors.textPrimary,
+                )
 
                 SectionTitle("학습 설정")
                 SessionSizeSetting(

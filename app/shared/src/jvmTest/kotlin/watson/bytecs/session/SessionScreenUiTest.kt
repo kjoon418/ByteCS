@@ -67,6 +67,9 @@ class SessionScreenUiTest {
         onReveal: () -> Unit = {},
         onOpenPast: (Int) -> Unit = {},
         onClosePast: () -> Unit = {},
+        onReport: (Long) -> Unit = {},
+        scrappedProblemIds: Set<Long> = emptySet(),
+        onToggleScrap: (Long) -> Unit = {},
         body: suspend ComposeUiTest.() -> Unit,
     ) = runComposeUiTest {
         setContent {
@@ -81,6 +84,9 @@ class SessionScreenUiTest {
                     onClosePast = onClosePast,
                     onRetry = {},
                     onExit = {},
+                    onReport = onReport,
+                    scrappedProblemIds = scrappedProblemIds,
+                    onToggleScrap = onToggleScrap,
                 )
             }
         }
@@ -487,5 +493,110 @@ class SessionScreenUiTest {
     ) {
         onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
         onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertDoesNotExist()
+    }
+
+    // ── 콘텐츠 오류 신고(07) 진입점 ──────────────────────────────────────────
+
+    /**
+     * ⭐️ 콘텐츠 오류 신고는 풀이 중(공개 전)에도 열려 있어야 한다 — 문제가 이상하면 언제든 알릴 수 있어야 하고,
+     * 신고 화면은 유형만 받으므로 정답을 유출하지 않는다. 누르면 그 문제 id로 신고 화면을 연다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 문제_풀이_중에도_오류_신고로_들어갈_수_있다() {
+        val reported = mutableListOf<Long>()
+        runScreen(active(), onReport = { reported += it }) {
+            onNodeWithText("오류 신고").assertIsDisplayed().performClick()
+        }
+        assertEquals(listOf(1L), reported)
+    }
+
+    // ── 스크랩 토글: 정답 접근 맥락에만 노출 ──────────────────────────────────
+
+    /**
+     * ⭐️⭐️ 핵심 가드레일: **미해결 문제를 푸는 중에는 스크랩 토글이 없다.** 스크랩은 재열람으로 이어지고
+     * 재열람은 모범답안을 공개하므로, 아직 못 푼 문제에 스크랩을 열어 두면 정답 유출 경로가 된다.
+     * (게이트 `solved || reveal != null`의 '둘 다 아님' 절반 — 아래 두 노출 테스트가 나머지 절반을 맡는다.)
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 미해결_풀이_중에는_스크랩_토글이_노출되지_않는다() = runScreen(
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
+    ) {
+        onNodeWithContentDescription("스크랩").assertDoesNotExist()
+        onNodeWithContentDescription("스크랩 해제").assertDoesNotExist()
+    }
+
+    /** 시도조차 안 한(피드백 없는) 상태에서도 당연히 토글이 없다 — 오답 넛지 유무와 무관하게 게이트가 닫혀 있다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 첫_시도_전에는_스크랩_토글이_노출되지_않는다() = runScreen(active()) {
+        onNodeWithContentDescription("스크랩").assertDoesNotExist()
+    }
+
+    /** 정답을 맞히면(정답 접근 가능) 스크랩 토글이 나온다 — 게이트의 solved 절반. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답을_맞히면_스크랩_토글이_노출된다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+    ) {
+        onNodeWithContentDescription("스크랩").assertIsDisplayed()
+    }
+
+    /** 정답을 공개한 뒤에도(정답 접근 가능) 스크랩 토글이 나온다 — 게이트의 reveal 절반. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_공개_후에는_스크랩_토글이_노출된다() = runScreen(active(reveal = revealOf())) {
+        onNodeWithContentDescription("스크랩").assertIsDisplayed()
+    }
+
+    /** 지난 문제(이미 통과)에서도 스크랩 토글이 나온다 — 정답 접근 가능 맥락. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 지난_문제에서도_스크랩_토글이_노출된다() = runScreen(
+        active(
+            position = 2,
+            past = PastView.Loaded(
+                PastItem(
+                    position = 0,
+                    problemId = 9L,
+                    question = "스택과 큐의 차이는?",
+                    codeSnippet = null,
+                    difficulty = "EASY",
+                    submittedAnswer = "LIFO/FIFO",
+                    result = JudgeResult.CORRECT,
+                    revealed = false,
+                    concept = "자료구조",
+                    explanation = null,
+                    acceptableAnswers = listOf("LIFO와 FIFO"),
+                ),
+            ),
+        ),
+    ) {
+        onNodeWithContentDescription("스크랩").assertIsDisplayed()
+    }
+
+    /** 토글을 누르면 지금 문제의 id로 스크랩 토글 콜백이 불린다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 스크랩_토글을_누르면_지금_문제_id로_콜백된다() {
+        val toggled = mutableListOf<Long>()
+        runScreen(
+            active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+            onToggleScrap = { toggled += it },
+        ) {
+            onNodeWithContentDescription("스크랩").assertIsDisplayed().performClick()
+        }
+        assertEquals(listOf(1L), toggled)
+    }
+
+    /** 이미 스크랩된 문제는 토글이 '스크랩 해제' 상태로 보인다(재진입 시 상태 반영). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 이미_스크랩된_문제는_해제_상태로_보인다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+        scrappedProblemIds = setOf(1L),
+    ) {
+        onNodeWithContentDescription("스크랩 해제").assertIsDisplayed()
     }
 }

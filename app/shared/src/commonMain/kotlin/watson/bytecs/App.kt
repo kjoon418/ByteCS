@@ -194,6 +194,8 @@ private fun AppNavHost(dependencies: AppDependencies) {
                     navigate(Screen.SessionComplete(summary))
                 },
                 onExit = { back() },
+                onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                scrapRepository = dependencies.scrapRepository,
             )
         }
 
@@ -227,6 +229,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 // 온보딩(01)은 이 슬라이스 범위 밖 → 홈으로 라우팅한다(TODO: 온보딩 연결).
                 onDeleted = { resetTo(Screen.Home) },
                 onBack = { back() },
+                onOpenScrapList = { navigate(Screen.ScrapList) },
             )
         }
 

@@ -18,7 +18,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +33,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import watson.bytecs.scrap.ScrapRepository
 import watson.bytecs.ui.components.AnswerTextField
 import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
@@ -47,6 +51,7 @@ import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.RetryNudge
 import watson.bytecs.ui.components.RevealAnswerButton
+import watson.bytecs.ui.components.ScrapToggle
 import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.TypeAlongField
@@ -54,6 +59,7 @@ import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * 03 문제 풀이(세션 연동). 오늘의 한입 중 문제 하나를 푼다. 서비스의 히어로 화면.
@@ -69,6 +75,8 @@ fun SessionScreen(
     viewModel: SessionViewModel,
     onCompleted: (CompletionSummary) -> Unit,
     onExit: () -> Unit,
+    onReport: (Long) -> Unit,
+    scrapRepository: ScrapRepository,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,6 +93,25 @@ fun SessionScreen(
         }
     }
 
+    // ⭐️ 스크랩 토글은 정답 접근이 이미 가능한 맥락에만 노출한다(정답/공개 후·지난 문제) — 미해결 문제 유출 방지.
+    //    상태는 낙관적으로 문제 id별로 들고, 서버 반영 실패 시 되돌린다(재열람 화면과 같은 규칙). 세션을 벗어나면 사라진다.
+    val scrapped = remember { mutableStateMapOf<Long, Boolean>() }
+    val scope = rememberCoroutineScope()
+    val toggleScrap: (Long) -> Unit = { problemId ->
+        val target = !(scrapped[problemId] ?: false)
+        scrapped[problemId] = target
+        scope.launch {
+            try {
+                if (target) scrapRepository.add(problemId) else scrapRepository.remove(problemId)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                // 반영 실패 — 낙관적 표시를 이전 상태로 되돌린다(멱등 서버라 재시도는 다음 토글로 자연히 이뤄진다).
+                scrapped[problemId] = !target
+            }
+        }
+    }
+
     SessionScreenContent(
         state = state,
         onInputChange = viewModel::onInputChange,
@@ -96,6 +123,9 @@ fun SessionScreen(
         onClosePast = viewModel::closePast,
         onRetry = viewModel::loadSession,
         onExit = onExit,
+        onReport = onReport,
+        scrappedProblemIds = scrapped.filterValues { it }.keys,
+        onToggleScrap = toggleScrap,
         modifier = modifier,
     )
 }
@@ -113,6 +143,9 @@ internal fun SessionScreenContent(
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
     onRevealHint: () -> Unit = {},
+    onReport: (Long) -> Unit = {},
+    scrappedProblemIds: Set<Long> = emptySet(),
+    onToggleScrap: (Long) -> Unit = {},
 ) {
     val active = state as? SessionUiState.Active
 
@@ -176,6 +209,8 @@ internal fun SessionScreenContent(
                     PastItemView(
                         past = past,
                         onClose = onClosePast,
+                        scrappedProblemIds = scrappedProblemIds,
+                        onToggleScrap = onToggleScrap,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = BcsDimens.space5),
@@ -188,6 +223,9 @@ internal fun SessionScreenContent(
                         onAdvance = onAdvance,
                         onReveal = onReveal,
                         onRevealHint = onRevealHint,
+                        onReport = onReport,
+                        scrappedProblemIds = scrappedProblemIds,
+                        onToggleScrap = onToggleScrap,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = BcsDimens.space5),
@@ -246,6 +284,9 @@ private fun ActiveContent(
     onAdvance: () -> Unit,
     onReveal: () -> Unit,
     onRevealHint: () -> Unit,
+    onReport: (Long) -> Unit,
+    scrappedProblemIds: Set<Long>,
+    onToggleScrap: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -281,6 +322,18 @@ private fun ActiveContent(
         state.problem.codeSnippet?.let { snippet ->
             Spacer(Modifier.height(BcsDimens.space4))
             CodeSnippetBlock(code = snippet)
+        }
+
+        // 콘텐츠 오류 신고(07) — 문제 표시 영역에 눈에 띄지 않는 보조 액션으로 둔다. 풀이 여부와 무관하게 늘 열어 둔다
+        // (콘텐츠 오류는 언제든 알릴 수 있어야 한다). 신고 화면은 유형 선택만 받으므로 정답을 유출하지 않는다.
+        Spacer(Modifier.height(BcsDimens.space3))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextLink(
+                text = "오류 신고",
+                onClick = { onReport(state.problem.id) },
+                color = colors.textTertiary,
+                contentDescription = "이 문제의 콘텐츠 오류 신고",
+            )
         }
 
         Spacer(Modifier.height(BcsDimens.space6))
@@ -341,6 +394,27 @@ private fun ActiveContent(
             }
         }
 
+        // ⭐️ 스크랩 토글은 정답 접근이 이미 가능해진 뒤에만 — 정답을 맞혔거나(solved) 정답을 공개한(reveal) 맥락.
+        //    미해결 풀이 중에는 노출하지 않는다(모범답안 유출 경로 차단). 이 게이트가 이 화면의 핵심 가드레일이다.
+        if (state.solved || state.reveal != null) {
+            Spacer(Modifier.height(BcsDimens.space4))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2, Alignment.End),
+            ) {
+                Text(
+                    text = "다시 볼래요",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textSecondary,
+                )
+                ScrapToggle(
+                    scrapped = state.problem.id in scrappedProblemIds,
+                    onToggle = { onToggleScrap(state.problem.id) },
+                )
+            }
+        }
+
         // 시스템 오류(전송 실패) — 오답과 구분(§5.12), 안심 문구 우선 + 재시도 경로.
         if (state.systemError) {
             Spacer(Modifier.height(BcsDimens.space4))
@@ -391,9 +465,15 @@ private fun SessionUiState.Active.hintList(): List<BcsHint> {
     return revealed + List(hidden) { BcsHint(text = "") }
 }
 
-/** 지난 문제 읽기 전용 뷰. 문제·내 답·모범답안·개념·해설. */
+/** 지난 문제 읽기 전용 뷰. 문제·내 답·모범답안·개념·해설. 이미 통과한 칸이라 스크랩 토글도 함께 둔다. */
 @Composable
-private fun PastItemView(past: PastView, onClose: () -> Unit, modifier: Modifier = Modifier) {
+private fun PastItemView(
+    past: PastView,
+    onClose: () -> Unit,
+    scrappedProblemIds: Set<Long>,
+    onToggleScrap: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val colors = LocalBcsColors.current
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(BcsDimens.space4)) {
         Spacer(Modifier.height(BcsDimens.space2))
@@ -405,7 +485,18 @@ private fun PastItemView(past: PastView, onClose: () -> Unit, modifier: Modifier
             }
             is PastView.Loaded -> {
                 val item = past.item
-                Text("지난 문제 ${item.position + 1}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                // 지난 문제 헤더 옆에 스크랩 토글 — 이미 정답 접근이 가능한 맥락이라 유출 우려가 없다.
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("지난 문제 ${item.position + 1}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                    Spacer(Modifier.weight(1f))
+                    ScrapToggle(
+                        scrapped = item.problemId in scrappedProblemIds,
+                        onToggle = { onToggleScrap(item.problemId) },
+                    )
+                }
                 Text(item.question, style = BcsType.question, color = colors.textPrimary)
                 item.codeSnippet?.let { CodeSnippetBlock(code = it) }
                 LabeledBlock("내가 쓴 답", item.submittedAnswer ?: "—")
