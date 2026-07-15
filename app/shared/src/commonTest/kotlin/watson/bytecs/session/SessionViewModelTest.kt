@@ -295,6 +295,126 @@ class SessionViewModelTest {
         assertFalse(state.systemError, "공개 불가는 시스템 오류로 취급하지 않는다(비처벌)")
     }
 
+    // ── 정답 후 재제출 · 서버 위치 재동기화 ─────────────────────────────────
+
+    /**
+     * ⭐️ 정답 후 재제출은 서버에 닿지 않는다.
+     *
+     * 세션 제출은 **위치 기반**이다(`submitAttempt(answer)` — 문제 id가 없다). 정답에 서버 커서가 이미
+     * 다음 칸으로 전진했으므로, 낡은 입력이 한 번 더 나가면 **사용자가 본 적 없는 다음 문제**가 그 입력으로
+     * 채점된다. 진행은 [SessionViewModel.advance]만 한다.
+     */
+    @Test
+    fun correct_thenResubmit_neverReachesServer() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { correctOutcome(next = problem(2L), position = 1, solved = 1) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+        assertTrue(viewModel.active().solved, "선행 조건: 정답 상태")
+
+        viewModel.submit() // 엔터 한 번 더
+
+        assertEquals(1, repo.submitCount, "정답 후 재제출은 서버에 닿지 않는다")
+        assertEquals(listOf("스레드"), repo.submitted, "낡은 입력이 다음 칸으로 채점되면 안 된다")
+    }
+
+    /** 정답 후에도 화면 상태는 그대로다 — 재제출이 막혔다고 해서 피드백·다음 칸이 흐트러지지 않는다. */
+    @Test
+    fun correct_thenResubmit_leavesStateIntact() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { correctOutcome(next = problem(2L), position = 1, solved = 1) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+        viewModel.submit()
+
+        val state = viewModel.active()
+        assertTrue(state.feedback is SessionFeedback.Correct, "정답 피드백이 유지된다")
+        assertEquals(1L, state.problem.id, "아직 현재 문제를 보여준다")
+        assertFalse(state.systemError, "차단은 오류가 아니다")
+        assertFalse(state.isSubmitting, "전송 중 표시가 눌러붙지 않는다")
+    }
+
+    /**
+     * ⭐️ 정답을 맞혀도 입력칸을 비우지 않는다 — 사용자가 방금 쓴 답이 개념·해설 옆에 남아 있어야
+     * "내가 쓴 이것이 맞았다"가 성립한다(학습). 재제출 위험은 [correct_thenResubmit_neverReachesServer]의
+     * 가드가 막으므로, 사용자가 쓴 것을 지워서 막을 이유가 없다.
+     */
+    @Test
+    fun correct_keepsUserAnswerVisible() = runTest {
+        val repo = FakeSessionRepository()
+        repo.onSubmit = { correctOutcome(next = problem(2L), position = 1, solved = 1) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+
+        assertEquals("스레드", viewModel.active().inputText, "정답 후에도 내가 쓴 답이 보인다")
+    }
+
+    /**
+     * ⭐️ 서버가 준 칸이 클라가 그리던 칸과 다르면 서버로 되맞춘다(서버가 진실).
+     *
+     * 서버는 정답에만 커서를 전진시키므로 정상 흐름에선 도달하지 않는 방어선이다. 응답의 position·
+     * currentProblem을 버리면, 어긋난 순간 클라가 **낡은 문제를 계속 그리고** 다음 문제는 화면에
+     * 한 번도 뜨지 못한 채 소비된다 — 표시 문제가 아니라 학습 손실이다.
+     */
+    @Test
+    fun mismatch_resyncsToServerProblem_whenClientIsStale() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        // 서버는 이미 2번 칸에 있다 — 불일치 응답이 그 사실을 실어 온다.
+        repo.onSubmit = { mismatchOutcome().copy(position = 1, currentProblem = problem(2L), solvedCount = 1) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("아무거나")
+        viewModel.submit()
+
+        val state = viewModel.active()
+        assertEquals(2L, state.problem.id, "서버가 진실 — 낡은 문제를 계속 그리지 않는다")
+        assertEquals(2, state.current, "position도 함께 되맞춘다")
+        assertEquals(1, state.solvedCount)
+    }
+
+    /**
+     * 되맞춘 칸에는 오답 넛지를 얹지 않는다 — 사용자가 본 적도 없는 문제에 '아직이에요'를 붙이면
+     * 없던 오답을 뒤집어씌우는 셈이다(무낙인). 입력도 새 칸에 맞게 비운다.
+     */
+    @Test
+    fun resyncedProblem_carriesNoWrongAnswerNudge() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { nearMissOutcome().copy(position = 1, currentProblem = problem(2L)) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("아무거나")
+        viewModel.submit()
+
+        val state = viewModel.active()
+        assertNull(state.feedback, "본 적 없는 문제에 오답 피드백을 얹지 않는다")
+        assertEquals("", state.inputText, "새 칸에는 빈 입력으로 들어간다")
+    }
+
+    /**
+     * 서버가 비정답에 칸을 실어 주지 않으면(계약상 없는 응답) 되맞출 근거가 없다 — 지금 칸을 그대로 두고
+     * 피드백만 얹는다. 없는 정보를 '진실'로 삼아 화면을 흔들지 않는다.
+     */
+    @Test
+    fun mismatch_withoutServerProblem_keepsCurrentProblem() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { mismatchOutcome().copy(currentProblem = null) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("아무거나")
+        viewModel.submit()
+
+        val state = viewModel.active()
+        assertEquals(1L, state.problem.id)
+        assertEquals(SessionFeedback.Mismatch, state.feedback)
+        assertEquals("아무거나", state.inputText)
+    }
+
     @Test
     fun editingInput_clearsPriorFeedback() = runTest {
         val repo = FakeSessionRepository().apply { onSubmit = { mismatchOutcome() } }

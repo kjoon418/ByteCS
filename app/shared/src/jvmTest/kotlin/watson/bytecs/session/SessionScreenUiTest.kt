@@ -4,9 +4,11 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -315,6 +317,46 @@ class SessionScreenUiTest {
             onNodeWithText("다음 문제").performClick()
         }
         assertEquals(1, advanced)
+    }
+
+    /**
+     * ⭐️ 엔터는 하단 CTA와 **같은 곳으로** 간다. 정답 상태의 CTA는 '다음 문제'인데 엔터만 제출로 남으면,
+     * 세션 제출은 위치 기반이라 낡은 입력이 **사용자가 본 적 없는 다음 문제**로 채점돼 통째로 소비된다.
+     *
+     * 입력값을 정답·개념과 다른 문자열로 두는 이유: 텍스트 필드를 `hasSetTextAction()`으로 집으므로
+     * 값이 무엇이든 상관없지만, 정답 문자열을 쓰면 이 화면의 no-leak 단언들과 얽혀 읽기 어려워진다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_후_엔터는_제출이_아니라_다음_문제로_간다() {
+        var submitted = 0
+        var advanced = 0
+        runScreen(
+            active(inputText = "내가 쓴 답", feedback = SessionFeedback.Correct("개념", "해설")),
+            onSubmit = { submitted++ },
+            onAdvance = { advanced++ },
+        ) {
+            onNode(hasSetTextAction()).performImeAction()
+        }
+        assertEquals(0, submitted, "정답 후 엔터가 낡은 입력을 다시 제출하면 안 된다")
+        assertEquals(1, advanced, "엔터는 CTA와 같이 다음 칸으로 넘긴다")
+    }
+
+    /** 아직 못 맞힌 상태에서는 엔터가 제출이다 — 위 라우팅이 제출 경로까지 죽이면 안 된다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_전_엔터는_제출한다() {
+        var submitted = 0
+        var advanced = 0
+        runScreen(
+            active(inputText = "해싱"),
+            onSubmit = { submitted++ },
+            onAdvance = { advanced++ },
+        ) {
+            onNode(hasSetTextAction()).performImeAction()
+        }
+        assertEquals(1, submitted)
+        assertEquals(0, advanced)
     }
 
     // ── 난이도 ───────────────────────────────────────────────────────────

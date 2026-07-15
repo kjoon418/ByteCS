@@ -180,6 +180,7 @@ internal fun SessionScreenContent(
                         state = state,
                         onInputChange = onInputChange,
                         onSubmit = onSubmit,
+                        onAdvance = onAdvance,
                         onReveal = onReveal,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                             .verticalScroll(rememberScrollState())
@@ -236,12 +237,18 @@ private fun ActiveContent(
     state: SessionUiState.Active,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onAdvance: () -> Unit,
     onReveal: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
     val focusRequester = remember { FocusRequester() }
     val haptics = LocalHapticFeedback.current
+
+    // ⭐️ 엔터는 하단 CTA와 **같은 곳으로** 간다. 정답 상태의 CTA는 '다음 문제'인데 엔터만 제출로 남으면,
+    //    엔터로 맞힌 사람이 자연히 한 번 더 누를 때 낡은 입력이 다시 나간다(뷰모델이 막지만, 그러면 엔터가
+    //    아무 일도 하지 않아 막힌 느낌을 준다). 같은 자리에서 같은 뜻이어야 한다.
+    val onImeSubmit = if (state.solved) onAdvance else onSubmit
 
     // 새 문제가 오면 입력에 자동 포커스. 공개 후에는 따라 입력 칸으로 바뀌어 이 requester가 붙을 곳이 없다.
     LaunchedEffect(state.problem.id) {
@@ -278,7 +285,7 @@ private fun ActiveContent(
                 onValueChange = onInputChange,
                 modifier = Modifier.focusRequester(focusRequester),
                 placeholder = "정답을 입력해 보세요",
-                onImeSubmit = onSubmit,
+                onImeSubmit = onImeSubmit,
             )
 
             // 피드백(있을 때만). 세 상태 모두 비처벌.
@@ -307,7 +314,7 @@ private fun ActiveContent(
             TypeAlongField(
                 value = state.inputText,
                 onValueChange = onInputChange,
-                onImeSubmit = onSubmit,
+                onImeSubmit = onImeSubmit,
             )
 
             // 따라 적다 어긋나도 처벌이 아니다 — 같은 비처벌 넛지를 그대로 쓴다.

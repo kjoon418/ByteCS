@@ -71,11 +71,15 @@ class SessionViewModel(
 
     /**
      * 정답 확인. 정답이면 피드백(개념·해설)을 보이고 [advance]로 다음 칸에 진행한다.
-     * 마지막 칸을 맞히면 세션이 완료돼 완료 이벤트를 낸다. 이중 제출은 무시한다.
+     * 마지막 칸을 맞히면 세션이 완료돼 완료 이벤트를 낸다. 이중 제출·정답 후 재제출은 무시한다.
      */
     fun submit() {
         val current = _uiState.value
         if (current !is SessionUiState.Active || current.inputText.isBlank() || current.isSubmitting) return
+        // ⭐️ 정답을 맞힌 뒤에는 제출이 아니라 [advance]만 한다. 세션 제출은 **위치 기반**이라(제출에 문제 id가
+        //    없다) 정답으로 이미 전진한 서버 커서에 낡은 입력이 한 번 더 닿으면, 사용자가 **본 적 없는**
+        //    다음 문제가 그 입력으로 채점돼 통째로 소비된다. 화면이 어느 경로로 부르든 여기서 막는다.
+        if (current.solved) return
 
         _uiState.value = current.copy(isSubmitting = true, systemError = false)
         viewModelScope.launch {
@@ -99,8 +103,8 @@ class SessionViewModel(
                             isRevealing = false,
                             isSubmitting = false,
                         )
-                        JudgeResult.NEAR_MISS -> state.copy(feedback = SessionFeedback.NearMiss, isSubmitting = false)
-                        JudgeResult.MISMATCH -> state.copy(feedback = SessionFeedback.Mismatch, isSubmitting = false)
+                        JudgeResult.NEAR_MISS -> state.withNonCorrect(outcome, SessionFeedback.NearMiss)
+                        JudgeResult.MISMATCH -> state.withNonCorrect(outcome, SessionFeedback.Mismatch)
                     }
                 }
             } catch (cancellation: CancellationException) {
@@ -189,6 +193,31 @@ class SessionViewModel(
         _uiState.update { state ->
             if (state is SessionUiState.Active) state.copy(past = null) else state
         }
+    }
+
+    /**
+     * 비정답(불일치·근접) 응답 반영. 서버는 정답에만 커서를 전진시키므로 보통 같은 칸이 돌아온다 —
+     * 그때는 피드백만 얹는다(입력은 고칠 수 있게 남긴다).
+     *
+     * 다른 칸이 돌아왔다면 클라이언트가 낡은 것이므로 서버 쪽 칸으로 되맞춘다(서버가 진실). 응답의
+     * position·currentProblem을 버리면 낡은 문제를 계속 그리게 되고, 그 사이 다음 문제는 화면에 한 번도
+     * 뜨지 못한 채 소비된다 — 표시 문제가 아니라 학습 손실이다. 되맞출 때 오답 넛지는 얹지 않는다:
+     * 사용자가 본 적 없는 문제에 '아직이에요'를 붙이면 없던 오답을 뒤집어씌우는 셈이다(무낙인).
+     */
+    private fun SessionUiState.Active.withNonCorrect(
+        outcome: AttemptOutcome,
+        feedback: SessionFeedback,
+    ): SessionUiState.Active {
+        val serverProblem = outcome.currentProblem
+        if (serverProblem == null || serverProblem.id == problem.id) {
+            return copy(feedback = feedback, isSubmitting = false)
+        }
+        return SessionUiState.Active(
+            problem = serverProblem,
+            position = outcome.position,
+            total = outcome.totalCount,
+            solvedCount = outcome.solvedCount,
+        )
     }
 
     private fun DailySession.toSummary() = CompletionSummary(solvedCount, totalCount, streak)
