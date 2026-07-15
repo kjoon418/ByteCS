@@ -52,6 +52,10 @@ import watson.bytecs.session.SessionViewModel
 import watson.bytecs.onboarding.OnboardingScreen
 import watson.bytecs.onboarding.OnboardingStore
 import watson.bytecs.onboarding.createOnboardingStore
+import watson.bytecs.report.ContentReportRepository
+import watson.bytecs.report.ReportScreen
+import watson.bytecs.report.ReportViewModel
+import watson.bytecs.report.data.KtorContentReportRepository
 import watson.bytecs.session.data.KtorSessionRepository
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.PrimaryButton
@@ -229,6 +233,16 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 onBack = { back() },
             )
         }
+
+        is Screen.Report -> {
+            val viewModel = viewModel {
+                ReportViewModel(dependencies.contentReportRepository, screen.problemId)
+            }
+            ReportScreen(
+                viewModel = viewModel,
+                onClose = { back() },
+            )
+        }
     }
 }
 
@@ -340,6 +354,9 @@ sealed interface Screen {
 
     /** 로그인·가입. 진입 모드([initialMode])로 가입/로그인 중 무엇을 먼저 보일지 정한다. */
     data class Login(val initialMode: AuthMode) : Screen
+
+    /** 07 콘텐츠 오류 신고. 신고 대상 문제([problemId])를 실어 넘긴다. */
+    data class Report(val problemId: Long) : Screen
 }
 
 /**
@@ -350,6 +367,7 @@ class AppDependencies(
     val problemRepository: ProblemRepository,
     val accountRepository: AccountRepository,
     val sessionRepository: SessionRepository,
+    val contentReportRepository: ContentReportRepository,
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
@@ -376,11 +394,13 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     val problemRepository = KtorProblemRepository(client)
     val accountRepository = KtorAccountRepository(client)
     val sessionRepository = KtorSessionRepository(client)
+    val contentReportRepository = KtorContentReportRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
         problemRepository = problemRepository,
         accountRepository = accountRepository,
         sessionRepository = sessionRepository,
+        contentReportRepository = contentReportRepository,
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,
