@@ -29,6 +29,7 @@ class ProblemSeederTest {
         const val TIME_COMPLEXITY = "시간 복잡도"
         const val HASH_COLLISION = "해시 충돌"
         const val QUEUE = "큐"
+        const val PROCESS_AND_THREAD = "프로세스와 스레드"
     }
 
     @Nested
@@ -83,6 +84,64 @@ class ProblemSeederTest {
         }
     }
 
+    @Nested
+    inner class 힌트를_시딩한다 {
+
+        @Test
+        fun 힌트가_0개인_문제를_최소_하나_남긴다() {
+            // 진입점 미노출 분기(hintCount==0)가 시드로도 실행되게 하려면 힌트 0개 문제가 반드시 있어야 한다.
+            val problems = allSeededProblems()
+
+            assertThat(problems.any { it.hintCount == 0 }).isTrue()
+        }
+
+        @Test
+        fun 힌트가_있는_문제는_약에서_강_순서로_담긴다() {
+            val hashCollisionProblem = seededProblemOf(HASH_COLLISION)
+
+            assertThat(hashCollisionProblem.hintCount).isGreaterThanOrEqualTo(2)
+            // 앞에서 자를수록 부분집합이어야 한다(순서 보존).
+            val firstOne = hashCollisionProblem.revealedHints(1).map { it.text }
+            val firstTwo = hashCollisionProblem.revealedHints(2).map { it.text }
+            assertThat(firstTwo).startsWith(*firstOne.toTypedArray())
+            assertThat(firstTwo).hasSize(2)
+        }
+
+        @Test
+        fun 어떤_힌트도_해설이_아니라_정답을_노출하지_않는다() {
+            // 콘텐츠 신뢰성 가드레일: 힌트·교정 메시지에 허용답 문자열이 섞이면 안 된다.
+            val problems = allSeededProblems()
+
+            problems.forEach { problem ->
+                val answers = problem.acceptableAnswers.map { AnswerText(it).value }
+                val texts = problem.revealedHints(problem.hintCount).map { it.text } +
+                    problem.misconceptionHints.map { it.message }
+                texts.forEach { text ->
+                    val normalized = text.lowercase()
+                    answers.forEach { answer ->
+                        assertThat(normalized)
+                            .`as`("힌트/교정 메시지가 정답 '%s'을(를) 노출하면 안 된다: %s", answer, text)
+                            .doesNotContain(answer)
+                    }
+                }
+            }
+        }
+    }
+
+    @Nested
+    inner class 오답_교정_힌트를_시딩한다 {
+
+        @Test
+        fun 스레드_문제는_프로세스_오답에_교정_힌트를_준다() {
+            val threadProblem = seededProblemOf(PROCESS_AND_THREAD)
+
+            val outcome = threadProblem.evaluate(AnswerText("프로세스"))
+
+            assertThat(outcome.judgement).isEqualTo(Judgement.MISMATCH)
+            assertThat(outcome.misconceptionHint).isNotNull()
+        }
+    }
+
     @Test
     fun 이미_문제가_있으면_시딩하지_않는다() {
         // given
@@ -93,6 +152,19 @@ class ProblemSeederTest {
 
         // then
         verifyNoInteractions(conceptRepository)
+    }
+
+    /** 시더를 실제로 구동해, 시딩된 전체 문제를 꺼낸다. */
+    @Suppress("UNCHECKED_CAST")
+    private fun allSeededProblems(): List<Problem> {
+        given(problemRepository.count()).willReturn(0L)
+        given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+        problemSeeder.run()
+
+        val savedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
+        verify(problemRepository).saveAll(savedProblems.capture())
+        return savedProblems.value
     }
 
     /**

@@ -40,6 +40,12 @@ class SessionItem(
     var submittedAnswer: String? = null
         protected set
 
+    // 이 칸에서 공개한 힌트 수(약→강 앞에서부터). 화면 장식이 아니라 학습 기록이다 —
+    // 숙련도 반영(기능 3)·재진입 복원에 쓴다. `revealed`(정답 공개)와 뜻이 다르니 혼용하지 말 것.
+    @Column(name = "revealed_hint_count", nullable = false)
+    var revealedHintCount: Int = 0
+        protected set
+
     /** 정답으로 통과 처리한다. 입력한 정답 텍스트를 남겨 지난 문제 다시 보기에서 재현한다. */
     fun markSolved(submittedAnswer: String) {
         this.solved = true
@@ -54,5 +60,10 @@ class SessionItem(
     /** 정답 공개를 사용했음을 기록한다. 공개해도 직접 정답을 입력해야 넘어가므로 진행은 바뀌지 않는다. */
     fun markRevealed() {
         this.revealed = true
+    }
+
+    /** 힌트를 하나 더 공개했음을 기록한다(약→강 앞에서부터 한 칸 전진). 진행은 바뀌지 않는다. */
+    fun revealNextHint() {
+        this.revealedHintCount += 1
     }
 }

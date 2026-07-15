@@ -1,5 +1,6 @@
 package watson.bytecs.problem.domain
 
+import jakarta.persistence.CascadeType
 import jakarta.persistence.CollectionTable
 import jakarta.persistence.Column
 import jakarta.persistence.ElementCollection
@@ -12,6 +13,8 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
+import jakarta.persistence.OneToMany
+import jakarta.persistence.OrderColumn
 import jakarta.persistence.Table
 
 /**
@@ -57,6 +60,23 @@ class Problem(
 
     @Column(name = "explanation", columnDefinition = "text")
     val explanation: String? = null,
+
+    /**
+     * 약→강 순서의 힌트(0~N개). 순서는 소유 리스트의 인덱스([OrderColumn])로 보장한다.
+     * 미공개 힌트 본문이 새어 나가지 않도록, 응답에는 [revealedHints]로 공개분만 잘라 싣는다(no-leak).
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "problem_hint",
+        joinColumns = [JoinColumn(name = "problem_id")],
+    )
+    @OrderColumn(name = "hint_index")
+    val hints: List<Hint> = emptyList(),
+
+    /** 오답 교정 힌트(0~N개). 순서 무관(집합 매칭)이라 정렬을 두지 않는다. */
+    @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinColumn(name = "problem_id")
+    val misconceptionHints: List<MisconceptionHint> = emptyList(),
 ) {
     init {
         require(questionText.isNotBlank()) { "문제 지문은 비어 있을 수 없습니다." }
@@ -88,6 +108,37 @@ class Problem(
                 EditDistance.levenshtein(answer.value, acceptable) <= nearMissThreshold(acceptable.length)
         }
         return if (isNearMiss) Judgement.NEAR_MISS else Judgement.MISMATCH
+    }
+
+    /** 이 문제의 전체 힌트 수. 0이면 클라이언트가 힌트 진입점을 노출하지 않는다(눌러도 아무것도 없는 버튼 금지). */
+    val hintCount: Int
+        get() = hints.size
+
+    /**
+     * 앞에서부터 [count]개의 힌트(약→강)만 돌려준다. 재진입 복원·부분 공개에 쓴다.
+     * 음수·초과 요청은 [0, hintCount]로 절단해, 미공개 힌트 본문이 절대 새어 나가지 않게 한다(no-leak).
+     */
+    fun revealedHints(count: Int): List<Hint> =
+        hints.take(count.coerceIn(0, hints.size))
+
+    /**
+     * 제출 답을 판정하고, 예상 오답에 매칭되면 오답 교정 힌트를 함께 산출한다([AttemptOutcome]).
+     *  - CORRECT면 그대로 반환한다(정답에는 교정 힌트를 붙이지 않는다).
+     *  - 비정답이 어떤 오답 교정 힌트의 예상 오답 집합과 정규화 후 일치하면, 판정을 **MISMATCH로 확정**하고(근접보다 우선)
+     *    그 교정 메시지를 싣는다. 예상 오답에 매칭됐다면 그것은 '다른 개념의 답'이지 오타가 아니므로, 근접(NEAR_MISS)으로
+     *    알려주면 틀린 유도를 맞았다고 알려주는 셈이 된다(§1.4 근접 신호의 취지와 정합).
+     *  - 매칭되지 않은 비정답은 판정을 그대로 두고 교정 힌트를 싣지 않는다(막다른 길 없음 — 일반 재시도로 흐른다).
+     * 무낙인은 유지된다 — 교정 힌트가 떠도 오답으로 확정하지 않으며 정답을 노출하지 않는다.
+     */
+    fun evaluate(answer: AnswerText): AttemptOutcome {
+        val judgement = judge(answer)
+        if (judgement == Judgement.CORRECT) {
+            return AttemptOutcome(Judgement.CORRECT, null)
+        }
+
+        val misconceptionHint = misconceptionHints.firstOrNull { it.matches(answer) }?.message
+        val finalJudgement = if (misconceptionHint != null) Judgement.MISMATCH else judgement
+        return AttemptOutcome(finalJudgement, misconceptionHint)
     }
 
     /**

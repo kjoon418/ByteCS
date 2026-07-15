@@ -10,10 +10,12 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import watson.bytecs.account.security.AuthenticatedUser
 import watson.bytecs.session.application.SessionService
+import watson.bytecs.session.application.dto.HintRevealResponse
 import watson.bytecs.session.application.dto.PastItemResponse
 import watson.bytecs.session.application.dto.RevealResponse
 import watson.bytecs.session.application.dto.SessionAttemptResponse
 import watson.bytecs.session.application.dto.SessionStateResponse
+import watson.bytecs.session.presentation.request.HintRevealRequest
 import watson.bytecs.session.presentation.request.SessionAttemptRequest
 
 /**
@@ -48,6 +50,13 @@ class SessionController(
         @AuthenticationPrincipal user: AuthenticatedUser,
     ): RevealResponse =
         sessionService.reveal(user.userId)
+
+    @PostMapping("/today/hints/reveal")
+    fun revealHint(
+        @Valid @RequestBody request: HintRevealRequest,
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ): HintRevealResponse =
+        sessionService.revealHint(user.userId, request.revealedCount!!)
 
     @GetMapping("/today/items/{position}")
     fun getPastItem(

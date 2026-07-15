@@ -10,6 +10,7 @@ import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
+import watson.bytecs.session.application.dto.HintRevealResponse
 import watson.bytecs.session.application.dto.PastItemResponse
 import watson.bytecs.session.application.dto.RevealResponse
 import watson.bytecs.session.application.dto.SessionAttemptResponse
@@ -64,8 +65,9 @@ class SessionService(
             ?: throw SessionAlreadyCompletedException.forAttempt()
         val problem = loadProblem(currentProblemId)
 
-        val judgement = problem.judge(answer)
-        session.recordAttempt(judgement, answer)
+        // 판정과 오답 교정 힌트를 함께 산출한다(교정 힌트 매칭 시 MISMATCH 확정 — 근접보다 우선). 진행에는 확정된 판정을 쓴다.
+        val outcome = problem.evaluate(answer)
+        session.recordAttempt(outcome.judgement, answer)
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
         val streak = if (session.isCompleted) {
@@ -77,7 +79,24 @@ class SessionService(
         }
 
         val nextProblem = session.currentItemProblemId()?.let { loadProblem(it) }
-        return responseMapper.toAttemptResponse(session, judgement, problem, nextProblem, streak)
+        return responseMapper.toAttemptResponse(session, outcome, problem, nextProblem, streak)
+    }
+
+    /**
+     * 현재 본 문제의 힌트를 하나 더 공개한다(약→강, 학습 기록으로 영속).
+     * 더블탭·경쟁 안전은 도메인이 판단한다 — 클라가 아는 공개 수와 실제가 일치할 때만 +1.
+     * 힌트가 없거나 전부 공개했으면 증가 없이 현재 상태를 돌려준다.
+     */
+    @Transactional
+    fun revealHint(userId: Long, expectedRevealedCount: Int): HintRevealResponse {
+        val session = loadTodayOrThrow(userId)
+        // 완료된 세션엔 힌트를 열 현재 본 문제가 없다(정답 공개와 같은 의미의 예외로 일관되게 막는다).
+        val currentProblemId = session.currentItemProblemId()
+            ?: throw SessionAlreadyCompletedException.forHintReveal()
+        val problem = loadProblem(currentProblemId)
+
+        val revealedHintCount = session.revealHint(expectedRevealedCount, problem.hintCount)
+        return responseMapper.toHintRevealResponse(problem, revealedHintCount)
     }
 
     /** 현재 본 문제의 모범답안을 공개한다(무낙인 안전판). 공개 가능 여부·완료 여부는 도메인이 판단한다. */

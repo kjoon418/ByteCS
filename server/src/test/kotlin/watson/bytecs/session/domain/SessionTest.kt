@@ -131,6 +131,73 @@ class SessionTest {
     }
 
     @Nested
+    inner class 힌트를_공개한다 {
+
+        @Test
+        fun 클라가_아는_공개_수가_실제와_같으면_하나_더_연다() {
+            val session = sessionOf(10L)
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            assertThat(newCount).isEqualTo(1)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(1)
+            // 힌트 공개는 진행을 바꾸지 않는다.
+            assertThat(session.currentPosition).isEqualTo(0)
+        }
+
+        @Test
+        fun 클라가_아는_공개_수가_실제와_다르면_증가하지_않는다() {
+            // 더블탭·경쟁: 이미 1개 열린 상태에서 0을 들고 또 누르면 증가하지 않는다.
+            val session = sessionOf(10L)
+            session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            assertThat(newCount).isEqualTo(1)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(1)
+        }
+
+        @Test
+        fun 이미_전부_공개했으면_증가하지_않는다() {
+            val session = sessionOf(10L)
+            session.revealHint(expectedRevealedCount = 0, hintCount = 1)
+
+            val newCount = session.revealHint(expectedRevealedCount = 1, hintCount = 1)
+
+            assertThat(newCount).isEqualTo(1)
+        }
+
+        @Test
+        fun 힌트가_없으면_증가하지_않는다() {
+            val session = sessionOf(10L)
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 0)
+
+            assertThat(newCount).isEqualTo(0)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(0)
+        }
+
+        @Test
+        fun 선행_오답_없이도_공개할_수_있다() {
+            // 정답 공개(안전판)와 달리, 힌트는 막힘의 순간에 바로 필요하다(오답 선행 요구 없음).
+            val session = sessionOf(10L)
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 2)
+
+            assertThat(newCount).isEqualTo(1)
+        }
+
+        @Test
+        fun 완료된_세션에서는_공개할_수_없다() {
+            val session = sessionOf(10L)
+            session.recordAttempt(Judgement.CORRECT, AnswerText("a"))
+
+            assertThatThrownBy { session.revealHint(expectedRevealedCount = 0, hintCount = 2) }
+                .isInstanceOf(SessionAlreadyCompletedException::class.java)
+        }
+    }
+
+    @Nested
     inner class 지난_문제를_조회한다 {
 
         @Test

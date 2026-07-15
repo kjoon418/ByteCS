@@ -86,6 +86,9 @@ class Session private constructor(
     /** 지금 풀어야 할 본 문제의 식별자. 모두 마쳤으면 null. */
     fun currentItemProblemId(): Long? = mutableItems.getOrNull(currentPosition)?.problemId
 
+    /** 지금 풀어야 할 본 문제에서 이미 공개한 힌트 수. 모두 마쳤으면 0(공개할 현재 문제가 없다). */
+    fun currentRevealedHintCount(): Int = mutableItems.getOrNull(currentPosition)?.revealedHintCount ?: 0
+
     /**
      * 현재 본 문제에 대한 판정 결과를 반영한다. 판정(허용답 대조)은 콘텐츠(Problem.judge)의 책임이므로,
      * 애그리거트는 '이미 산출된 판정'을 현재 칸에 적용하는 역할만 한다.
@@ -123,6 +126,23 @@ class Session private constructor(
             throw RevealNotAllowedException.beforeAnyWrongAttempt()
         }
         current.markRevealed()
+    }
+
+    /**
+     * 현재 본 문제의 힌트를 하나 더 공개하고, 갱신된 공개 수를 돌려준다.
+     * 더블탭·경쟁 안전: 클라가 아는 현재 공개 수([expectedRevealedCount])가 실제와 일치할 때만 +1 한다.
+     * 힌트가 없거나([hintCount]==0) 이미 전부 공개했으면 증가 없이 현재 수를 돌려준다.
+     * 힌트 공개는 정답 공개(안전판)와 달리 선행 오답을 요구하지 않는다 — 막힘의 순간에 바로 필요하다.
+     */
+    fun revealHint(expectedRevealedCount: Int, hintCount: Int): Int {
+        if (isCompleted) {
+            throw SessionAlreadyCompletedException.forHintReveal()
+        }
+        val current = mutableItems[currentPosition]
+        if (expectedRevealedCount == current.revealedHintCount && current.revealedHintCount < hintCount) {
+            current.revealNextHint()
+        }
+        return current.revealedHintCount
     }
 
     /**

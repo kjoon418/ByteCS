@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Hint
+import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 
@@ -56,6 +58,18 @@ class ProblemSeeder(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
+                // 약→강. 정답 표기(스레드·쓰레드·thread)를 담지 않는다.
+                hints = listOf(
+                    Hint("실행 중인 프로그램 전체가 아니라, 그 '안에서' 도는 더 작은 실행 단위를 떠올려 보세요."),
+                    Hint("한 프로그램 안에서 코드·데이터·힙을 공유하며 여럿이 동시에 흐르되, 각자 자기 스택만 따로 가지는 실행 흐름입니다."),
+                ),
+                // 명세 시나리오: 정답 '스레드'에 흔한 오답 '프로세스'. 교정 메시지는 정답을 말하지 않는다.
+                misconceptionHints = listOf(
+                    MisconceptionHint(
+                        expectedAnswers = setOf("프로세스", "process"),
+                        message = "프로세스는 실행 중인 프로그램 그 자체예요. 이 문제는 그 '안에서' 자원을 공유하며 도는 더 작은 실행 흐름을 묻고 있어요. 다시 도전해보세요!",
+                    ),
+                ),
             ),
             Problem(
                 questionText = "가장 나중에 넣은 데이터가 가장 먼저 나오는 후입선출(LIFO) 자료구조는?",
@@ -80,6 +94,11 @@ class ProblemSeeder(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = "체이닝, 개방 주소법 등으로 해소한다.",
+                // 약→강. 정답 표기(충돌·collision 등)를 담지 않는다.
+                hints = listOf(
+                    Hint("서로 다른 두 입력이 해시 함수를 거쳐 같은 칸을 가리키면 어떤 일이 벌어질까요?"),
+                    Hint("이 현상을 해소하려고 체이닝·개방 주소법을 씁니다. 그 '현상 자체'의 이름을 답하세요."),
+                ),
             ),
             Problem(
                 questionText = "3-way handshake로 연결을 수립하고 데이터 전달의 신뢰성을 보장하는 전송 계층 프로토콜은?",
@@ -118,6 +137,11 @@ class ProblemSeeder(
                     }
                 """.trimIndent(),
                 explanation = "이중 반복문이 각각 n번 돌아 n×n = n² 번 수행된다.",
+                // 약→강. 유도형이라 정답 표기(o(n^2)·n² 등)는 담지 않고 세는 방법만 짚는다.
+                hints = listOf(
+                    Hint("바깥 반복과 안쪽 반복이 각각 몇 번 도는지 따로 세어, 둘을 곱해 보세요."),
+                    Hint("바깥이 입력 크기만큼, 그 각각에서 안쪽이 다시 입력 크기만큼 돕니다. 전체 수행 횟수를 빅오로 표기하세요."),
+                ),
             ),
         )
         problemRepository.saveAll(problems)

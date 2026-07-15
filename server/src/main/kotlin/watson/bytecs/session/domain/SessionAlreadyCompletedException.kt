@@ -17,5 +17,8 @@ class SessionAlreadyCompletedException private constructor(
 
         fun forReveal(): SessionAlreadyCompletedException =
             SessionAlreadyCompletedException("이미 완료된 세션이라 공개할 본 문제가 없습니다.")
+
+        fun forHintReveal(): SessionAlreadyCompletedException =
+            SessionAlreadyCompletedException("이미 완료된 세션이라 힌트를 열 본 문제가 없습니다.")
     }
 }

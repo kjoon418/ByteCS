@@ -26,7 +26,10 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Hint
+import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.session.infrastructure.SessionRepository
@@ -57,6 +60,11 @@ class SessionControllerIntegrationTest(
     private companion object {
         val KST: ZoneId = ZoneId.of("Asia/Seoul")
         val DAY1: LocalDate = LocalDate.of(2026, 7, 14)
+
+        const val WEAK_HINT = "약한 힌트예요"
+        const val STRONG_HINT = "강한 힌트예요"
+        const val MISCONCEPTION_ANSWER = "흔한오답"
+        const val MISCONCEPTION_MESSAGE = "그건 다른 개념이에요. 다시 도전해보세요!"
     }
 
     @BeforeEach
@@ -304,6 +312,132 @@ class SessionControllerIntegrationTest(
         }
     }
 
+    @Test
+    fun `힌트가 없는 문제는 hintCount 0과 빈 공개목록을 주고 진입점 판단을 클라에 맡긴다`() {
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.hintCount") { value(0) }
+            jsonPath("$.currentProblem.revealedHints") { isEmpty() }
+        }
+    }
+
+    @Test
+    fun `힌트 개수는 알리되 미공개 힌트 본문은 오늘 세션 응답에 새지 않는다`() {
+        reseedSingleHintedProblem()
+
+        val result = getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.hintCount") { value(2) }
+            jsonPath("$.currentProblem.revealedHints") { isEmpty() }
+        }.andReturn()
+
+        // 아직 아무 힌트도 열지 않았으므로 약한 힌트조차 본문이 실려선 안 된다(no-leak).
+        assertThat(bodyOf(result)).doesNotContain(WEAK_HINT).doesNotContain(STRONG_HINT)
+    }
+
+    @Test
+    fun `힌트를 열면 약한 것부터 하나씩 공개되고 강한 힌트는 아직 새지 않는다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+
+        val result = revealHint(token, 0).andExpect {
+            status { isOk() }
+            jsonPath("$.hintCount") { value(2) }
+            jsonPath("$.revealedHints.length()") { value(1) }
+            jsonPath("$.revealedHints[0].text") { value(WEAK_HINT) }
+        }.andReturn()
+
+        // 한 개만 열었으므로 강한 힌트 본문은 여전히 새지 않는다.
+        assertThat(bodyOf(result)).doesNotContain(STRONG_HINT)
+    }
+
+    @Test
+    fun `이미 연 힌트는 재진입한 오늘 세션 응답에 복원된다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+        revealHint(token, 0)
+
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.revealedHints.length()") { value(1) }
+            jsonPath("$.currentProblem.revealedHints[0].text") { value(WEAK_HINT) }
+        }
+    }
+
+    @Test
+    fun `공개 수가 어긋난 요청은 더블탭에도 힌트를 더 열지 않는다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+        revealHint(token, 0) // 이제 1개 공개.
+
+        // 클라가 여전히 0을 들고 다시 누르면(더블탭) 증가하지 않는다.
+        revealHint(token, 0).andExpect {
+            status { isOk() }
+            jsonPath("$.revealedHints.length()") { value(1) }
+        }
+    }
+
+    @Test
+    fun `모든 힌트를 연 뒤 더 열려 해도 증가하지 않는다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+        revealHint(token, 0)
+        revealHint(token, 1)
+
+        revealHint(token, 2).andExpect {
+            status { isOk() }
+            jsonPath("$.revealedHints.length()") { value(2) }
+        }
+    }
+
+    @Test
+    fun `예상 오답을 제출하면 교정 힌트가 뜨고 오답으로 확정되지 않는다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+
+        submit(token, MISCONCEPTION_ANSWER).andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("MISMATCH") }
+            jsonPath("$.misconceptionHint") { value(MISCONCEPTION_MESSAGE) }
+            // 무낙인: 전진하지 않고 정답·개념을 노출하지 않는다.
+            jsonPath("$.position") { value(0) }
+            jsonPath("$.concept") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun `예상 밖 오답은 교정 힌트 없이 일반 불일치로 흐른다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+
+        submit(token, "전혀 다른 오답").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("MISMATCH") }
+            jsonPath("$.misconceptionHint") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun `완료된 세션에서 힌트를 열려 하면 409를 반환한다`() {
+        completeAllThree(token)
+
+        revealHint(token, 0).andExpect {
+            status { isConflict() }
+            jsonPath("$.errorCode") { value("SESSION_ALREADY_COMPLETED") }
+        }
+    }
+
+    @Test
+    fun `인증 없이 힌트를 열면 401을 반환한다`() {
+        mockMvc.post("/api/sessions/today/hints/reveal") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"revealedCount":0}"""
+        }.andExpect {
+            status { isUnauthorized() }
+            jsonPath("$.errorCode") { value("UNAUTHORIZED") }
+        }
+    }
+
     private fun completeAllThree(bearer: String): ResultActionsDsl {
         getToday(bearer)
         submit(bearer, "정답1")
@@ -327,6 +461,42 @@ class SessionControllerIntegrationTest(
         mockMvc.post("/api/sessions/today/reveal") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
+
+    private fun revealHint(bearer: String, revealedCount: Int): ResultActionsDsl =
+        mockMvc.post("/api/sessions/today/hints/reveal") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"revealedCount":$revealedCount}"""
+        }
+
+    private fun bodyOf(result: MvcResult): String =
+        result.response.contentAsByteArray.toString(Charsets.UTF_8)
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 힌트 2개(약→강)와 오답 교정 힌트 1개를 가진 문제 하나만 남긴다.
+     * 세션은 첫 getToday에서 지연 생성되므로, 이 재시드는 세션 생성 전에만 유효하다.
+     */
+    private fun reseedSingleHintedProblem() {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val concept = conceptRepository.save(Concept("힌트개념"))
+        problemRepository.save(
+            Problem(
+                questionText = "힌트 문제",
+                concept = concept,
+                acceptableAnswers = setOf("정답"),
+                type = ProblemType.DEFINITION_RECALL,
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
+                hints = listOf(Hint(WEAK_HINT), Hint(STRONG_HINT)),
+                misconceptionHints = listOf(
+                    MisconceptionHint(setOf(MISCONCEPTION_ANSWER), MISCONCEPTION_MESSAGE),
+                ),
+            ),
+        )
+    }
 
     private fun sessionId(result: MvcResult): Long =
         objectMapper.readTree(result.response.contentAsByteArray).get("sessionId").asLong()
