@@ -14,7 +14,11 @@
         <div class="flex justify-between items-center mb-2">
             <span class="text-[#64748B] text-sm font-medium">2026.05.14</span>
             <div id="account-entry" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-slate-100">
-                <img src="https://vinsign.app/resources/avatars/avatar-5.png" alt="Profile" class="w-8 h-8 rounded-full">
+                <!-- Guest state: neutral entry icon (no profile photo) -->
+                <i class="fa-regular fa-user text-slate-400 text-lg"></i>
+                <!-- Member state variant (mutually exclusive with #guest-nudge below):
+                <img src="[프로필 이미지]" alt="Profile" class="w-8 h-8 rounded-full">
+                -->
             </div>
         </div>
         <h1 class="text-2xl font-bold text-[#1E293B] leading-tight">
@@ -45,29 +49,22 @@
             <div class="relative z-10">
                 <div class="flex justify-between items-end mb-6">
                     <div>
-                        <span class="inline-block px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full mb-3">오늘의 세션</span>
+                        <span class="inline-block px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full mb-3">오늘의 한입</span>
                         <h2 class="text-xl font-extrabold text-[#1E293B]">이어서 풀기</h2>
                     </div>
                     <div class="text-right">
                         <span class="text-2xl font-black text-[#1E293B]">2</span>
-                        <span class="text-[#94A3B8] font-bold"> / 5</span>
+                        <span class="text-[#94A3B8] font-bold"> / 10</span>
                     </div>
                 </div>
 
                 <!-- Progress Bar -->
-                <div class="w-full h-3 bg-slate-100 rounded-full mb-8 overflow-hidden">
-                    <div class="w-[40%] h-full bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.4)]"></div>
+                <div class="w-full h-3 bg-slate-100 rounded-full mb-2 overflow-hidden">
+                    <div class="w-[20%] h-full bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.4)]"></div>
                 </div>
 
-                <!-- Primary CTA -->
-                <button id="cta-continue" class="w-full bg-[#1E293B] text-white py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-transform">
-                    <span>학습 이어서 하기</span>
-                    <i class="fa-solid fa-chevron-right text-sm"></i>
-                </button>
-
                 <!-- Review Hint -->
-                <div class="mt-6 flex items-center justify-center gap-2 text-[#64748B]">
-                    <i class="fa-solid fa-sparkles text-amber-400 text-xs"></i>
+                <div class="mt-4 flex items-center justify-center gap-2 text-[#64748B]">
                     <p class="text-xs font-medium">오늘은 복습 문제도 한 스푼 섞여있어요</p>
                 </div>
             </div>
@@ -81,7 +78,7 @@
                 <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
                     <i class="fa-solid fa-bookmark text-slate-500"></i>
                 </div>
-                <span class="font-bold text-[#334155]">내가 아껴둔 문제들</span>
+                <span class="font-bold text-[#334155]">스크랩한 문제</span>
             </div>
             <i class="fa-solid fa-chevron-right text-slate-300 text-sm"></i>
         </button>
@@ -99,27 +96,16 @@
     <!-- Spacer to push content up if needed -->
     <div class="flex-grow"></div>
 
-    <!-- Bottom Navigation Bar -->
-    <nav id="bottomTabBar" class="bg-white border-t border-slate-100 px-8 py-4 flex justify-around items-center">
-        <div class="flex flex-col items-center gap-1">
-            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
-                <i class="fa-solid fa-house text-xl"></i>
-            </div>
-            <span class="text-xs font-bold text-blue-600">홈</span>
-        </div>
-        <div class="flex flex-col items-center gap-1 opacity-40">
-            <div class="w-12 h-12 flex items-center justify-center">
-                <i class="fa-solid fa-chart-simple text-xl text-slate-600"></i>
-            </div>
-            <span class="text-xs font-medium text-slate-600">통계</span>
-        </div>
-        <div class="flex flex-col items-center gap-1 opacity-40">
-            <div class="w-12 h-12 flex items-center justify-center">
-                <i class="fa-solid fa-user text-xl text-slate-600"></i>
-            </div>
-            <span class="text-xs font-medium text-slate-600">계정</span>
-        </div>
-    </nav>
+    <!-- Spacer to reserve room above the fixed bottom CTA -->
+    <div class="h-28"></div>
+
+    <!-- Primary CTA: fixed to thumb zone at the bottom (bottom tab bar removed; account entry moved to header avatar) -->
+    <div id="bottom-cta-bar" class="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-slate-100 px-6 pt-4 pb-8">
+        <button id="cta-continue" class="w-full bg-blue-600 text-white py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 active:scale-[0.98] transition-transform shadow-lg shadow-blue-600/20">
+            <span>학습 이어서 하기</span>
+            <i class="fa-solid fa-chevron-right text-sm"></i>
+        </button>
+    </div>
 </div>
 </div>
 

@@ -41,18 +41,18 @@ app/shared/src/commonMain/kotlin/watson/bytecs/ui/theme/
 
 ## 2. 색상 토큰 (Color Tokens)
 
-> 제안 v0. 뉴트럴은 Tailwind slate 계열, 브랜드 액센트는 indigo, 정답은 emerald를 기준으로 한다. 라이트/다크 쌍으로 정의한다.
+> 제안 v0 → **primary는 시안 검증으로 확정**(7개 시안 전부 blue 사용). 뉴트럴은 Tailwind slate 계열, 브랜드 액센트는 blue, 정답은 emerald를 기준으로 한다. 라이트/다크 쌍으로 정의한다.
 
 ### 2.1 브랜드·뉴트럴 (라이트 / 다크)
 
 | 토큰 | 역할 | 라이트 Hex | 다크 Hex |
 |------|------|-----------|----------|
-| **primary** | 브랜드·주요 액션 | `#4F46E5` (indigo-600) | `#818CF8` (indigo-400) |
-| primaryPressed | Primary 눌림 | `#4338CA` (indigo-700) | `#6366F1` (indigo-500) |
-| onPrimary | Primary 위 텍스트 | `#FFFFFF` | `#1E1B4B` (indigo-950) |
-| primaryContainer | 옅은 강조 배경(힌트·정보) | `#EEF2FF` (indigo-50) | `#312E81` (indigo-900) |
-| onPrimaryContainer | 위 배경 위 텍스트 | `#4338CA` (indigo-700) | `#E0E7FF` (indigo-100) |
-| primaryBorder | primaryContainer 테두리 | `#E0E7FF` (indigo-100) | `#4338CA` (indigo-700) |
+| **primary** | 브랜드·주요 액션 | `#2563EB` (blue-600) | `#60A5FA` (blue-400) |
+| primaryPressed | Primary 눌림 | `#1D4ED8` (blue-700) | `#3B82F6` (blue-500) |
+| onPrimary | Primary 위 텍스트 | `#FFFFFF` | `#172554` (blue-950) |
+| primaryContainer | 옅은 강조 배경(힌트·정보) | `#EFF6FF` (blue-50) | `#1E3A8A` (blue-900) |
+| onPrimaryContainer | 위 배경 위 텍스트 | `#1D4ED8` (blue-700) | `#DBEAFE` (blue-100) |
+| primaryBorder | primaryContainer 테두리 | `#DBEAFE` (blue-100) | `#1D4ED8` (blue-700) |
 | **background** | 앱 캔버스 배경 | `#F8FAFC` (slate-50) | `#0B1120` (slate-950 근사) |
 | **surface** | 카드·표면 | `#FFFFFF` | `#0F172A` (slate-900) |
 | surfaceSubtle | 입력칸·옅은 표면 | `#F8FAFC` (slate-50) | `#1E293B` (slate-800) |
@@ -68,10 +68,11 @@ app/shared/src/commonMain/kotlin/watson/bytecs/ui/theme/
 
 | 토큰 | 역할 | 전경(라이트/다크) | 옅은 배경(라이트/다크) | 사용 규칙 |
 |------|------|------|------|------|
-| **success** | **정답**·완료 | `#059669` / `#34D399` | `#ECFDF5` / `#064E3B` | 정답 맞힘·세션 완료 등 긍정 순간에만. |
+| **success** | **정답**·완료 | `#059669` / `#34D399` | `#ECFDF5` / `#064E3B` | 정답 맞힘·세션 완료·**폼 인라인 검증 통과** 등 긍정 순간에만. 오답 피드백에 쓰지 않는다. |
 | **info** | 힌트·오답 교정·안내 | primary와 동일 | primaryContainer와 동일 | 배경지식 힌트·오답 교정 힌트·정보 카드. **경고 아님.** |
 | **neutralNudge** | **불일치·재시도** | `#64748B` / `#94A3B8` (=textSecondary) | `#F8FAFC` / `#1E293B` (=surfaceSubtle) | ⭐️ 오답/불일치 피드백. **절대 빨강 금지.** 중립·격려 톤. |
 | **danger** | **파괴적 행동만** | `#DC2626` / `#F87171` | `#FEF2F2` / `#450A0A` | ⚠️ **계정 삭제 등 되돌릴 수 없는 행동에만.** 오답 피드백에 쓰지 않는다. |
+| **streak** | 연속 학습(스트릭) 표시 | `#F97316` (orange-500) / `#FB923C` (orange-400) | `#FFF7ED` (orange-50) / `#431407` (orange-950) | ⚠️ **스트릭 표시에만.** 스트릭 상실 공포 연출(불이 꺼진다 등)에 쓰지 않는다. |
 | difficulty | 난이도 표시(은은) | `#94A3B8` / `#64748B` (=textTertiary) | — | 난이도 점/라벨. 강조·압박 금지. |
 
 > **가장 중요한 규칙:** 사용자가 틀렸을 때 화면에 빨강·경고 아이콘·"오답!" 같은 처벌 신호가 나오면 **원칙 5 위반**이다. 불일치는 `neutralNudge`로, 정답은 `success`로만 표현한다.
@@ -81,10 +82,10 @@ app/shared/src/commonMain/kotlin/watson/bytecs/ui/theme/
 ```kotlin
 // 라이트
 val BcsLightColorScheme = lightColorScheme(
-    primary            = Color(0xFF4F46E5),
+    primary            = Color(0xFF2563EB),
     onPrimary          = Color(0xFFFFFFFF),
-    primaryContainer   = Color(0xFFEEF2FF),
-    onPrimaryContainer = Color(0xFF4338CA),
+    primaryContainer   = Color(0xFFEFF6FF),
+    onPrimaryContainer = Color(0xFF1D4ED8),
     secondary          = Color(0xFF64748B), // 보조/저강조 액션
     onSecondary        = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFF1F5F9), // slate-100 (Secondary 버튼 배경)
@@ -105,10 +106,10 @@ val BcsLightColorScheme = lightColorScheme(
 
 // 다크
 val BcsDarkColorScheme = darkColorScheme(
-    primary            = Color(0xFF818CF8),
-    onPrimary          = Color(0xFF1E1B4B),
-    primaryContainer   = Color(0xFF312E81),
-    onPrimaryContainer = Color(0xFFE0E7FF),
+    primary            = Color(0xFF60A5FA),
+    onPrimary          = Color(0xFF172554),
+    primaryContainer   = Color(0xFF1E3A8A),
+    onPrimaryContainer = Color(0xFFDBEAFE),
     secondary          = Color(0xFF94A3B8),
     onSecondary        = Color(0xFF0F172A),
     secondaryContainer = Color(0xFF1E293B),
@@ -200,6 +201,7 @@ val BcsTypography = Typography(
 | `radiusSm` | 8 | 작은 배지·select |
 | `radiusChip` | 12 | 힌트 레벨 칩·아이콘칩 |
 | `radiusCard` | 16 | **카드·입력·버튼 기본** |
+| `radiusSheet` | 32 | 바텀시트 상단 모서리 |
 | `radiusFull` | 9999 | 태그·진행 점·둥근 요소 |
 
 ### 4.3 Elevation / Shadow
@@ -250,7 +252,7 @@ val BcsTypography = Typography(
 - 변형: **InfoCard**(힌트·안내) bg `primaryContainer`, border `primaryBorder`, 텍스트 `onPrimaryContainer`, 좌측 info/전구 아이콘 `primary`.
 
 ### 5.4 세션 진행 — SessionProgress
-- ⭐️ **분량 기반**(예: `2 / 5` + 점/막대). **카운트다운 타이머 아님.**
+- ⭐️ **분량 기반**(예: `2 / 10` + 점/막대). **카운트다운 타이머 아님.**
 - 점 인디케이터: 완료=`success`/`primary` 채운 점, 현재=`primary` 테두리, 남음=`border`. radius full.
 - 담백하게 상단에. 압박 주지 않기.
 
@@ -305,7 +307,7 @@ val BcsTypography = Typography(
 
 ### 5.16 스크랩·스트릭 — ScrapToggle / StreakBadge (리뷰 반영)
 - **ScrapToggle** — 문제를 개인 북마크에 저장/해제하는 토글(별·북마크 아이콘, secondary). 켜짐=`primary`, 꺼짐=`textTertiary`. 문제 풀이 화면(03) 및 스크랩 목록에서 사용.
-- **StreakBadge** — 연속 학습 표시(긍정 동기, 기능 6). 상승은 `success`/`primary` 긍정 톤. ⛔ 끊김에 `danger`·상실 공포·죄책감 연출 금지 — 끊겨도 "다시 시작해요" 중립·격려 톤.
+- **StreakBadge** — 연속 학습 표시(긍정 동기, 기능 6). 상승은 `streak`(불꽃) 톤. ⚠️ `streak` 토큰은 스트릭 표시에만 쓰고, 끊김에 `danger`·상실 공포 연출(불이 꺼진다 등)·죄책감 연출 금지 — 끊겨도 "다시 시작해요" 중립·격려 톤.
 
 ---
 
@@ -376,7 +378,7 @@ val BcsTypography = Typography(
 
 ### 8.1 히어로 와이어프레임 — 03 문제 풀이 (구성 예시)
 ```
-┌── TopBar: [←나가기]      2 / 5      [⋯ 신고] ──┐  SessionProgress(분량)
+┌── TopBar: [←나가기]      2 / 10     [⋯ 신고] ──┐  SessionProgress(분량)
 │  (디딤 상태면) 〈원래 문제〉를 위한 더 쉬운 문제 ↩ │  DrilldownBadge
 ├──────────────[ 600dp 중앙 ]──────────────┤
 │  Q. 서로 다른 키가 같은 버킷으로 매핑되는     │  question (18/SemiBold)
@@ -407,8 +409,8 @@ val BcsTypography = Typography(
 - [ ] 모든 dp가 `BcsSpacing`/`BcsRadius` 토큰 참조(raw dp 0건, 레이아웃 산식 예외).
 - [ ] **라이트·다크 두 스킴 모두 구현·전환 동작**(시스템 설정 + 06 토글).
 - [ ] ⭐️ **오답·불일치에 빨강/경고색 0건**(RetryNudge=neutral, danger는 계정 삭제에만).
-- [ ] primary=indigo 단일 브랜드색, 정답=success(emerald)만 별도 긍정 액센트.
-- [ ] 카드·입력·버튼 radius=16, 칩=12, 태그=full. 입력·Primary 버튼 height 56dp.
+- [ ] primary=blue 단일 브랜드색, 정답=success(emerald)만 별도 긍정 액센트.
+- [ ] 카드·입력·버튼 radius=16, 칩=12, 태그=full, 바텀시트 상단=32. 입력·Primary 버튼 height 56dp.
 - [ ] Pretendard(UI) + monospace(코드) 적용 또는 폴백 동작.
 - [ ] 힌트가 §5.5/§6 위계(L1 키워드 < L2 배경지식, push 오답 교정)로, 모두 info 톤·정답 비노출.
 - [ ] 디딤 문제 진입/복귀가 파고들기 맥락 배지 + 깊이 전환으로, 여러 겹 복귀 동작.
