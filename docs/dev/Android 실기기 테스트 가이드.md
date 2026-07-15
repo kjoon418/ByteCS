@@ -6,38 +6,37 @@
 
 ## 왜 설정이 필요한가
 
-에뮬레이터는 호스트 PC의 `localhost`를 **`10.0.2.2`** 라는 특수 주소로 볼 수 있게 안드로이드가 마련해 둔 통로가 있고,
-`platformApiBaseUrl()`의 기본값이 바로 이 주소다. 하지만 실기기에는 그런 통로가 없다.
-폰 입장에서 `10.0.2.2`도 `localhost`도 **폰 자신**을 가리키므로, 아무것도 하지 않으면 앱은 시작하자마자
-게스트 토큰 발급(`POST /api/guests`)에 실패한다.
+에뮬레이터는 호스트 PC의 `localhost`를 **`10.0.2.2`** 라는 특수 주소로 볼 수 있게 안드로이드가 마련해 둔 통로가 있다.
+하지만 실기기에는 그런 통로가 없다. 폰 입장에서 `10.0.2.2`도 `localhost`도 **폰 자신**을 가리키므로,
+아무것도 하지 않으면 앱은 시작하자마자 게스트 토큰 발급(`POST /api/guests`)에 실패한다.
 
-그래서 두 가지가 필요하다.
+그래서 **폰 → PC 통로**가 필요하다. `adb reverse`가 USB 케이블 위로 터널을 놓아,
+폰의 `localhost:8080`을 PC의 `localhost:8080`으로 넘긴다.
+네트워크를 타지 않으므로 **방화벽 설정도, 같은 와이파이도, 공유기 IP 확인도 필요 없다.**
 
-1. **폰 → PC 통로**: `adb reverse`가 USB 케이블 위로 터널을 놓아, 폰의 `localhost:8080`을 PC의 `localhost:8080`으로 넘긴다.
-2. **앱이 그 주소를 보게 하기**: 기본값이 `10.0.2.2`이므로 `localhost`로 덮어써야 한다.
-
-`adb reverse`를 쓰면 네트워크를 타지 않으므로 **방화벽 설정도, 같은 와이파이도, 공유기 IP 확인도 필요 없다.**
+주소 자체는 앱이 알아서 고른다. `platformApiBaseUrl()`이 실행 시점에 `Build.FINGERPRINT`·`PRODUCT`·`HARDWARE`·`MODEL`을
+보고 에뮬레이터면 `10.0.2.2`, 실기기면 `localhost`를 쓴다(구현: `HttpClientFactory.android.kt`의 `resolveApiBaseUrl`).
+**그래서 에뮬레이터와 실기기를 오갈 때 설정을 고치거나 재빌드할 필요가 없다.**
 
 ## 준비 (최초 1회)
 
-### 1. 폰에서 USB 디버깅 켜기
+### 폰에서 USB 디버깅 켜기
 
 1. `설정 → 휴대전화 정보 → 소프트웨어 정보`에서 **빌드 번호**를 7번 연타 → 개발자 모드 활성화
 2. `설정 → 개발자 옵션 → USB 디버깅` 켜기
 3. USB 케이블로 PC에 연결 → 폰에 뜨는 **"USB 디버깅을 허용하시겠습니까?"** 에서 허용
 
-### 2. 앱이 볼 API 주소 지정
-
-저장소 루트의 `local.properties`(git이 무시하는 개인 설정 파일)에 한 줄 추가한다.
+API 주소는 따로 지정하지 않는다. 자동 감지를 **덮어써야 할 때만** 저장소 루트의 `local.properties`
+(git이 무시하는 개인 설정 파일)에 한 줄 넣는다.
 
 ```properties
-bytecs.apiBaseUrl=http://localhost:8080
+bytecs.apiBaseUrl=http://192.168.0.10:8080
 ```
 
-이 값은 빌드 시점에 `ANDROID_API_BASE_URL` 상수로 구워져 `platformApiBaseUrl()`이 반환한다
-(구현: `app/shared/build.gradle.kts`의 `generateApiConfig` 태스크).
-**줄을 지우면 기본값 `http://10.0.2.2:8080`으로 돌아가 에뮬레이터가 그대로 동작한다.**
-개인 IP나 머신별 설정이 커밋되지 않는 게 이 방식의 요점이다.
+이 값은 빌드 시점에 `ANDROID_API_BASE_URL` 상수로 구워지고(구현: `app/shared/build.gradle.kts`의 `generateApiConfig` 태스크),
+비어 있지 않으면 자동 감지를 이긴다. LAN 직결(맨 아래 참고)이나 스테이징 서버를 볼 때 쓰는 탈출구다.
+**평소에는 넣지 않는 게 맞다.** 넣어 두면 그 주소로 고정되고, 바꾸려면 재빌드해야 한다.
+개인 IP나 머신별 설정이 커밋되지 않는 게 이 파일을 쓰는 이유다.
 
 ## 매번 실행할 때
 
@@ -97,16 +96,17 @@ adb reverse tcp:8080 tcp:8080
 | 증상 | 원인 |
 |---|---|
 | 첫 화면부터 로드 실패 | 서버 미기동, 또는 `adb reverse` 미실행 |
-| 터널을 놨는데도 실패 | `local.properties`에 `bytecs.apiBaseUrl` 누락 → 앱이 아직 `10.0.2.2`를 봄. 다시 설치 필요 |
-| 설정 바꿨는데 그대로 | 상수는 빌드 시점에 구워진다. `installDebug` 재실행 |
+| 터널을 놨는데도 실패 | `local.properties`에 `bytecs.apiBaseUrl`이 남아 있어 자동 감지를 덮고 있을 수 있다. 지우고 다시 설치 |
+| `bytecs.apiBaseUrl`을 바꿨는데 그대로 | 상수는 빌드 시점에 구워진다. `installDebug` 재실행 |
 | `adb devices`에 폰 없음 | USB 디버깅 미허용, 또는 케이블이 충전 전용 |
 | 릴리스 빌드로 붙지 않음 | 정상. 평문 허용은 debug 전용 |
 
 ## LAN(와이파이)으로 붙고 싶다면
 
 케이블 없이 쓰려면 `adb reverse` 대신 PC의 공유기 내부 IP로 직접 붙어야 하고, 추가 작업이 필요하다.
+LAN IP는 자동 감지가 알아낼 수 없으므로 이때는 오버라이드를 써야 한다.
 
-1. `local.properties`를 `bytecs.apiBaseUrl=http://<PC의 LAN IP>:8080`으로
+1. `local.properties`에 `bytecs.apiBaseUrl=http://<PC의 LAN IP>:8080` 추가 (쓰고 나면 지워야 자동 감지로 돌아온다)
 2. `network_security_config.xml`의 평문 허용 목록에 그 IP 추가 (이 파일은 CIDR·IP 대역을 지원하지 않아 IP를 직접 적어야 한다)
 3. Windows 방화벽에 8080 인바운드 규칙 추가
 4. 폰과 PC가 같은 와이파이에 연결

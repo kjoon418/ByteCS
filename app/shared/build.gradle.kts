@@ -12,11 +12,13 @@ plugins {
 }
 
 /**
- * Android 백엔드 베이스 URL을 소스 코드로 굽는다.
+ * Android 백엔드 베이스 URL **오버라이드**를 소스 코드로 굽는다.
  *
- * 값이 개발 환경마다 달라야 하므로(에뮬레이터=10.0.2.2, adb reverse 실기기=localhost, LAN 직결=PC의 IP)
- * 커밋 가능한 소스에 상수로 둘 수 없고, 그렇다고 런타임 설정 화면을 두기엔 개발용 편의에 비해 과하다.
- * 빌드 시점 주입이 절충안이다.
+ * 흔한 두 경우(에뮬레이터=10.0.2.2, adb reverse 실기기=localhost)는 앱이 실행 시점에 스스로 고르므로
+ * 여기서 값을 줄 필요가 없다. 이 태스크가 굽는 값은 그 자동 감지를 덮어쓰고 싶을 때(LAN IP 직결,
+ * 스테이징·프로덕션 주소)만 쓰인다. 값이 개인 환경마다 달라 커밋 가능한 소스에 상수로 둘 수 없고,
+ * 그렇다고 런타임 설정 화면을 두기엔 개발용 편의에 비해 과해서 빌드 시점 주입을 택했다.
+ * 지정이 없으면 빈 문자열이 구워지고, 그게 "자동 감지"를 뜻한다.
  *
  * 이 모듈은 신규 AGP KMP 플러그인(androidLibrary)을 쓰는데 여기엔 buildConfigField가 없어
  * BuildConfig 대신 소스 생성으로 같은 효과를 낸다.
@@ -51,8 +53,14 @@ abstract class GenerateApiConfigTask : DefaultTask() {
 }
 
 /**
- * 우선순위: local.properties > -P 프로퍼티 > 기본값(에뮬레이터).
+ * 우선순위: local.properties > -P 프로퍼티 > 빈 문자열(= 런타임 자동 감지).
  * local.properties는 gitignore 대상이라 개인 IP가 커밋될 일이 없어 1순위로 둔다.
+ *
+ * 기본값을 주소가 아닌 **빈 문자열**로 두는 게 요점이다. 상수는 빌드 시점에 굽히므로
+ * 특정 주소를 기본값으로 박으면 에뮬레이터(10.0.2.2)와 실기기(localhost)를 오갈 때마다
+ * local.properties를 고치고 재빌드해야 한다. 빈 값을 "알아서 고르라"는 신호로 쓰면
+ * `resolveApiBaseUrl`(HttpClientFactory.android.kt)이 실행 시점에 기기를 보고 정한다.
+ * 여기에 값을 주면 그 값이 자동 감지를 이긴다(LAN 직결·스테이징 등의 탈출구).
  *
  * 구성 캐시(configuration cache)를 쓰는 빌드라 파일 읽기는 반드시 Provider로 해야 한다.
  * File()/FileInputStream을 실행 시점에 직접 쓰면 캐시 무효화 추적이 끊긴다.
@@ -66,7 +74,7 @@ val apiBaseUrlProvider: Provider<String> = providers.fileContents(
         .orEmpty()
 }.filter { it.isNotBlank() }
     .orElse(providers.gradleProperty("bytecs.apiBaseUrl"))
-    .orElse("http://10.0.2.2:8080")
+    .orElse("")
 
 val generateApiConfig = tasks.register<GenerateApiConfigTask>("generateApiConfig") {
     apiBaseUrl.set(apiBaseUrlProvider)
