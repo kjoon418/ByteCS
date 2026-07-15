@@ -44,6 +44,7 @@ object BcsDimens {
     val loaderSize = 20.dp // 버튼 인라인 로딩 스피너
     val loaderStroke = 2.dp
     val skeletonLine = 24.dp // 스켈레톤 텍스트 줄 높이
+    val emptyStateIcon = 64.dp // §5.10 빈 상태 아이콘 원형(48~64dp 중 상한)
 
     // ── Border (§5 입력·카드 테두리) ──────────────────────────────────────────
     val borderWidth = 1.dp

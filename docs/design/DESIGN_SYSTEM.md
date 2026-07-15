@@ -282,7 +282,7 @@ val BcsTypography = Typography(
 - **DifficultyIndicator** — 난이도 점/라벨(`difficulty` 색, 은은). 압박 금지.
 
 ### 5.10 빈 상태 — EmptyState (1급)
-- 중앙 정렬: 아이콘(48~64dp, `surfaceSubtle` 원형 + `textTertiary`) + 제목(`headingM`) + 설명(`bodyS`,`textSecondary`) + Primary 액션.
+- 중앙 정렬: 아이콘(48~64dp = `BcsDimens.emptyStateIcon`, `surfaceSubtle` 원형 + `textTertiary`) + 제목(`headingM`) + 설명(`bodyS`,`textSecondary`) + Primary 액션.
 - 카피: 비난·공허 금지, 다음 행동 제시(UX 9). 긍정 빈 상태("오늘 몫은 다 했어요!").
 
 ### 5.11 로딩 — Loading (1급)

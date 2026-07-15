@@ -11,14 +11,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,12 +38,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import watson.bytecs.ui.components.BcsCard
 import watson.bytecs.ui.components.BcsScaffold
-import watson.bytecs.ui.components.GhostButton
+import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
+import watson.bytecs.ui.components.SecondaryButton
+import watson.bytecs.ui.components.StreakBadge
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
 import kotlin.math.PI
@@ -55,6 +57,9 @@ import kotlin.random.Random
  *
  * ⭐️ 성취 연출을 아끼지 않되(축하 모션·햅틱) 긍정 톤 — 다음 방문은 초대이지 강요가 아니다.
  * ⭐️ 스트릭은 긍정 동기(끊김 죄책감·상실 공포 연출 금지). 게스트 승계는 축하 맥락의 자연스러운 권유.
+ *
+ * ⚠️ **소요 시간을 표시하지 않는다.** 도메인(기능 1.5)은 세션을 시간이 아니라 **분량**으로 정의하고,
+ * §9는 카운트다운·시간 압박을 금지한다. 요약은 '얼마나 걸렸나'가 아니라 '무엇을 해냈나'다.
  *
  * @param summary 완료 요약(푼 문제 수·스트릭). 세션 완료 이벤트로 전달된다.
  * @param isGuest 게스트면 승계 유도를 은은하게 노출.
@@ -99,8 +104,9 @@ fun SessionCompleteScreen(
                     .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
                 verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
             ) {
+                // 한 화면에 강조되는 Primary Action은 하나. '조금 더 풀기'는 압박이 아닌 선택이므로 Secondary.
                 PrimaryButton(text = "오늘은 여기까지", onClick = onDone)
-                GhostButton(text = "조금 더 풀기", onClick = onMore)
+                SecondaryButton(text = "조금 더 풀기", onClick = onMore)
             }
         },
     ) {
@@ -108,30 +114,12 @@ fun SessionCompleteScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(horizontal = BcsDimens.space5),
-            verticalArrangement = Arrangement.spacedBy(BcsDimens.space4, Alignment.CenterVertically),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space6),
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space4),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // 완결 축하 그래픽 — 파티클 버스트 위 원형 배경 + 체크 모션.
-            Box(
-                modifier = Modifier.size(BcsDimens.space10 * 3),
-                contentAlignment = Alignment.Center,
-            ) {
-                // ⭐️ 짧은 축하 파티클 버스트(≤1.2s·비차단·토큰 색). 성취를 또렷이(밋밋함 방지).
-                ConfettiBurst(
-                    colors = listOf(MaterialTheme.colorScheme.primary, colors.success, colors.info),
-                )
-                Box(
-                    modifier = Modifier
-                        .size(BcsDimens.space10)
-                        .scale(scale)
-                        .clip(CircleShape)
-                        .background(colors.successContainer),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CompletionCheck(color = colors.success)
-                }
-            }
+            CelebrationHeader(scale = scale)
 
             Text(
                 text = "오늘 CS 한입 완료!",
@@ -140,56 +128,114 @@ fun SessionCompleteScreen(
                 textAlign = TextAlign.Center,
             )
             Text(
-                text = "오늘 ${solvedShown}문제를 해냈어요.",
-                style = MaterialTheme.typography.bodyLarge,
+                text = "오늘도 성실하게 지식을 채웠군요.\n작은 습관이 당신을 전문가로 만듭니다.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = colors.textSecondary,
                 textAlign = TextAlign.Center,
             )
 
-            // 스트릭(있을 때만·긍정).
-            summary.streak?.takeIf { it.count > 0 }?.let { streak ->
+            // 오늘의 요약 — 분량 기반 성취(⚠️ 소요 시간 아님).
+            // 시안의 '새 개념/복습 개념'은 [CompletionSummary]에 없어 뺐다(명세 §3.2에서 선택 항목).
+            // 임의로 세지 않는다 — 개념 분류는 도메인(뷰모델·서버) 몫이다.
+            SolvedSummaryCard(solved = solvedShown)
+
+            // 스트릭(백엔드가 실어 줄 때만). 색·카피 규칙은 공용 StreakBadge(§5.16)에 있다.
+            summary.streak?.let { StreakBadge(days = it.count) }
+
+            // 정착 연결 안내 — ⚠️ 시점을 단정하지 않는다("3일 뒤" 금지). 복습은 개념별 간격 반복이라
+            // 세션 단위로 다음 만남을 약속할 수 없다(지킬 수 없는 약속 금지).
+            InfoCard {
                 Text(
-                    text = "🔥 ${streak.count}일 연속 학습 중",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "다시 만나요",
+                    style = MaterialTheme.typography.labelMedium,
                     color = colors.onInfoContainer,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(BcsDimens.radiusFull))
-                        .background(colors.infoContainer)
-                        .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1)
-                        .semantics { contentDescription = "${streak.count}일 연속 학습 중" },
+                )
+                Text(
+                    text = "배운 내용은 나중에 복습으로 다시 만나요.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textPrimary,
                 )
             }
 
-            // 정착 연결 안내(은은).
-            Text(
-                text = "오늘 배운 건 나중에 복습으로 다시 만나요.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.textTertiary,
-                textAlign = TextAlign.Center,
-            )
-
-            // 게스트 승계 유도(축하 맥락의 자연스러운 권유·강요 X).
+            // 게스트 승계 유도 — 축하 맥락의 자연스러운 권유. 안심 프레이밍이지 명령이 아니고,
+            // 은은한 표면이라 Primary CTA와 강조를 다투지 않는다(가입 강제 금지).
             if (isGuest) {
-                Spacer(Modifier.height(BcsDimens.space2))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(BcsDimens.radiusCard))
-                        .background(colors.surfaceSubtle)
-                        .padding(BcsDimens.space4),
-                    verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = "가입하면 이 기록이 사라지지 않아요.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.textSecondary,
-                        textAlign = TextAlign.Center,
-                    )
-                    GhostButton(text = "가입하고 기록 지키기", onClick = onUpgrade)
+                BcsCard(onClick = onUpgrade) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+                    ) {
+                        Text(
+                            text = "가입하면 이 기록이 사라지지 않아요.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.textSecondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = "›",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colors.textTertiary,
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+/** 완결 축하 그래픽 — 파티클 버스트 위 success 원형 + 체크 모션. 장식이므로 시맨틱 없음. */
+@Composable
+private fun CelebrationHeader(scale: Float) {
+    val colors = LocalBcsColors.current
+    Box(
+        modifier = Modifier.size(BcsDimens.space10 * 3),
+        contentAlignment = Alignment.Center,
+    ) {
+        // ⭐️ 짧은 축하 파티클 버스트(≤1.2s·비차단·토큰 색). 성취를 또렷이(밋밋함 방지).
+        ConfettiBurst(
+            colors = listOf(MaterialTheme.colorScheme.primary, colors.success, colors.info),
+        )
+        Box(
+            modifier = Modifier
+                // 세션 완료는 §2.2가 명시한 success 사례 — 브랜드색이 아니라 emerald로 채운다.
+                .size(BcsDimens.space6 * 4)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(colors.success),
+            contentAlignment = Alignment.Center,
+        ) {
+            CompletionCheck(color = colors.onSuccess)
+        }
+    }
+}
+
+/**
+ * 오늘의 요약 카드 — 푼 본 문제 수. 숫자 압박이 아니라 성취 표현이다(04 §3.2).
+ * ⚠️ 시간 지표를 넣지 않는다(도메인은 세션을 분량으로 정의).
+ */
+@Composable
+private fun SolvedSummaryCard(solved: Int) {
+    val colors = LocalBcsColors.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusCard))
+            .background(colors.surfaceSubtle)
+            .padding(BcsDimens.space5),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space1),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "푼 문제",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textTertiary,
+        )
+        Text(
+            text = "${solved}개",
+            style = MaterialTheme.typography.titleLarge,
+            color = colors.textPrimary,
+        )
     }
 }
 
@@ -239,10 +285,10 @@ private data class Particle(
 
 /** 완료 체크 표시. 장식이므로 시맨틱을 비운다(의미는 "오늘 CS 한입 완료!" 텍스트가 전달). */
 @Composable
-private fun CompletionCheck(color: androidx.compose.ui.graphics.Color) {
+private fun CompletionCheck(color: Color) {
     Canvas(
         modifier = Modifier
-            .size(BcsDimens.space6)
+            .size(BcsDimens.space8)
             .clearAndSetSemantics {},
     ) {
         val w = size.width

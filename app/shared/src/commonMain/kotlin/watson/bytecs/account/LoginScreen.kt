@@ -21,14 +21,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.BcsTextField
+import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
@@ -38,9 +37,14 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * 05 로그인·가입 화면. 게스트가 가입(=제자리 승격)하거나 기존 회원이 로그인한다.
  *
  * ⭐️ 저마찰·안심·무낙인:
- *  - "왜 가입하나"를 한 줄로, 승계 배너로 "기록이 그대로 옮겨져요"를 강조(게스트면 로그인·가입 두 모드 모두 노출).
+ *  - "왜 가입하나"를 한 줄로. 승계 배너("기록이 그대로 옮겨져요")는 **가입 모드에서만** 낸다 — 아래 참조.
  *  - 가입을 진행의 전제로 만들지 않는다 — 상단 "나중에 하기"로 언제든 빠져나갈 수 있다.
  *  - 실패는 처벌이 아니다: "학습 기록은 안전해요"를 먼저 고지하고 사실 기반 원인만 안내(빨강 남용 금지).
+ *
+ * ⭐️ **승계는 가입 경로에만 있다.** 게스트 토큰을 지닌 채 `register`하면 서버가 그 게스트를 회원으로
+ * 제자리 승격시키지만(명세 4 §336), `login`은 **다른 계정**의 토큰으로 갈아끼우는 것이라 게스트 진행분이
+ * 옮겨지지 않는다. 명세도 재로그인은 승계가 아니라 영속으로 규정한다(§340 "재로그인해도 … 그대로다").
+ * 그러므로 게스트가 로그인 모드에 있어도 승계를 약속하지 않는다 — 지킬 수 없는 약속이다.
  *
  * 성공은 뷰모델의 일회성 이벤트로 받아 정확히 한 번 복귀한다(재사용되는 뷰모델의 잔류 성공 상태로 튕기지 않게).
  *
@@ -87,8 +91,9 @@ fun LoginScreen(
     )
 }
 
+/** 표현 계층만 분리한 본체 — 뷰모델 없이 상태를 직접 넣어 테스트한다. */
 @Composable
-private fun LoginScreenContent(
+internal fun LoginScreenContent(
     state: AuthUiState,
     onEmailChange: (String) -> Unit,
     onPasswordChange: (String) -> Unit,
@@ -119,10 +124,11 @@ private fun LoginScreenContent(
         },
         bottomBar = {
             // 엄지 영역 하단 고정 Primary CTA — 동사형.
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
+                verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
             ) {
                 PrimaryButton(
                     text = if (isRegister) "가입하고 기록 저장하기" else "로그인하기",
@@ -130,6 +136,17 @@ private fun LoginScreenContent(
                     enabled = state.canSubmit,
                     loading = state.status is SubmitStatus.Submitting,
                 )
+                // 약관 고지 — 최소·명확. 별도 동의 체크박스를 두지 않는다(다크 패턴 동의 강요 금지).
+                // ⭐️ 암호화 저장 같은 보안 주장은 쓰지 않는다 — 명세에 없고 구현이 보장하는 속성이 아니다.
+                if (isRegister) {
+                    Text(
+                        text = "가입 시 이용약관 및 개인정보처리방침에 동의해요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textTertiary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
         },
     ) {
@@ -141,50 +158,78 @@ private fun LoginScreenContent(
                 .padding(horizontal = BcsDimens.space5),
             verticalArrangement = Arrangement.spacedBy(BcsDimens.space4),
         ) {
-            // 헤더 + 가입 이유 한 줄.
+            // 헤드라인이 이 화면의 제목이다(시안 h2). 부제는 한 단계 낮은 위계 — 같은 무게로 서면
+            // 위계가 평평해져 같은 말의 반복처럼 읽힌다.
+            //
+            // ⭐️ 모드마다 **사실이 다르다**(명세 4):
+            //  - 가입 = 승계. 게스트로 쌓은 상태가 계정으로 "옮겨진다".
+            //  - 로그인 = 영속. "재로그인해도 숙련도·복습·세션이 그대로다" — 옮겨지는 게 아니다.
+            // 로그인하러 온 사람에게 가입 피치를 최대 강조로 들이밀지 않는다(가입 강요 금지).
             Text(
-                text = if (isRegister) "가입하기" else "로그인",
+                text = if (isRegister) {
+                    "가입하면 학습 기록이 어느 기기에서든 안전하게 이어져요."
+                } else {
+                    "다시 오셨네요. 학습 기록이 그대로 기다리고 있어요."
+                },
                 style = MaterialTheme.typography.titleLarge,
                 color = colors.textPrimary,
             )
             Text(
-                text = "가입하면 학습 기록이 어느 기기에서든 안전하게 이어져요.",
+                text = if (isRegister) {
+                    "어느 기기에서든 로그인만 하세요. 지금까지의 학습 기록이 그대로 옮겨져요."
+                } else {
+                    "로그인하면 어느 기기에서든 이어서 할 수 있어요."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.textSecondary,
             )
 
-            // 승계 안내 배너 — 게스트에서 왔으면 로그인·가입 두 모드 모두에서 안심을 강조한다.
-            if (state.isGuestUpgrade) {
+            // 승계 안내 배너 — 게스트가 **가입할 때만**. isGuestUpgrade는 "지금 게스트인가"일 뿐
+            // "가입 중인가"가 아니므로, 모드 조건을 함께 걸지 않으면 로그인 모드의 게스트에게도
+            // 승계를 약속하게 된다(오늘의 login()은 아무것도 옮기지 않는다 — 이 파일 상단 KDoc 참조).
+            if (state.isGuestUpgrade && isRegister) {
                 UpgradeBanner()
             }
 
             Spacer(Modifier.height(BcsDimens.space2))
 
-            // 이메일 — 이메일 키패드.
-            BcsTextField(
-                value = state.email,
-                onValueChange = onEmailChange,
-                label = "이메일",
-                placeholder = "you@example.com",
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next,
-            )
+            // 이메일 — 이메일 키패드 + 인라인 검증(긍정 문구만).
+            Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space2)) {
+                BcsTextField(
+                    value = state.email,
+                    onValueChange = onEmailChange,
+                    label = "이메일 주소",
+                    placeholder = "example@email.com",
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next,
+                )
+                // ⭐️ 인라인 검증은 '통과'만 말한다(§2.2 success 허용 사례). 미통과는 침묵 — 입력 도중의
+                // 미완성 상태를 실패로 낙인찍지 않는다. 하단 CTA 비활성이 이미 "아직 못 낸다"를 말해 준다.
+                if (state.isEmailValid) {
+                    Text(
+                        text = "이메일 형식이 맞아요.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.success,
+                    )
+                }
+            }
 
             // 비밀번호 — 마스킹.
             BcsTextField(
                 value = state.password,
                 onValueChange = onPasswordChange,
                 label = "비밀번호",
-                placeholder = "비밀번호를 입력해 주세요",
+                placeholder = "8자 이상 입력해주세요",
                 keyboardType = KeyboardType.Password,
                 masked = true,
                 imeAction = ImeAction.Done,
                 onImeAction = onSubmit,
             )
 
-            // 실패 안내 — 비처벌. 안심 문구 먼저, 사실 기반 원인 다음. 빨강 남용 금지.
+            // 실패 안내 — 비처벌. 공용 ErrorBanner가 "학습 기록은 안전해요"를 먼저 고지하고 재시도 경로를
+            // 함께 낸다(막다른 길 금지). 실패에 danger를 쓰지 않는다 — 빨강은 계정 삭제 전용(§2.2).
             (state.status as? SubmitStatus.Failed)?.let { failed ->
-                FailureNotice(message = failed.message)
+                ErrorBanner(message = failed.message, onRetry = onSubmit)
             }
 
             // 로그인 ↔ 가입 전환(같은 화면에서).
@@ -198,7 +243,11 @@ private fun LoginScreenContent(
     }
 }
 
-/** 승계 안내 배너 — info 톤(안심). 게스트로 쌓은 기록이 그대로 이어짐을 강조. */
+/**
+ * 승계 안내 배너 — info 톤(안심). 게스트로 쌓은 기록이 가입 시 그대로 이어짐을 강조.
+ *
+ * ⭐️ 호출 조건은 호출자 책임: **가입 모드 + 게스트**일 때만 부른다. 로그인은 승계 경로가 아니다.
+ */
 @Composable
 private fun UpgradeBanner() {
     val colors = LocalBcsColors.current
@@ -211,36 +260,15 @@ private fun UpgradeBanner() {
         verticalArrangement = Arrangement.spacedBy(BcsDimens.space1),
     ) {
         Text(
-            text = "지금까지 푼 기록이 이 계정으로 그대로 옮겨져요.",
+            text = "기록 승계 준비 완료",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onInfoContainer,
+        )
+        Text(
+            text = "지금까지의 학습 기록이 그대로 옮겨져요.",
             style = MaterialTheme.typography.bodyMedium,
             color = colors.onInfoContainer,
         )
     }
 }
 
-/** 실패 안내 — info 톤 + 안심 문구 우선. 오답·처벌이 아니므로 danger를 쓰지 않는다. */
-@Composable
-private fun FailureNotice(message: String) {
-    val colors = LocalBcsColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(colors.infoContainer)
-            // 스크린리더가 실패 안내를 즉시 읽도록 라이브 리전.
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(BcsDimens.space4),
-        verticalArrangement = Arrangement.spacedBy(BcsDimens.space1),
-    ) {
-        Text(
-            text = "학습 기록은 안전해요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onInfoContainer,
-        )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onInfoContainer,
-        )
-    }
-}

@@ -1,6 +1,7 @@
 package watson.bytecs.session
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,12 +39,14 @@ import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
 import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.GhostButton
+import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.RetryNudge
 import watson.bytecs.ui.components.RevealAnswerButton
 import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
+import watson.bytecs.ui.components.TypeAlongField
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsType
@@ -93,7 +97,7 @@ fun SessionScreen(
 }
 
 @Composable
-private fun SessionScreenContent(
+internal fun SessionScreenContent(
     state: SessionUiState,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
@@ -117,24 +121,20 @@ private fun SessionScreenContent(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (active != null) {
-                    SessionProgress(current = active.current, total = active.total)
-                }
-                Spacer(Modifier.weight(1f))
-                // 지난 문제 다시 보기(있을 때만) — 가장 최근 완료한 칸을 연다.
-                if (active != null && active.hasPast && active.past == null) {
-                    TextLink(
-                        text = "지난 문제",
-                        onClick = { onOpenPast(active.position - 1) },
-                        color = LocalBcsColors.current.textSecondary,
-                        contentDescription = "지난 문제 다시 보기",
+                    SessionProgressEntry(
+                        active = active,
+                        onOpenPast = { onOpenPast(active.position - 1) },
                     )
                 }
+                Spacer(Modifier.weight(1f))
                 // 부담 없는 나가기(경고 모달 없음).
+                // ⭐️ '세션'은 내부 용어다 — 눈으로 보는 사용자가 어디서도 볼 수 없는 단어를 스크린리더
+                //    사용자만 듣게 두지 않는다. 사용자에게 이건 '오늘의 한입'이다.
                 TextLink(
                     text = "나가기",
                     onClick = onExit,
                     color = LocalBcsColors.current.textSecondary,
-                    contentDescription = "세션 나가기, 언제든 이어서 할 수 있어요",
+                    contentDescription = "오늘의 한입에서 나가기, 언제든 이어서 할 수 있어요",
                 )
             }
         },
@@ -191,6 +191,46 @@ private fun SessionScreenContent(
     }
 }
 
+/**
+ * 진행 인디케이터 자체가 '지난 문제 다시 보기' 진입점이다(시안 A) — 되돌아볼 칸이 있을 때만 눌린다.
+ *
+ * 진입점을 진행 표시에 겹쳐 둔 이유: 되돌아보고 싶은 순간 사용자가 보는 곳이 "지금 몇 번째인가"이고,
+ * 별도 링크를 나란히 두면 상단 바에 secondary 액션이 둘로 늘어 '나가기'와 경쟁한다.
+ * 눌림 라벨만 따로 실어 준다 — 진행도 낭독("총 N문제 중 M번째")을 덮어쓰지 않기 위해서다.
+ */
+@Composable
+private fun SessionProgressEntry(
+    active: SessionUiState.Active,
+    onOpenPast: () -> Unit,
+) {
+    val colors = LocalBcsColors.current
+    val canOpenPast = active.hasPast && active.past == null
+
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(BcsDimens.radiusSm))
+            .clickable(
+                enabled = canOpenPast,
+                onClickLabel = "지난 문제 다시 보기",
+                onClick = onOpenPast,
+            ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SessionProgress(current = active.current, total = active.total)
+        // 누를 수 있다는 신호. 장식이므로 시맨틱을 비운다 — 의미는 위 눌림 라벨이 전달한다.
+        if (canOpenPast) {
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textTertiary,
+                modifier = Modifier
+                    .padding(start = BcsDimens.space1)
+                    .clearAndSetSemantics {},
+            )
+        }
+    }
+}
+
 @Composable
 private fun ActiveContent(
     state: SessionUiState.Active,
@@ -203,9 +243,9 @@ private fun ActiveContent(
     val focusRequester = remember { FocusRequester() }
     val haptics = LocalHapticFeedback.current
 
-    // 새 문제가 오면 입력에 자동 포커스.
+    // 새 문제가 오면 입력에 자동 포커스. 공개 후에는 따라 입력 칸으로 바뀌어 이 requester가 붙을 곳이 없다.
     LaunchedEffect(state.problem.id) {
-        focusRequester.requestFocus()
+        if (state.reveal == null) focusRequester.requestFocus()
     }
     // 정답 순간 햅틱(긍정 피드백을 손끝으로).
     LaunchedEffect(state.feedback) {
@@ -231,30 +271,50 @@ private fun ActiveContent(
 
         Spacer(Modifier.height(BcsDimens.space6))
 
-        AnswerTextField(
-            value = state.inputText,
-            onValueChange = onInputChange,
-            modifier = Modifier.focusRequester(focusRequester),
-            placeholder = if (state.reveal != null) "위 정답을 따라 적어 보세요" else "정답을 입력해 보세요",
-            onImeSubmit = onSubmit,
-        )
+        val reveal = state.reveal
+        if (reveal == null) {
+            AnswerTextField(
+                value = state.inputText,
+                onValueChange = onInputChange,
+                modifier = Modifier.focusRequester(focusRequester),
+                placeholder = "정답을 입력해 보세요",
+                onImeSubmit = onSubmit,
+            )
 
-        // 피드백(있을 때만). 세 상태 모두 비처벌.
-        state.feedback?.let { feedback ->
-            Spacer(Modifier.height(BcsDimens.space4))
-            FeedbackCard(feedback)
-        }
+            // 피드백(있을 때만). 세 상태 모두 비처벌.
+            state.feedback?.let { feedback ->
+                Spacer(Modifier.height(BcsDimens.space4))
+                FeedbackCard(feedback)
+            }
 
-        // 정답 공개 카드(공개했을 때). 모범답안을 따라 입력하도록 안내.
-        state.reveal?.let { reveal ->
-            Spacer(Modifier.height(BcsDimens.space4))
-            RevealCard(reveal)
-        }
+            // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
+            if (state.canReveal) {
+                Spacer(Modifier.height(BcsDimens.space4))
+                RevealAnswerButton(onClick = onReveal)
+            }
+        } else {
+            // ⭐️ 공개 후에는 모범답안이 **입력칸 위**에 온다 — "위 정답을 따라 적어 보세요"가 성립하려면
+            //    답이 먼저 보여야 하고, 따라 입력은 그걸 보고 하는 행동이기 때문이다(시안 F-2 순서).
+            ModelAnswerBlock(
+                answers = reveal.acceptableAnswers,
+                explanation = reveal.explanation,
+            )
+            // 개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9).
+            Spacer(Modifier.height(BcsDimens.space3))
+            ConceptChip(reveal.concept)
 
-        // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
-        if (state.canReveal) {
-            Spacer(Modifier.height(BcsDimens.space4))
-            RevealAnswerButton(onClick = onReveal)
+            Spacer(Modifier.height(BcsDimens.space5))
+            TypeAlongField(
+                value = state.inputText,
+                onValueChange = onInputChange,
+                onImeSubmit = onSubmit,
+            )
+
+            // 따라 적다 어긋나도 처벌이 아니다 — 같은 비처벌 넛지를 그대로 쓴다.
+            state.feedback?.let { feedback ->
+                Spacer(Modifier.height(BcsDimens.space4))
+                FeedbackCard(feedback)
+            }
         }
 
         // 시스템 오류(전송 실패) — 오답과 구분(§5.12), 안심 문구 우선 + 재시도 경로.
@@ -288,32 +348,6 @@ private fun FeedbackCard(feedback: SessionFeedback) {
         SessionFeedback.Mismatch -> RetryNudge(modifier = announce)
 
         SessionFeedback.NearMiss -> NearMissNudge(modifier = announce)
-    }
-}
-
-/** 정답 공개 카드 — info 톤. 모범답안·개념·해설 + 따라 입력 안내. */
-@Composable
-private fun RevealCard(reveal: Reveal) {
-    val colors = LocalBcsColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(colors.infoContainer)
-            .semantics { liveRegion = LiveRegionMode.Polite }
-            .padding(BcsDimens.space4),
-        verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
-    ) {
-        Text("정답을 따라 적어 볼까요?", style = MaterialTheme.typography.titleSmall, color = colors.onInfoContainer)
-        Text(
-            text = reveal.acceptableAnswers.joinToString("  ·  "),
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.onInfoContainer,
-        )
-        ConceptChip(reveal.concept)
-        reveal.explanation?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onInfoContainer)
-        }
     }
 }
 

@@ -3,16 +3,19 @@ package watson.bytecs.account
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.GhostButton
 import watson.bytecs.ui.components.PrimaryButton
+import watson.bytecs.ui.components.PrimaryButtonRole
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
@@ -87,7 +92,7 @@ fun AccountScreen(
 }
 
 @Composable
-private fun AccountScreenContent(
+internal fun AccountScreenContent(
     state: AccountUiState,
     appVersion: String,
     onBack: () -> Unit,
@@ -103,90 +108,96 @@ private fun AccountScreenContent(
 ) {
     val colors = LocalBcsColors.current
 
-    BcsScaffold(
-        modifier = modifier,
-        topBar = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
-            ) {
-                TextLink(
-                    text = "뒤로",
-                    onClick = onBack,
-                    color = colors.textSecondary,
-                    contentDescription = "뒤로 가기",
-                    modifier = Modifier.align(Alignment.CenterStart),
-                )
-                Text(
-                    text = "계정·설정",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = colors.textPrimary,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-            }
-        },
-    ) {
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = BcsDimens.space5),
-            verticalArrangement = Arrangement.spacedBy(BcsDimens.space5),
+    // 확인 다이얼로그(§5.13)를 화면 위에 띄우기 위한 오버레이 레이어.
+    Box(modifier = modifier.fillMaxSize()) {
+        BcsScaffold(
+            topBar = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
+                ) {
+                    TextLink(
+                        text = "뒤로",
+                        onClick = onBack,
+                        color = colors.textSecondary,
+                        contentDescription = "뒤로 가기",
+                        modifier = Modifier.align(Alignment.CenterStart),
+                    )
+                    Text(
+                        text = "계정·설정",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.textPrimary,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+            },
         ) {
-            AccountStatusHeader(state = state, onNavigateToLogin = onNavigateToLogin)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = BcsDimens.space5),
+                verticalArrangement = Arrangement.spacedBy(BcsDimens.space5),
+            ) {
+                AccountStatusHeader(state = state, onNavigateToLogin = onNavigateToLogin)
 
-            // 토큰은 유효하나 프로필만 못 불러온 회원: 인증 실패가 아니라 가벼운 안내.
-            if (state.profileError) {
-                InfoNotice("프로필을 불러오지 못했어요. 잠시 후 자동으로 다시 채워져요.")
-            }
+                // 토큰은 유효하나 프로필만 못 불러온 회원: 인증 실패가 아니라 가벼운 안내.
+                if (state.profileError) {
+                    InfoNotice("프로필을 불러오지 못했어요. 잠시 후 자동으로 다시 채워져요.")
+                }
 
-            SectionTitle("학습 설정")
-            SessionSizeSetting(
-                size = state.sessionSize,
-                error = state.sessionSizeError,
-                dirty = state.isSettingsDirty,
-                saving = state.isSettingsSaving,
-                onChange = onSessionSizeChange,
-                onSave = onSaveSettings,
-            )
-
-            SectionTitle("화면 테마")
-            ThemeToggle(selected = state.themeMode, onSelect = onThemeSelect)
-
-            // 설정 저장·로그아웃 등 일반 오류. 계정 삭제 오류는 삭제 카드 안에서만 보여준다(채널 분리).
-            if (state.noticeError != null) {
-                InfoNotice(state.noticeError)
-            }
-
-            // 로그아웃 — 회원에게만.
-            if (state.isMember) {
-                Spacer(Modifier.height(BcsDimens.space2))
-                LogoutRow(loggingOut = state.isLoggingOut, onLogout = onLogout)
-            }
-
-            // 계정 삭제 — 회원에게만, danger 허용 유일 지점.
-            if (state.isMember) {
-                DeleteSection(
-                    phase = state.deletePhase,
-                    error = state.deleteError,
-                    onRequestDelete = onRequestDelete,
-                    onCancelDelete = onCancelDelete,
-                    onConfirmDelete = onConfirmDelete,
+                SectionTitle("학습 설정")
+                SessionSizeSetting(
+                    size = state.sessionSize,
+                    error = state.sessionSizeError,
+                    dirty = state.isSettingsDirty,
+                    saving = state.isSettingsSaving,
+                    onChange = onSessionSizeChange,
+                    onSave = onSaveSettings,
                 )
-            }
 
-            Spacer(Modifier.height(BcsDimens.space4))
-            // 앱 정보/버전 — 하단.
-            Text(
-                text = "CS한입 v$appVersion",
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.textTertiary,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center,
+                SectionTitle("화면 테마")
+                ThemeToggle(selected = state.themeMode, onSelect = onThemeSelect)
+
+                // 설정 저장·로그아웃 등 일반 오류. 계정 삭제 오류는 확인 다이얼로그 안에서만 보여준다(채널 분리).
+                if (state.noticeError != null) {
+                    InfoNotice(state.noticeError)
+                }
+
+                // 로그아웃 — 회원에게만. 게스트에겐 로그아웃할 계정 자체가 없다.
+                if (state.isMember) {
+                    Spacer(Modifier.height(BcsDimens.space2))
+                    LogoutRow(loggingOut = state.isLoggingOut, onLogout = onLogout)
+                }
+
+                // 계정 삭제 — 회원에게만, danger 허용 유일 지점.
+                if (state.isMember) {
+                    DeleteEntryButton(onRequestDelete = onRequestDelete)
+                }
+
+                Spacer(Modifier.height(BcsDimens.space4))
+                // 앱 정보/버전 — 하단.
+                Text(
+                    text = "CS한입 v$appVersion",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textTertiary,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.height(BcsDimens.space4))
+            }
+        }
+
+        // §5.13 ConfirmDialog — 파괴적 행동 전용. 회원의 삭제 확인 단계에서만 등장한다.
+        if (state.isMember && state.deletePhase != DeletePhase.None) {
+            DeleteConfirmDialog(
+                phase = state.deletePhase,
+                error = state.deleteError,
+                onCancel = onCancelDelete,
+                onConfirm = onConfirmDelete,
             )
-            Spacer(Modifier.height(BcsDimens.space4))
         }
     }
 }
@@ -215,13 +226,14 @@ private fun AccountStatusHeader(state: AccountUiState, onNavigateToLogin: () -> 
                 color = colors.textPrimary,
             )
         } else {
+            // ⭐️ "게스트 계정"이 아니라 "게스트로 이용 중" — 게스트에겐 계정이 없다는 게 가입 승계 모델의 전제다.
             Text(
                 text = "게스트로 이용 중",
                 style = MaterialTheme.typography.titleMedium,
                 color = colors.textPrimary,
             )
             Text(
-                text = "가입하면 학습 기록이 안전하게 보관되고, 어느 기기에서든 이어져요.",
+                text = "학습 기록이 기기에만 저장돼요. 가입하면 기기를 바꿔도 그대로 이어져요.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.textSecondary,
             )
@@ -382,88 +394,104 @@ private fun LogoutRow(loggingOut: Boolean, onLogout: () -> Unit) {
 }
 
 /**
- * 계정 삭제 섹션 — danger 허용 유일 지점. 평상시엔 절제된 삭제 진입, 누르면 무엇이 사라지는지 명시하는 확인 카드.
- * 공포 연출(과한 빨강·위협 문구)은 피하고 사실 중심으로 안내한다.
+ * 계정 삭제 진입 — 목록에서 시각적으로 구분하되 위협적이지 않게(§3-5).
+ * 글자만 danger로 두고 테두리는 중립으로 둬서, 평상시 화면에 빨강 면적이 생기지 않게 한다.
+ * 실제 삭제는 [DeleteConfirmDialog]의 명시적 확인을 거쳐야만 일어난다.
  */
 @Composable
-private fun DeleteSection(
+private fun DeleteEntryButton(onRequestDelete: () -> Unit) {
+    GhostButton(
+        text = "계정 삭제",
+        onClick = onRequestDelete,
+        contentColor = MaterialTheme.colorScheme.error,
+        borderColor = LocalBcsColors.current.border,
+    )
+}
+
+/**
+ * §5.13 ConfirmDialog — 파괴적 행동 전용. 이 화면에서만 쓰이므로 private으로 인라인한다.
+ * bg `surface`, radius 16, padding 24dp, 제목 headingM, 설명 bodyS.
+ *
+ * ⭐️ 공포 연출 금지: 경고 배지·빨강 배경 없이 카드는 중립(surface)으로 두고,
+ * danger는 [삭제] 버튼 하나에만 남긴다. 문구는 비난 없이 무엇이 사라지는지 사실만 말한다.
+ */
+@Composable
+private fun DeleteConfirmDialog(
     phase: DeletePhase,
     error: String?,
-    onRequestDelete: () -> Unit,
-    onCancelDelete: () -> Unit,
-    onConfirmDelete: () -> Unit,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit,
 ) {
+    val colors = LocalBcsColors.current
     val colorScheme = MaterialTheme.colorScheme
+    val deleting = phase == DeletePhase.Deleting
 
-    if (phase == DeletePhase.None) {
-        // 절제된 진입 — error 톤의 GhostButton(테두리·글자만, 채우지 않아 위협적이지 않게).
-        GhostButton(
-            text = "계정 삭제",
-            onClick = onRequestDelete,
-            contentColor = colorScheme.error,
-            borderColor = colorScheme.error,
-        )
-        return
-    }
-
-    // 확인 단계 — 무엇이 사라지는지 + 되돌릴 수 없음.
-    Column(
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(colorScheme.errorContainer)
-            .padding(BcsDimens.space5)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-        verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+            .fillMaxSize()
+            .background(colorScheme.scrim.copy(alpha = SCRIM_ALPHA))
+            // ⭐️ 스크림 탭으로는 닫지 않는다. 되돌릴 수 없는 결정이라 취소도 명시적이어야 하고,
+            // 뒤 목록으로 클릭이 새는 것도 막는다.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+            ),
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        Text(
-            text = "계정을 삭제할까요?",
-            style = MaterialTheme.typography.titleMedium,
-            color = colorScheme.onErrorContainer,
-        )
-        Text(
-            text = "모든 학습 기록·숙련도·복습 일정이 삭제돼요. 삭제하면 되돌릴 수 없어요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colorScheme.onErrorContainer,
-        )
-        if (error != null) {
-            Text(
-                text = error,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onErrorContainer,
-            )
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = BcsDimens.contentMax)
+                .clip(RoundedCornerShape(topStart = BcsDimens.radiusSheet, topEnd = BcsDimens.radiusSheet))
+                .background(colorScheme.surface)
+                .padding(BcsDimens.space6)
+                // 열리는 순간 스크린리더가 무엇이 사라지는지 읽어 주도록 라이브 리전으로 둔다.
+                .semantics { liveRegion = LiveRegionMode.Polite },
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // ⭐️ 취소가 시각적으로 쉬운 기본 선택이 되도록 보이는 테두리의 GhostButton으로 둔다.
-            GhostButton(
-                text = "취소",
-                onClick = onCancelDelete,
-                enabled = phase != DeletePhase.Deleting,
-                contentColor = colorScheme.onErrorContainer,
-                borderColor = colorScheme.onErrorContainer,
-                modifier = Modifier.weight(1f),
+            Text(
+                text = "계정을 삭제할까요?",
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.textPrimary,
+                textAlign = TextAlign.Center,
             )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(BcsDimens.buttonHeight)
-                    .clip(RoundedCornerShape(BcsDimens.radiusCard))
-                    .background(colorScheme.error)
-                    .clickable(enabled = phase != DeletePhase.Deleting, onClick = onConfirmDelete),
-                contentAlignment = Alignment.Center,
-            ) {
+            Text(
+                text = "모든 학습 기록·숙련도·복습 일정이 삭제돼요. 되돌릴 수 없어요.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+                textAlign = TextAlign.Center,
+            )
+            if (error != null) {
                 Text(
-                    text = if (phase == DeletePhase.Deleting) "삭제 중…" else "삭제할게요",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = colorScheme.onError,
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                    textAlign = TextAlign.Center,
                 )
             }
+            Spacer(Modifier.height(BcsDimens.space2))
+            // ⭐️ 취소가 먼저·기본 선택. 삭제는 아래에 두어 실수로 먼저 닿지 않게 한다.
+            GhostButton(
+                text = "취소",
+                onClick = onCancel,
+                enabled = !deleting,
+                contentColor = colors.textPrimary,
+            )
+            // §5.13이 지정한 [삭제] = PrimaryButton(danger). Destructive 역할은 이 서비스에서 여기서만 쓴다.
+            PrimaryButton(
+                text = "삭제할게요",
+                onClick = onConfirm,
+                enabled = !deleting,
+                loading = deleting,
+                role = PrimaryButtonRole.Destructive,
+            )
         }
     }
 }
+
+private const val SCRIM_ALPHA = 0.4f
 
 @Composable
 private fun SectionTitle(text: String) {

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -51,7 +50,6 @@ import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.RetryNudge
-import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
@@ -59,10 +57,15 @@ import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.LocalBcsColors
 
 /**
- * DESIGN_SYSTEM.md §8 / `03 문제 풀이 화면`. 서비스의 히어로 화면.
+ * DESIGN_SYSTEM.md §8 / `03 문제 풀이 화면`을 세션 밖 **추가 연습**('조금 더 풀기')으로 재사용한 화면.
+ * 세션 내 풀이는 [watson.bytecs.session.SessionScreen]이며, 두 화면은 §5.6 공용 컴포넌트를 공유한다.
  *
  * 문제 하나 → 답 입력 → 정답 확인 → 세 피드백 상태(정답/불일치/근접) 중 하나.
  * ⭐️ 무낙인: 불일치·근접에 빨강·경고·벌점을 절대 쓰지 않는다.
+ *
+ * ⭐️ 세션 진행 인디케이터(`03` A-1)를 두지 않는다: 그 인디케이터는 정의상 '오늘의 한입 중 몇 번째'인데,
+ * 추가 연습은 세션 분량에 속하지 않아 셀 분량 자체가 없다. 분량 없는 진행도를 그리면 없는 목표를
+ * 지어내고, 다 채운 것처럼 보이는 순간 '조금 더 풀기'가 끝난 것처럼 읽힌다.
  */
 @Composable
 fun ProblemScreen(
@@ -103,8 +106,8 @@ private fun ProblemScreenContent(
     BcsScaffold(
         modifier = modifier,
         topBar = {
-            // 상단 세션·맥락 바. 분량 기반 진행만(카운트다운 타이머 아님) + 계정/나가기 진입점.
-            if (ready != null || onOpenAccount != null || onBack != null) {
+            // 맥락 바 — 나가기·계정 진입점만. 진행 인디케이터는 두지 않는다(위 KDoc 참고).
+            if (onOpenAccount != null || onBack != null) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -112,16 +115,13 @@ private fun ProblemScreenContent(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (onBack != null) {
+                        // 부담 없는 나가기(경고 모달 없음) — 추가 연습은 언제 그만둬도 잃을 게 없다.
                         TextLink(
                             text = "나가기",
                             onClick = onBack,
                             color = LocalBcsColors.current.textSecondary,
                             contentDescription = "연습 나가기",
                         )
-                        Spacer(Modifier.width(BcsDimens.space3))
-                    }
-                    if (ready != null) {
-                        SessionProgress(current = ready.current, total = ready.total)
                     }
                     Spacer(Modifier.weight(1f))
                     if (onOpenAccount != null) {
