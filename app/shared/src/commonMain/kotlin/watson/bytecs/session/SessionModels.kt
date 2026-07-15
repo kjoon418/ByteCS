@@ -23,13 +23,38 @@ enum class SessionStatus {
 }
 
 /**
+ * 힌트 하나(무낙인·비노출 계약). 정답을 유추할 정보를 담지 않는다.
+ *  - [text]: 힌트 본문. [codeSnippet]: 코드 예시(있을 때만).
+ *
+ * ⭐️ **미공개 힌트 본문은 절대 여기 실리지 않는다.** 서버는 이미 공개된 힌트만 [SessionProblem.revealedHints]로
+ * 내려주고, 새 공개는 '열기' 요청([SessionRepository.revealHint])의 응답으로만 받는다(no-leak, 인수인계 §3.3).
+ */
+data class SessionHint(
+    val text: String,
+    val codeSnippet: String? = null,
+)
+
+/**
  * 세션에서 '지금 풀 문제'. 정답을 유추할 정보(개념·허용답·해설)는 담지 않는다(무낙인·비노출).
+ *  - [hintCount]: 이 문제의 전체 힌트 수(0이면 진입점을 노출하지 않는다). 미공개 본문은 담지 않는다.
+ *  - [revealedHints]: 이미 공개한 힌트 본문(약→강, 재진입 복원용). 아직 안 연 것은 포함되지 않는다.
  */
 data class SessionProblem(
     val id: Long,
     val question: String,
     val difficulty: String? = null,
     val codeSnippet: String? = null,
+    val hintCount: Int = 0,
+    val revealedHints: List<SessionHint> = emptyList(),
+)
+
+/**
+ * 힌트 '열기' 결과. 서버가 원천이다 — 공개 수는 [revealedHints]`.size`로만 센다(클라 로컬 카운터를 신뢰하지 않는다).
+ *  - [hintCount]: 전체 힌트 수. [revealedHints]: 지금까지 공개된 전체 목록(약→강).
+ */
+data class HintReveal(
+    val hintCount: Int,
+    val revealedHints: List<SessionHint>,
 )
 
 /**
@@ -55,6 +80,9 @@ data class DailySession(
  *  - [concept]·[explanation]: 정답(CORRECT)일 때만 채워진다(비정답은 no-leak으로 null).
  *  - [currentProblem]: 정답으로 전진한 뒤 지금 풀 무낙인 문제. 완료됐으면 null.
  *  - [streak]: 이 제출로 세션이 완료됐을 때만 채워진다(04 완료 화면이 쓴다).
+ *  - [misconceptionHint]: 비정답이고 제출이 예상 오답(큐레이션됨)과 일치할 때만 채워진다(push·자동, 기능 2.5).
+ *    없는 게 정상이다 — 큐레이션 안 된 오답은 일반 불일치로 흐른다(막다른 길 없음). 서버는 매칭 시 결과를
+ *    MISMATCH로 확정한다(NEAR_MISS보다 우선). 무낙인: 있어도 오답 확정 아님, 정답 비노출.
  */
 data class AttemptOutcome(
     val result: JudgeResult,
@@ -66,6 +94,7 @@ data class AttemptOutcome(
     val explanation: String?,
     val currentProblem: SessionProblem?,
     val streak: Streak?,
+    val misconceptionHint: String? = null,
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }

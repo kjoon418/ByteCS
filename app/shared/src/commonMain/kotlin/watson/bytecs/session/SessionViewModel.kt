@@ -52,6 +52,7 @@ class SessionViewModel(
                     position = session.position,
                     total = session.totalCount,
                     solvedCount = session.solvedCount,
+                    revealedHints = problem.revealedHints,
                 )
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -104,7 +105,8 @@ class SessionViewModel(
                             isSubmitting = false,
                         )
                         JudgeResult.NEAR_MISS -> state.withNonCorrect(outcome, SessionFeedback.NearMiss)
-                        JudgeResult.MISMATCH -> state.withNonCorrect(outcome, SessionFeedback.Mismatch)
+                        JudgeResult.MISMATCH ->
+                            state.withNonCorrect(outcome, SessionFeedback.Mismatch(outcome.misconceptionHint))
                     }
                 }
             } catch (cancellation: CancellationException) {
@@ -130,6 +132,7 @@ class SessionViewModel(
                 position = state.pendingPosition ?: state.position,
                 total = state.total,
                 solvedCount = state.solvedCount,
+                revealedHints = next.revealedHints,
             )
         }
     }
@@ -162,6 +165,39 @@ class SessionViewModel(
             } catch (error: Throwable) {
                 _uiState.update { state ->
                     if (state is SessionUiState.Active) state.copy(isRevealing = false, systemError = true) else state
+                }
+            }
+        }
+    }
+
+    /**
+     * 다음 힌트 하나를 연다(pull, 약→강). 서버 왕복이다 — 힌트 열람은 학습 기록이라 영속돼야 한다(§3.2).
+     * 서버 응답의 공개 목록이 원천이므로, 성공했을 때만 [SessionUiState.Active.revealedHints]가 늘어난다.
+     *
+     * ⭐️ 열람 실패(네트워크 등)는 세션 진행을 막지 않는다 — 진행 표시만 내리고 조용히 둔다(무낙인, systemError 아님).
+     * 이미 요청 중이거나 더 열 힌트가 없으면 아무 것도 하지 않는다.
+     */
+    fun revealNextHint() {
+        val current = _uiState.value
+        if (current !is SessionUiState.Active || current.isRevealingHint || !current.hasMoreHints) return
+
+        _uiState.value = current.copy(isRevealingHint = true)
+        viewModelScope.launch {
+            try {
+                val result = repository.revealHint(current.revealedHintCount)
+                _uiState.update { state ->
+                    if (state is SessionUiState.Active) {
+                        state.copy(revealedHints = result.revealedHints, isRevealingHint = false)
+                    } else {
+                        state
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                // 진행을 막지 않는다 — 다음 제출로 자연히 재동기화된다. 진행 표시만 내린다.
+                _uiState.update { state ->
+                    if (state is SessionUiState.Active) state.copy(isRevealingHint = false) else state
                 }
             }
         }
@@ -217,6 +253,7 @@ class SessionViewModel(
             position = outcome.position,
             total = outcome.totalCount,
             solvedCount = outcome.solvedCount,
+            revealedHints = serverProblem.revealedHints,
         )
     }
 
@@ -248,6 +285,9 @@ sealed interface SessionUiState {
         val pendingNext: SessionProblem? = null,
         val pendingPosition: Int? = null,
         val past: PastView? = null,
+        // 공개된 힌트 본문(약→강). 서버 응답이 원천 — 새 문제 진입 시 problem.revealedHints로 복원한다(재진입 복원).
+        val revealedHints: List<SessionHint> = emptyList(),
+        val isRevealingHint: Boolean = false,
     ) : SessionUiState {
         /** 표시용 진행 번호(1-based). */
         val current: Int get() = position + 1
@@ -257,6 +297,12 @@ sealed interface SessionUiState {
 
         /** 되돌아볼 지난 문제가 있는지. */
         val hasPast: Boolean get() = position > 0
+
+        /** 지금까지 공개한 힌트 수(서버가 원천 — 목록 크기로만 센다). */
+        val revealedHintCount: Int get() = revealedHints.size
+
+        /** 아직 더 열 힌트가 있는지(전체 hintCount 대비). 없으면 진입점을 그리지 않는다. */
+        val hasMoreHints: Boolean get() = revealedHints.size < problem.hintCount
 
         /**
          * '정답 보기'를 제안할 수 있는지 — ⭐️ 최소 한 번 오답(불일치·근접)을 낸 뒤에만(no-leak 안전판).
@@ -271,7 +317,12 @@ sealed interface SessionUiState {
 /** 제출 피드백. 세 상태 모두 비처벌. 개념·해설은 정답일 때만. */
 sealed interface SessionFeedback {
     data class Correct(val concept: String?, val explanation: String?) : SessionFeedback
-    data object Mismatch : SessionFeedback
+
+    /**
+     * 불일치. [misconceptionHint]는 큐레이션된 예상 오답과 일치할 때만 실린다(push·자동, 기능 2.5) — 보통 null이다.
+     * 무낙인: 있어도 오답 확정 아님, 정답 비노출. danger 톤 금지(교정 카드는 info 톤).
+     */
+    data class Mismatch(val misconceptionHint: String? = null) : SessionFeedback
     data object NearMiss : SessionFeedback
 }
 

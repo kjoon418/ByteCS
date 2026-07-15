@@ -37,6 +37,7 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * @param text 힌트 본문. 정답을 담지 않는다(콘텐츠 계약).
  * @param codeSnippet 코드 예시(있을 때만).
  * @param drilldownLabel 선행 개념 힌트일 때 디딤 문제 진입 버튼의 라벨. null이면 버튼을 두지 않는다.
+ *   ⭐️ 서버가 채우지 않음 — 디딤 로드맵 승격 시 채움(작업 인수인계 §3.5, 옵션 A 채택). MVP에선 항상 null이다.
  */
 @Immutable
 data class BcsHint(

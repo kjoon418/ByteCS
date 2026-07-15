@@ -4,8 +4,10 @@ import kotlinx.serialization.Serializable
 import watson.bytecs.problem.JudgeResult
 import watson.bytecs.session.AttemptOutcome
 import watson.bytecs.session.DailySession
+import watson.bytecs.session.HintReveal
 import watson.bytecs.session.PastItem
 import watson.bytecs.session.Reveal
+import watson.bytecs.session.SessionHint
 import watson.bytecs.session.SessionProblem
 import watson.bytecs.session.SessionStatus
 import watson.bytecs.session.Streak
@@ -20,14 +22,33 @@ private fun String.toJudgeResult(): JudgeResult =
     JudgeResult.entries.find { it.name.equals(this, ignoreCase = true) }
         ?: throw IllegalStateException("알 수 없는 판정 결과: $this")
 
+/** 힌트 본문 하나. no-leak: 미공개 힌트는 서버가 이 목록에 넣지 않는다(공개된 것만). */
+@Serializable
+internal data class HintDto(
+    val text: String,
+    val codeSnippet: String? = null,
+) {
+    fun toDomain(): SessionHint = SessionHint(text, codeSnippet)
+}
+
 @Serializable
 internal data class SessionProblemDto(
     val id: Long,
     val question: String,
     val difficulty: String? = null,
     val codeSnippet: String? = null,
+    // 힌트: 전체 수(hintCount)만 항상 싣고, 본문은 공개된 것(revealedHints)만 싣는다(no-leak, 인수인계 §3.3).
+    val hintCount: Int = 0,
+    val revealedHints: List<HintDto> = emptyList(),
 ) {
-    fun toDomain(): SessionProblem = SessionProblem(id, question, difficulty, codeSnippet)
+    fun toDomain(): SessionProblem = SessionProblem(
+        id = id,
+        question = question,
+        difficulty = difficulty,
+        codeSnippet = codeSnippet,
+        hintCount = hintCount,
+        revealedHints = revealedHints.map { it.toDomain() },
+    )
 }
 
 @Serializable
@@ -74,6 +95,7 @@ internal data class SessionAttemptResponseDto(
     val explanation: String? = null,
     val currentProblem: SessionProblemDto? = null,
     val streak: StreakDto? = null,
+    val misconceptionHint: String? = null,
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -85,6 +107,7 @@ internal data class SessionAttemptResponseDto(
         explanation = explanation,
         currentProblem = currentProblem?.toDomain(),
         streak = streak?.toDomain(),
+        misconceptionHint = misconceptionHint,
     )
 }
 
@@ -112,6 +135,24 @@ internal data class RevealResponseDto(
     val acceptableAnswers: List<String>,
 ) {
     fun toDomain(): Reveal = Reveal(concept, explanation, acceptableAnswers)
+}
+
+/**
+ * `POST /api/sessions/today/hints/reveal` 요청 본문. 클라가 아는 현재 공개 수를 싣는다 —
+ * 서버는 현재 [revealedCount]와 일치할 때만 +1 한다(더블탭·경쟁 안전).
+ */
+@Serializable
+internal data class HintRevealRequestDto(
+    val revealedCount: Int,
+)
+
+/** `POST /api/sessions/today/hints/reveal` 응답(공개 후 전체 목록). */
+@Serializable
+internal data class HintStateResponseDto(
+    val hintCount: Int,
+    val revealedHints: List<HintDto> = emptyList(),
+) {
+    fun toDomain(): HintReveal = HintReveal(hintCount, revealedHints.map { it.toDomain() })
 }
 
 /** `GET /api/sessions/today/items/{position}` 응답. */

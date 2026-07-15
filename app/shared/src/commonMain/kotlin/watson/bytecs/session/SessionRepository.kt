@@ -14,6 +14,13 @@ interface SessionRepository {
     /** 현재 본 문제의 모범답안을 공개한다(안전판). `POST /api/sessions/today/reveal`. */
     suspend fun reveal(): Reveal
 
+    /**
+     * 다음 힌트 하나를 연다(약→강, pull). `POST /api/sessions/today/hints/reveal`.
+     * [revealedCount]는 클라가 아는 현재 공개 수 — 서버는 일치할 때만 +1 하고, 공개된 전체 목록을 돌려준다(서버가 원천).
+     * ⚠️ 정답 공개인 [reveal]와 다르다(이름 혼동 주의): 이쪽은 힌트, 저쪽은 모범답안.
+     */
+    suspend fun revealHint(revealedCount: Int): HintReveal
+
     /** 이미 지나온 본 문제를 읽기 전용으로 조회한다. `GET /api/sessions/today/items/{position}`. */
     suspend fun getPastItem(position: Int): PastItem
 }

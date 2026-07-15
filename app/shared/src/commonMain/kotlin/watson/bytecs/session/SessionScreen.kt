@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.AnswerTextField
+import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.ConceptChip
@@ -39,6 +40,8 @@ import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
 import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.GhostButton
+import watson.bytecs.ui.components.HintStepper
+import watson.bytecs.ui.components.MisconceptionHintCard
 import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
@@ -88,6 +91,7 @@ fun SessionScreen(
         onSubmit = viewModel::submit,
         onAdvance = viewModel::advance,
         onReveal = viewModel::requestReveal,
+        onRevealHint = viewModel::revealNextHint,
         onOpenPast = viewModel::openPast,
         onClosePast = viewModel::closePast,
         onRetry = viewModel::loadSession,
@@ -108,6 +112,7 @@ internal fun SessionScreenContent(
     onRetry: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    onRevealHint: () -> Unit = {},
 ) {
     val active = state as? SessionUiState.Active
 
@@ -182,6 +187,7 @@ internal fun SessionScreenContent(
                         onSubmit = onSubmit,
                         onAdvance = onAdvance,
                         onReveal = onReveal,
+                        onRevealHint = onRevealHint,
                         modifier = Modifier.weight(1f).fillMaxWidth()
                             .verticalScroll(rememberScrollState())
                             .padding(horizontal = BcsDimens.space5),
@@ -239,6 +245,7 @@ private fun ActiveContent(
     onSubmit: () -> Unit,
     onAdvance: () -> Unit,
     onReveal: () -> Unit,
+    onRevealHint: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -292,6 +299,16 @@ private fun ActiveContent(
             state.feedback?.let { feedback ->
                 Spacer(Modifier.height(BcsDimens.space4))
                 FeedbackCard(feedback)
+            }
+
+            // 힌트(pull) — 요청해야만 하나씩 열린다. hintCount 0이면 HintStepper가 진입점을 그리지 않는다.
+            if (state.problem.hintCount > 0) {
+                Spacer(Modifier.height(BcsDimens.space4))
+                HintStepper(
+                    hints = state.hintList(),
+                    revealedCount = state.revealedHintCount,
+                    onRevealNext = onRevealHint,
+                )
             }
 
             // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
@@ -352,10 +369,26 @@ private fun FeedbackCard(feedback: SessionFeedback) {
             explanation = feedback.explanation,
         )
 
-        SessionFeedback.Mismatch -> RetryNudge(modifier = announce)
+        // 불일치엔 비처벌 넛지. 큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
+        is SessionFeedback.Mismatch -> Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
+            RetryNudge(modifier = announce)
+            feedback.misconceptionHint?.let { hint -> MisconceptionHintCard(text = hint) }
+        }
 
         SessionFeedback.NearMiss -> NearMissNudge(modifier = announce)
     }
+}
+
+/**
+ * [HintStepper]에 넘길 [BcsHint] 목록. ⭐️ no-leak: 미공개 힌트 본문은 클라에 없으므로, 공개된 것만 실제 본문으로
+ * 채우고 나머지는 **렌더되지 않는** 자리표시자로 채운다(HintStepper는 revealedCount 미만만 그린다). 목록 길이가
+ * 전체 hintCount여야 '더 보기' 노출 판정(revealedCount < size)이 맞는다. [BcsHint.drilldownLabel]은 채우지 않는다
+ * (항상 null — 디딤은 로드맵, 옵션 A).
+ */
+private fun SessionUiState.Active.hintList(): List<BcsHint> {
+    val revealed = revealedHints.map { BcsHint(text = it.text, codeSnippet = it.codeSnippet) }
+    val hidden = (problem.hintCount - revealed.size).coerceAtLeast(0)
+    return revealed + List(hidden) { BcsHint(text = "") }
 }
 
 /** 지난 문제 읽기 전용 뷰. 문제·내 답·모범답안·개념·해설. */

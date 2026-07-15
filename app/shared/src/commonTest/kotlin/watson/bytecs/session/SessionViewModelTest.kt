@@ -84,7 +84,7 @@ class SessionViewModelTest {
         viewModel.submit()
 
         val state = viewModel.active()
-        assertEquals(SessionFeedback.Mismatch, state.feedback)
+        assertEquals(SessionFeedback.Mismatch(), state.feedback)
         assertEquals("프로세스", state.inputText, "불일치 후에도 입력 유지")
         assertFalse(state.solved)
     }
@@ -411,7 +411,7 @@ class SessionViewModelTest {
 
         val state = viewModel.active()
         assertEquals(1L, state.problem.id)
-        assertEquals(SessionFeedback.Mismatch, state.feedback)
+        assertEquals(SessionFeedback.Mismatch(), state.feedback)
         assertEquals("아무거나", state.inputText)
     }
 
@@ -422,9 +422,105 @@ class SessionViewModelTest {
 
         viewModel.onInputChange("프로세스")
         viewModel.submit()
-        assertEquals(SessionFeedback.Mismatch, viewModel.active().feedback)
+        assertEquals(SessionFeedback.Mismatch(), viewModel.active().feedback)
 
         viewModel.onInputChange("스레드")
         assertNull(viewModel.active().feedback, "입력을 고치면 직전 피드백이 지워진다")
+    }
+
+    // ── 힌트(pull) · 오답 교정 힌트(push) ────────────────────────────────────
+
+    /**
+     * ⭐️ 힌트 열기는 서버 왕복이고, 공개 목록은 **서버가 원천**이다 — 로컬 카운터를 올리는 게 아니라
+     * 서버 응답의 목록으로 갈아끼운다. 서버가 준 딱 그 목록이어야 이 단언이 통과한다(로컬 ++로 바꾸면 깨진다).
+     */
+    @Test
+    fun revealHint_success_replacesWithServerList() = runTest {
+        val serverList = listOf(SessionHint("서버가 준 첫 힌트"))
+        val repo = FakeSessionRepository(today = activeSession(problem = problem(1L, hintCount = 2)))
+        repo.onRevealHint = { HintReveal(hintCount = 2, revealedHints = serverList) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        assertEquals(0, viewModel.active().revealedHintCount, "진입 전에는 공개 0")
+        viewModel.revealNextHint()
+
+        val state = viewModel.active()
+        assertEquals(serverList, state.revealedHints, "서버가 준 목록이 원천")
+        assertEquals(1, state.revealedHintCount)
+        assertEquals(0, repo.lastRevealHintCount, "클라가 아는 현재 공개 수(0)를 서버에 보낸다")
+        assertEquals(1, repo.revealHintCount)
+    }
+
+    /** ⭐️ 재진입 복원: 서버가 이미 공개된 힌트를 실어 주면 로드 즉시 그 상태로 복원된다. */
+    @Test
+    fun load_restoresRevealedHints_forReentry() = runTest {
+        val already = listOf(SessionHint("이미 본 힌트"))
+        val repo = FakeSessionRepository(
+            today = activeSession(problem = problem(1L, hintCount = 2, revealedHints = already)),
+        )
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        val state = viewModel.active()
+        assertEquals(already, state.revealedHints, "서버가 준 공개 힌트로 복원")
+        assertEquals(1, state.revealedHintCount)
+        assertTrue(state.hasMoreHints, "2개 중 1개만 열렸으므로 더 열 수 있다")
+    }
+
+    /**
+     * ⭐️ 힌트 열람 실패(네트워크 등)는 세션 진행을 막지 않는다 — 시스템 오류로 취급하지 않고 진행 표시만 내린다.
+     * (submit 실패가 systemError를 세우는 것과 대비: 힌트는 보조 장치라 실패해도 무낙인·비차단.)
+     */
+    @Test
+    fun revealHint_failure_doesNotBlock_norSystemError() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(problem = problem(1L, hintCount = 2)))
+        repo.revealHintError = RuntimeException("network")
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.revealNextHint()
+
+        val state = viewModel.active()
+        assertEquals(0, state.revealedHintCount, "실패했으므로 공개는 늘지 않는다")
+        assertFalse(state.isRevealingHint, "진행 표시는 내려간다")
+        assertFalse(state.systemError, "힌트 열람 실패는 시스템 오류가 아니다")
+    }
+
+    /** 더 열 힌트가 없으면(전부 공개·힌트 0개) 서버에 닿지 않는다 — 헛된 왕복·상태 흔들림 방지. */
+    @Test
+    fun revealHint_whenNoMoreHints_doesNotReachServer() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(problem = problem(1L, hintCount = 0)))
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.revealNextHint()
+
+        assertEquals(0, repo.revealHintCount, "힌트가 없으면 열기 요청도 없다")
+    }
+
+    /** 오답 교정 힌트(push)는 불일치 피드백에 실려 온다 — 매칭된 오답에만 채워진다. */
+    @Test
+    fun mismatch_carriesMisconceptionHint_whenServerProvides() = runTest {
+        val repo = FakeSessionRepository()
+        repo.onSubmit = { mismatchOutcome(misconceptionHint = "그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요") }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("프로세스")
+        viewModel.submit()
+
+        val feedback = viewModel.active().feedback
+        assertTrue(feedback is SessionFeedback.Mismatch)
+        assertEquals("그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요", feedback.misconceptionHint)
+    }
+
+    /** 큐레이션 안 된 오답은 교정 힌트 없이 일반 불일치로 흐른다(막다른 길 없음). */
+    @Test
+    fun mismatch_withoutMisconception_isPlainMismatch() = runTest {
+        val repo = FakeSessionRepository().apply { onSubmit = { mismatchOutcome() } }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("아무 오답")
+        viewModel.submit()
+
+        val feedback = viewModel.active().feedback
+        assertTrue(feedback is SessionFeedback.Mismatch)
+        assertNull(feedback.misconceptionHint, "매칭 안 되면 교정 힌트는 없다")
     }
 }

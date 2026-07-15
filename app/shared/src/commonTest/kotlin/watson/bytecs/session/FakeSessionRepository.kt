@@ -14,13 +14,21 @@ class FakeSessionRepository(
     var submitError: Throwable? = null
     var revealError: Throwable? = null
     var pastError: Throwable? = null
+    var revealHintError: Throwable? = null
 
     var revealResult: Reveal = Reveal(concept = "스택", explanation = "LIFO 구조", acceptableAnswers = listOf("스택", "stack"))
     var pastResult: PastItem = pastItem(position = 0)
 
+    /** 힌트 열기 결과 공급자. 인자는 클라가 보낸 현재 공개 수. 기본은 +1(약→강 스크립트). */
+    var onRevealHint: (Int) -> HintReveal = { count ->
+        HintReveal(hintCount = 2, revealedHints = defaultHints.take(count + 1))
+    }
+
     val submitted = mutableListOf<String>()
     var submitCount = 0
     var revealCount = 0
+    var revealHintCount = 0
+    var lastRevealHintCount: Int? = null
     var lastPastPosition: Int? = null
 
     /** 제출 결과 공급자. 기본은 불일치(무진행). */
@@ -44,6 +52,13 @@ class FakeSessionRepository(
         return revealResult
     }
 
+    override suspend fun revealHint(revealedCount: Int): HintReveal {
+        revealHintCount++
+        lastRevealHintCount = revealedCount
+        revealHintError?.let { throw it }
+        return onRevealHint(revealedCount)
+    }
+
     override suspend fun getPastItem(position: Int): PastItem {
         lastPastPosition = position
         pastError?.let { throw it }
@@ -51,7 +66,23 @@ class FakeSessionRepository(
     }
 
     companion object {
-        fun problem(id: Long = 1L) = SessionProblem(id = id, question = "Q$id", difficulty = "EASY", codeSnippet = null)
+        val defaultHints = listOf(
+            SessionHint(text = "약한 힌트"),
+            SessionHint(text = "강한 힌트"),
+        )
+
+        fun problem(
+            id: Long = 1L,
+            hintCount: Int = 0,
+            revealedHints: List<SessionHint> = emptyList(),
+        ) = SessionProblem(
+            id = id,
+            question = "Q$id",
+            difficulty = "EASY",
+            codeSnippet = null,
+            hintCount = hintCount,
+            revealedHints = revealedHints,
+        )
 
         fun activeSession(
             position: Int = 0,
@@ -100,7 +131,7 @@ class FakeSessionRepository(
             streak = streak,
         )
 
-        fun mismatchOutcome(total: Int = 3) = AttemptOutcome(
+        fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(
             result = JudgeResult.MISMATCH,
             status = SessionStatus.IN_PROGRESS,
             solvedCount = 0,
@@ -110,6 +141,7 @@ class FakeSessionRepository(
             explanation = null,
             currentProblem = problem(1L),
             streak = null,
+            misconceptionHint = misconceptionHint,
         )
 
         fun nearMissOutcome(total: Int = 3) = mismatchOutcome(total).copy(result = JudgeResult.NEAR_MISS)

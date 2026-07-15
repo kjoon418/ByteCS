@@ -103,7 +103,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 오답_피드백_상태에서도_정답이_새지_않는다() = runScreen(
-        active(inputText = "해싱", feedback = SessionFeedback.Mismatch),
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
     ) {
         onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
         onNodeWithText(answer, substring = true).assertDoesNotExist()
@@ -140,7 +140,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 오답_피드백에_처벌_문구가_없다() = runScreen(
-        active(inputText = "해싱", feedback = SessionFeedback.Mismatch),
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
     ) {
         onNodeWithText("오답", substring = true).assertDoesNotExist()
         onNodeWithText("틀렸", substring = true).assertDoesNotExist()
@@ -154,7 +154,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 정답_보기_진입점은_자기비하_문구를_쓰지_않는다() = runScreen(
-        active(inputText = "해싱", feedback = SessionFeedback.Mismatch),
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
     ) {
         onNodeWithText("정답 보기").assertIsDisplayed()
         onNodeWithText("모르겠", substring = true).assertDoesNotExist()
@@ -228,7 +228,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 따라_입력이_어긋나도_처벌하지_않는다() = runScreen(
-        active(inputText = "해시충", feedback = SessionFeedback.Mismatch, reveal = revealOf()),
+        active(inputText = "해시충", feedback = SessionFeedback.Mismatch(), reveal = revealOf()),
     ) {
         onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
         onNodeWithText("오답", substring = true).assertDoesNotExist()
@@ -421,5 +421,71 @@ class SessionScreenUiTest {
         active(position = 2, past = PastView.Loading),
     ) {
         onNodeWithText("정답 확인하기").assertDoesNotExist()
+    }
+
+    // ── 힌트(pull) 진입점 ─────────────────────────────────────────────────
+
+    /** 힌트가 있는 문제는 '힌트 보기' 진입점을 내건다(본문은 아직 없다 — 요청해야 열린다). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 힌트가_있으면_힌트_보기_진입점이_보인다() = runScreen(
+        active().copy(problem = problem.copy(hintCount = 2)),
+    ) {
+        onNodeWithText("힌트 보기").assertIsDisplayed()
+    }
+
+    /** ⭐️ 힌트가 0개인 문제는 진입점 자체를 노출하지 않는다(눌러도 아무것도 없는 버튼 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 힌트가_없는_문제는_힌트_진입점을_노출하지_않는다() = runScreen(active()) {
+        onNodeWithText("힌트 보기").assertDoesNotExist()
+    }
+
+    /**
+     * ⭐️ 재진입 복원 + no-leak: 서버가 공개한 힌트만 본문으로 보인다. 아직 안 연 힌트가 남았으면 '더 보기'가 뜨고,
+     * 미공개 본문은 화면 어디에도 없다(자리표시자는 렌더되지 않는다).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 공개된_힌트만_보이고_남은_힌트는_더_보기로_남는다() = runScreen(
+        active().copy(
+            problem = problem.copy(hintCount = 2, revealedHints = listOf(SessionHint("이미 본 힌트"))),
+            revealedHints = listOf(SessionHint("이미 본 힌트")),
+        ),
+    ) {
+        onNodeWithText("이미 본 힌트").assertIsDisplayed()
+        onNodeWithText("더 보기").assertIsDisplayed()
+    }
+
+    // ── 오답 교정 힌트(push) ─────────────────────────────────────────────
+
+    /**
+     * ⭐️ 큐레이션된 오답이면 교정 힌트 카드가 불일치 넛지와 함께 뜬다.
+     * 무낙인: 교정 메시지가 있어도 처벌·오답 확정 문구는 없다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 오답_교정_힌트가_있으면_카드로_함께_뜬다() = runScreen(
+        active(
+            inputText = "프로세스",
+            feedback = SessionFeedback.Mismatch("실행 흐름의 단위를 다시 떠올려 봐요"),
+        ),
+    ) {
+        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertIsDisplayed()
+        onNodeWithText("오답", substring = true).assertDoesNotExist()
+    }
+
+    /**
+     * 교정 힌트가 없는 오답은 일반 불일치로만 흐른다 — 교정 카드를 억지로 만들지 않는다(막다른 길 없음).
+     * 위 [오답_교정_힌트가_있으면_카드로_함께_뜬다]와 짝을 이뤄, 카드가 misconceptionHint 유무에만 달렸음을 못박는다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 교정_힌트가_없으면_교정_카드가_없다() = runScreen(
+        active(inputText = "아무 오답", feedback = SessionFeedback.Mismatch(null)),
+    ) {
+        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertDoesNotExist()
     }
 }

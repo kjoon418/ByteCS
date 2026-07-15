@@ -13,6 +13,7 @@ import kotlinx.serialization.json.Json
 import watson.bytecs.problem.data.platformApiBaseUrl
 import watson.bytecs.session.AttemptOutcome
 import watson.bytecs.session.DailySession
+import watson.bytecs.session.HintReveal
 import watson.bytecs.session.ItemNotViewableException
 import watson.bytecs.session.PastItem
 import watson.bytecs.session.Reveal
@@ -48,6 +49,14 @@ class KtorSessionRepository(
 
     override suspend fun reveal(): Reveal = mapSessionErrors {
         val dto: RevealResponseDto = client.post("$baseUrl/api/sessions/today/reveal").body()
+        dto.toDomain()
+    }
+
+    override suspend fun revealHint(revealedCount: Int): HintReveal = mapSessionErrors {
+        val dto: HintStateResponseDto = client.post("$baseUrl/api/sessions/today/hints/reveal") {
+            contentType(ContentType.Application.Json)
+            setBody(HintRevealRequestDto(revealedCount))
+        }.body()
         dto.toDomain()
     }
 
