@@ -1,0 +1,18 @@
+package watson.bytecs.scrap.application.dto
+
+import java.time.Instant
+
+/**
+ * 스크랩한 문제의 읽기 전용 재열람. 이미 스크랩(정답 접근 가능 맥락)한 것이므로 개념·모범답안·해설을 공개해도 학습 효과를 해치지 않는다.
+ * 세션 진행 상태(위치·내가 쓴 답 등)와 무관하므로 PastItemResponse 대신 스크랩 전용 형태로 둔다.
+ */
+data class ScrapDetailResponse(
+    val problemId: Long,
+    val question: String,
+    val codeSnippet: String?,
+    val difficulty: String?,
+    val concept: String,
+    val explanation: String?,
+    val acceptableAnswers: List<String>,
+    val scrappedAt: Instant,
+)

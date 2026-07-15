@@ -16,6 +16,7 @@ import watson.bytecs.account.domain.InvalidCredentialsException
 import watson.bytecs.account.domain.InvalidUserStateException
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.problem.domain.ProblemNotFoundException
+import watson.bytecs.scrap.domain.ScrapNotFoundException
 import watson.bytecs.session.domain.ItemNotViewableException
 import watson.bytecs.session.domain.RevealNotAllowedException
 import watson.bytecs.session.domain.SessionAlreadyCompletedException
@@ -83,6 +84,14 @@ class GlobalExceptionHandler {
         log.warn("[Not Found] {}", exception.message)
 
         val response = ErrorResponse(exception.message ?: "세션을 찾을 수 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
+    }
+
+    @ExceptionHandler(ScrapNotFoundException::class)
+    fun handleScrapNotFound(exception: ScrapNotFoundException): ResponseEntity<ErrorResponse> {
+        log.warn("[Not Found] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "스크랩을 찾을 수 없습니다.", exception.errorCode)
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
     }
 
