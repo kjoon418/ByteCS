@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,10 +32,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.AnswerTextField
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
+import watson.bytecs.ui.components.ConceptChip
+import watson.bytecs.ui.components.CorrectFeedback
+import watson.bytecs.ui.components.DifficultyIndicator
+import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.GhostButton
+import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
+import watson.bytecs.ui.components.RetryNudge
+import watson.bytecs.ui.components.RevealAnswerButton
 import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
+import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
@@ -211,7 +218,7 @@ private fun ActiveContent(
         Spacer(Modifier.height(BcsDimens.space2))
 
         difficultyLabel(state.problem.difficulty)?.let { label ->
-            Text(label, style = MaterialTheme.typography.labelMedium, color = colors.difficulty)
+            DifficultyIndicator(label)
             Spacer(Modifier.height(BcsDimens.space2))
         }
 
@@ -247,17 +254,15 @@ private fun ActiveContent(
         // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
         if (state.canReveal) {
             Spacer(Modifier.height(BcsDimens.space4))
-            TextLink(text = "정답 보기", onClick = onReveal, color = colors.textSecondary)
+            RevealAnswerButton(onClick = onReveal)
         }
 
-        // 시스템 오류(전송 실패) — 오답과 구분(§5.12), 안심 문구 우선.
+        // 시스템 오류(전송 실패) — 오답과 구분(§5.12), 안심 문구 우선 + 재시도 경로.
         if (state.systemError) {
             Spacer(Modifier.height(BcsDimens.space4))
-            NudgeCard(
-                text = "잠시 연결이 원활하지 않았어요. 학습 기록은 안전하니 다시 시도해 주세요.",
-                background = colors.infoContainer,
-                stripe = colors.info,
-                textColor = colors.onInfoContainer,
+            ErrorBanner(
+                message = "잠시 연결이 원활하지 않았어요. 다시 시도해 주세요.",
+                onRetry = onSubmit,
             )
         }
 
@@ -265,40 +270,24 @@ private fun ActiveContent(
     }
 }
 
-/** 세 피드백 상태 카드. 정답=긍정, 불일치=중립 넛지, 근접=info(정답·개념 비노출). */
+/**
+ * 세 피드백 상태 카드. 정답=긍정, 불일치=중립 넛지, 근접=info(정답·개념 비노출).
+ * 시각 구현은 03 시안을 함께 쓰는 [watson.bytecs.problem.ProblemScreen]과 공유한다(§5.6 컴포넌트).
+ * 상태 변화를 스크린리더가 즉시 읽도록 라이브 리전을 씌운다.
+ */
 @Composable
 private fun FeedbackCard(feedback: SessionFeedback) {
-    val colors = LocalBcsColors.current
+    val announce = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     when (feedback) {
-        is SessionFeedback.Correct -> Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(BcsDimens.radiusCard))
-                .background(colors.successContainer)
-                .semantics { liveRegion = LiveRegionMode.Polite }
-                .padding(BcsDimens.space4),
-            verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
-        ) {
-            Text("맞았어요!", style = MaterialTheme.typography.titleMedium, color = colors.onSuccessContainer)
-            feedback.concept?.let { ConceptChip(it) }
-            feedback.explanation?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.onSuccessContainer)
-            }
-        }
-
-        SessionFeedback.Mismatch -> NudgeCard(
-            text = "아직이에요, 다시 해볼까요?",
-            background = colors.neutralNudgeBackground,
-            stripe = colors.neutralNudgeForeground,
-            textColor = colors.neutralNudgeForeground,
+        is SessionFeedback.Correct -> CorrectFeedback(
+            modifier = announce,
+            concept = feedback.concept,
+            explanation = feedback.explanation,
         )
 
-        SessionFeedback.NearMiss -> NudgeCard(
-            text = "거의 맞았어요, 오타를 확인해보세요",
-            background = colors.infoContainer,
-            stripe = colors.info,
-            textColor = colors.onInfoContainer,
-        )
+        SessionFeedback.Mismatch -> RetryNudge(modifier = announce)
+
+        SessionFeedback.NearMiss -> NearMissNudge(modifier = announce)
     }
 }
 
@@ -376,45 +365,6 @@ private fun LabeledBlock(label: String, value: String) {
     }
 }
 
-/** 좌측 액센트 스트라이프 넛지 카드(비처벌 공통 골격). */
-@Composable
-private fun NudgeCard(
-    text: String,
-    background: androidx.compose.ui.graphics.Color,
-    stripe: androidx.compose.ui.graphics.Color,
-    textColor: androidx.compose.ui.graphics.Color,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(background)
-            .semantics { liveRegion = LiveRegionMode.Polite },
-    ) {
-        Box(
-            Modifier
-                .width(BcsDimens.accentStripe)
-                .height(BcsDimens.inputHeight)
-                .background(stripe),
-        )
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = textColor, modifier = Modifier.padding(BcsDimens.space4))
-    }
-}
-
-@Composable
-private fun ConceptChip(concept: String) {
-    val colors = LocalBcsColors.current
-    Text(
-        text = concept,
-        style = MaterialTheme.typography.labelMedium,
-        color = colors.onInfoContainer,
-        modifier = Modifier
-            .clip(RoundedCornerShape(BcsDimens.radiusFull))
-            .background(colors.infoContainer)
-            .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1),
-    )
-}
-
 @Composable
 private fun SessionSkeleton(modifier: Modifier = Modifier) {
     val colors = LocalBcsColors.current
@@ -438,11 +388,4 @@ private fun SessionError(onRetry: () -> Unit, modifier: Modifier = Modifier) {
         Text("학습 기록은 안전해요. 잠시 후 다시 시도해 주세요.", style = MaterialTheme.typography.bodyMedium, color = colors.textSecondary)
         PrimaryButton(text = "다시 시도하기", onClick = onRetry)
     }
-}
-
-private fun difficultyLabel(difficulty: String?): String? = when (difficulty?.uppercase()) {
-    "EASY" -> "쉬움"
-    "MEDIUM" -> "보통"
-    "HARD" -> "어려움"
-    else -> null
 }
