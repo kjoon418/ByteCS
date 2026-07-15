@@ -1,0 +1,185 @@
+<html>
+        <head>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" crossorigin="anonymous">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous">
+            <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" crossorigin="anonymous"></script>
+            <style> * { font-family: 'Pretendard', sans-serif; } </style>
+        </head>
+
+        
+<div class="ui-screen">
+    <div id="app" class="relative w-[390px] min-min-h-[840px] bg-[#F8F9FA] flex flex-col font-['Pretendard'] text-[#1A1A1A]">
+    <!-- Header -->
+    <header id="header" class="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-[#EEEEEE] px-5 py-4 flex items-center justify-between">
+        <h1 class="text-[20px] font-bold tracking-tight">설정</h1>
+        <button class="w-10 h-10 flex items-center justify-center text-[#666666]">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+    </header>
+
+    <!-- Content -->
+    <main id="content" class="flex-1 px-5 py-6 space-y-8">
+        
+        <!-- Profile Section (Guest State) -->
+        <section id="account-status" class="bg-white rounded-3xl p-6 shadow-sm border border-[#F0F0F0]">
+            <div class="flex items-center gap-4 mb-5">
+                <div class="relative">
+                    <img src="https://vinsign.app/resources/avatars/avatar-5.png" alt="Guest Avatar" class="w-16 h-16 rounded-2xl bg-[#EFEFEF] object-cover">
+                    <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-[#999999] border-2 border-white rounded-full flex items-center justify-center">
+                        <i class="fa-solid fa-user text-[10px] text-white"></i>
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-[18px] font-bold">게스트 계정</h2>
+                    <p class="text-[13px] text-[#888888] mt-0.5">학습 기록이 기기에만 저장됩니다</p>
+                </div>
+            </div>
+            
+            <!-- Guest CTA Banner -->
+            <button id="cta-signup" class="w-full bg-[#4F46E5] hover:bg-[#4338CA] transition-colors rounded-2xl p-4 flex items-center justify-between group">
+                <div class="text-left">
+                    <p class="text-white text-[15px] font-bold">가입하고 기록 지키기</p>
+                    <p class="text-white/70 text-[12px] mt-0.5">기기를 바꿔도 학습 데이터를 유지하세요</p>
+                </div>
+                <i class="fa-solid fa-chevron-right text-white/50 group-hover:translate-x-1 transition-transform"></i>
+            </button>
+        </section>
+
+        <!-- General Settings Group -->
+        <section id="settings-general" class="space-y-3">
+            <h3 class="text-[13px] font-semibold text-[#888888] px-1 uppercase tracking-wider">앱 설정</h3>
+            <div class="bg-white rounded-3xl border border-[#F0F0F0] overflow-hidden">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-[#F9F9F9]">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#F0F0FF] flex items-center justify-center text-[#4F46E5]">
+                            <i class="fa-solid fa-circle-half-stroke"></i>
+                        </div>
+                        <span class="text-[15px] font-medium">화면 테마</span>
+                    </div>
+                    <div class="flex bg-[#F0F0F0] p-1 rounded-full text-[12px] font-semibold">
+                        <button class="px-3 py-1 rounded-full bg-white shadow-sm text-[#1A1A1A]">시스템</button>
+                        <button class="px-3 py-1 rounded-full text-[#888888]">라이트</button>
+                        <button class="px-3 py-1 rounded-full text-[#888888]">다크</button>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between px-5 py-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#FFF0F0] flex items-center justify-center text-[#FF4D4D]">
+                            <i class="fa-solid fa-bell"></i>
+                        </div>
+                        <span class="text-[15px] font-medium">학습 알림</span>
+                    </div>
+                    <div class="w-10 h-5 bg-[#E2E8F0] rounded-full relative">
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-all"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Support Group -->
+        <section id="settings-support" class="space-y-3">
+            <h3 class="text-[13px] font-semibold text-[#888888] px-1 uppercase tracking-wider">고객 지원</h3>
+            <div class="bg-white rounded-3xl border border-[#F0F0F0] overflow-hidden">
+                <button class="w-full flex items-center justify-between px-5 py-4 border-b border-[#F9F9F9] active:bg-[#F9F9F9] transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#F0F9FF] flex items-center justify-center text-[#0EA5E9]">
+                            <i class="fa-solid fa-circle-question"></i>
+                        </div>
+                        <span class="text-[15px] font-medium">자주 묻는 질문</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[#CCCCCC] text-[12px]"></i>
+                </button>
+                <button class="w-full flex items-center justify-between px-5 py-4 border-b border-[#F9F9F9] active:bg-[#F9F9F9] transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center text-[#666666]">
+                            <i class="fa-solid fa-file-lines"></i>
+                        </div>
+                        <span class="text-[15px] font-medium">이용약관 및 정책</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[#CCCCCC] text-[12px]"></i>
+                </button>
+                <button class="w-full flex items-center justify-between px-5 py-4 active:bg-[#F9F9F9] transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center text-[#666666]">
+                            <i class="fa-solid fa-envelope"></i>
+                        </div>
+                        <span class="text-[15px] font-medium">문의하기</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-right text-[#CCCCCC] text-[12px]"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- Account Management (Destructive) -->
+        <section id="settings-account" class="space-y-3 pt-4">
+            <div class="bg-white rounded-3xl border border-[#F0F0F0] overflow-hidden">
+                <button class="w-full flex items-center gap-3 px-5 py-4 active:bg-[#F9F9F9] transition-colors text-[#888888]">
+                    <div class="w-8 h-8 rounded-lg bg-[#F5F5F5] flex items-center justify-center">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </div>
+                    <div class="text-left">
+                        <span class="text-[15px] font-medium block">로그아웃</span>
+                        <span class="text-[11px] opacity-70">다시 로그인하면 기록이 그대로예요</span>
+                    </div>
+                </button>
+            </div>
+            
+            <button id="btn-delete-account" class="w-full flex items-center justify-center gap-2 py-4 text-[#FF4D4D] text-[14px] font-medium opacity-80 hover:opacity-100 transition-opacity">
+                <i class="fa-solid fa-user-xmark text-[12px]"></i>
+                계정 삭제
+            </button>
+        </section>
+
+        <!-- App Info -->
+        <footer id="footer" class="pt-4 pb-12 text-center">
+            <p class="text-[12px] text-[#CCCCCC] font-medium tracking-tight">Vinsign Learning App</p>
+            <p class="text-[11px] text-[#DDDDDD] mt-1">버전 1.2.4 (2026.05.20)</p>
+        </footer>
+    </main>
+
+    <!-- Account Deletion Confirmation Modal (Hidden Overlay State Simulation) -->
+    <!-- This is structurally here but would be toggled in real implementation. 
+         Designed to be visually safe and clear as per guidelines. -->
+    <div id="delete-confirmation" class="hidden absolute inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end">
+        <div class="w-full bg-white rounded-t-[32px] p-8 space-y-6">
+            <div class="w-12 h-1 bg-[#EEEEEE] rounded-full mx-auto"></div>
+            <div class="text-center space-y-2">
+                <div class="w-16 h-16 bg-[#FFF0F0] text-[#FF4D4D] rounded-full flex items-center justify-center mx-auto mb-2">
+                    <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
+                </div>
+                <h4 class="text-[20px] font-bold">정말 삭제하시겠어요?</h4>
+                <p class="text-[14px] text-[#666666] leading-relaxed">
+                    모든 학습 기록, 숙련도 데이터, 복습 일정이 즉시 삭제됩니다. <br>
+                    <span class="font-bold text-[#FF4D4D]">이 동작은 되돌릴 수 없습니다.</span>
+                </p>
+            </div>
+            <div class="space-y-3">
+                <button class="w-full py-4 bg-[#FF4D4D] text-white font-bold rounded-2xl shadow-lg shadow-red-100">모든 데이터 삭제</button>
+                <button class="w-full py-4 bg-[#F5F5F5] text-[#666666] font-bold rounded-2xl">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <nav id="bottom-nav" class="bg-white border-t border-[#EEEEEE] px-6 py-3 flex items-center justify-between pb-8">
+        <button class="flex flex-col items-center gap-1 text-[#CCCCCC]">
+            <i class="fa-solid fa-house text-[20px]"></i>
+            <span class="text-[10px] font-bold">홈</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-[#CCCCCC]">
+            <i class="fa-solid fa-book-open text-[20px]"></i>
+            <span class="text-[10px] font-bold">학습</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-[#CCCCCC]">
+            <i class="fa-solid fa-chart-simple text-[20px]"></i>
+            <span class="text-[10px] font-bold">통계</span>
+        </button>
+        <button class="flex flex-col items-center gap-1 text-[#4F46E5]">
+            <i class="fa-solid fa-gear text-[20px]"></i>
+            <span class="text-[10px] font-bold">설정</span>
+        </button>
+    </nav>
+</div>
+</div>
+
+</html>
