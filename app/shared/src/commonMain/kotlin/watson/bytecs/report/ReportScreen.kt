@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -26,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.ErrorBanner
@@ -36,10 +40,10 @@ import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
 
 /**
- * 07 콘텐츠 오류 신고 화면(`docs/design/07 콘텐츠 오류 신고 화면 디자인.html`).
+ * 07 콘텐츠 오류 신고 화면(`docs/design/07 콘텐츠 오류 신고 화면 디자인.html`, team-plan.md §B [계약 v2]).
  *
- * 시안의 카테고리 선택지는 두지 않는다(팀 계약: 자유 서술 message 한 필드 + 제출).
- * ⭐️ 빈 입력으로는 보낼 수 없다(뷰모델·서버 모두 blank 거부). 전송 실패는 무낙인 시스템 오류로 안내한다(§5.12).
+ * 신고 유형 단일 선택 4개(필수) + 상세 내용 textarea(선택). 유형만 고르면 제출할 수 있다.
+ * ⭐️ 전송 실패는 무낙인 시스템 오류로 안내한다(§5.12).
  */
 @Composable
 fun ReportScreen(
@@ -50,6 +54,7 @@ fun ReportScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     ReportScreenContent(
         state = state,
+        onCategorySelect = viewModel::onCategorySelect,
         onMessageChange = viewModel::onMessageChange,
         onSubmit = viewModel::submit,
         onClose = onClose,
@@ -60,6 +65,7 @@ fun ReportScreen(
 @Composable
 internal fun ReportScreenContent(
     state: ReportUiState,
+    onCategorySelect: (ReportCategory) -> Unit,
     onMessageChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onClose: () -> Unit,
@@ -96,8 +102,8 @@ internal fun ReportScreenContent(
                     PrimaryButton(
                         text = "신고 보내기",
                         onClick = onSubmit,
-                        // ⭐️ 빈 입력 제출 불가.
-                        enabled = state.message.isNotBlank(),
+                        // ⭐️ 제출 가능 조건은 유형 선택뿐 — 상세 내용은 비어도 된다.
+                        enabled = state.category != null,
                         loading = state.isSubmitting,
                     )
                 }
@@ -136,15 +142,27 @@ internal fun ReportScreenContent(
                 }
             } else {
                 Spacer(Modifier.height(BcsDimens.space2))
+
+                // 신고 유형(단일 선택, 필수).
+                Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
+                    for (category in ReportCategory.entries) {
+                        ReportCategoryOption(
+                            category = category,
+                            selected = state.category == category,
+                            onSelect = { onCategorySelect(category) },
+                        )
+                    }
+                }
+
                 Text(
-                    text = "무엇이 잘못됐는지 알려주세요",
+                    text = "상세 내용 (선택)",
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.textLabel,
                 )
                 ReportMessageField(
                     value = state.message,
                     onValueChange = onMessageChange,
-                    placeholder = "예: 정답이 틀렸어요 / 문제 설명에 오류가 있어요",
+                    placeholder = "오류에 대해 더 자세히 알려주세요...",
                 )
 
                 if (state.submitFailed) {
@@ -161,9 +179,61 @@ internal fun ReportScreenContent(
 }
 
 /**
- * 자유 서술 신고 입력(여러 줄). [watson.bytecs.ui.components.AnswerTextField]와 시각 골격을 공유하되
+ * 신고 유형 한 항목 — 단일 선택 라디오 카드. 시안(07)의 선택 카드 골격을 따른다:
+ * 선택 시 primary 테두리·배경, 미선택 시 중립 테두리. 유형은 4개 고정([ReportCategory]).
+ */
+@Composable
+private fun ReportCategoryOption(
+    category: ReportCategory,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBcsColors.current
+    val primary = MaterialTheme.colorScheme.primary
+    val borderColor = if (selected) primary else colors.border
+    val backgroundColor = if (selected) colors.infoContainer else MaterialTheme.colorScheme.surface
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusCard))
+            .background(backgroundColor)
+            .border(BcsDimens.borderWidth, borderColor, RoundedCornerShape(BcsDimens.radiusCard))
+            .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
+            .padding(BcsDimens.space4),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+    ) {
+        // 라디오 표시(아이콘 폰트 의존 없이 원으로 그린다).
+        Box(
+            modifier = Modifier
+                .size(BcsDimens.iconCheck)
+                .clip(CircleShape)
+                .border(BcsDimens.borderWidthStrong, if (selected) primary else colors.border, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(BcsDimens.space2)
+                        .clip(CircleShape)
+                        .background(primary),
+                )
+            }
+        }
+        Text(
+            text = category.label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (selected) colors.onInfoContainer else colors.textPrimary,
+        )
+    }
+}
+
+/**
+ * 상세 내용(선택) 입력(여러 줄). [watson.bytecs.ui.components.AnswerTextField]와 시각 골격을 공유하되
  * 여러 줄을 받는다. 단일 화면에서만 쓰이므로 별도 공용 컴포넌트로 빼지 않는다.
- * ⭐️ 무낙인: 검증 실패에도 테두리를 danger로 바꾸지 않는다 — 제출 버튼 비활성으로만 안내한다.
+ * ⭐️ 무낙인: 선택 입력이라 빈 값으로도 제출을 막지 않는다 — 테두리도 danger로 바꾸지 않는다.
  */
 @Composable
 private fun ReportMessageField(

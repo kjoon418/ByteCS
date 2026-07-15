@@ -7,12 +7,23 @@ package watson.bytecs.report
 interface ContentReportRepository {
     /**
      * 문제의 콘텐츠 오류를 신고한다. `POST /api/problems/{problemId}/reports`.
-     * [message]는 빈 문자열이 아니어야 한다(빈 신고는 화면·서버 모두 거부).
+     * [category]는 필수(서버가 미지원 값을 거부), [message]는 선택(비어도 제출 가능).
      */
-    suspend fun report(problemId: Long, message: String)
+    suspend fun report(problemId: Long, category: ReportCategory, message: String?)
 
     /** 보유 자원(HTTP 클라이언트 등)을 정리한다. 자원이 없는 구현은 no-op. */
     fun close() {}
+}
+
+/**
+ * 신고 유형(단일 선택, 필수). 라벨은 클라이언트 라이팅이고 서버는 [name]을 코드로 저장한다
+ * (team-plan.md §B [계약 v2]).
+ */
+enum class ReportCategory(val label: String) {
+    WRONG_ANSWER("정답이 틀려요"),
+    QUESTION_ERROR("문제 설명에 오류가 있어요"),
+    HINT_ERROR("힌트에 오류가 있어요"),
+    OTHER("기타"),
 }
 
 /**
@@ -23,11 +34,11 @@ class FakeContentReportRepository(
     private val failWith: Throwable? = null,
 ) : ContentReportRepository {
 
-    /** 접수된 신고(문제 id → 메시지). 검증용. */
-    val submitted = mutableListOf<Pair<Long, String>>()
+    /** 접수된 신고(문제 id, 유형, 상세 내용). 검증용. */
+    val submitted = mutableListOf<Triple<Long, ReportCategory, String?>>()
 
-    override suspend fun report(problemId: Long, message: String) {
+    override suspend fun report(problemId: Long, category: ReportCategory, message: String?) {
         failWith?.let { throw it }
-        submitted.add(problemId to message)
+        submitted.add(Triple(problemId, category, message))
     }
 }
