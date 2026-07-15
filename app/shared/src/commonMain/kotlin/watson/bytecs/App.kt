@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -92,15 +94,27 @@ fun App(
  * 상태 기반 내비게이션(내비 라이브러리 없음). 명시적 백스택으로 이동·뒤로가기를 지원한다.
  * 게스트 발급이 실패(오프라인 등)해 [AuthState.BootstrapFailed]면 화면 대신 재시도 안내를 그려
  * 막다른 길(영구 로딩)을 만들지 않는다.
+ *
+ * ⭐️ 부트스트랩이 끝나기 전([AuthState.Loading])에는 홈을 그리지 않는다: 게스트 토큰이 저장되기 전에
+ * 홈이 `getToday()`를 호출하면 401이 나서 "오늘의 한입을 불러오지 못했어요"로 떨어진다(첫 실행 레이스).
+ * 어느 국면을 그릴지는 순수 함수 [rootPhase]가 결정한다(가드 테스트로 고정).
  */
 @Composable
 private fun AppNavHost(dependencies: AppDependencies) {
     val authState by dependencies.sessionManager.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    if (authState is AuthState.BootstrapFailed) {
-        BootstrapErrorScreen(onRetry = { scope.launch { dependencies.sessionManager.retry() } })
-        return
+    when (rootPhase(authState)) {
+        RootPhase.BootstrapFailed -> {
+            BootstrapErrorScreen(onRetry = { scope.launch { dependencies.sessionManager.retry() } })
+            return
+        }
+        // 토큰 저장 전 홈 진입을 막는 안전판(첫 실행 레이스 수정).
+        RootPhase.Loading -> {
+            BootstrapLoadingScreen()
+            return
+        }
+        RootPhase.Main -> Unit
     }
 
     // 항상 홈을 밑바닥에 둔다(재방문 기본 진입점·막다른 길 방지).
@@ -189,6 +203,35 @@ private fun AppNavHost(dependencies: AppDependencies) {
     }
 }
 
+/**
+ * 부트스트랩(게스트 발급·신원 확인) 진행 중 국면. 홈을 그리지 않고 은은한 로딩만 둔다.
+ * ⭐️ 이 화면이 있어야 토큰 저장 전 `getToday()` 호출(첫 실행 레이스)이 원천 차단된다.
+ */
+@Composable
+private fun BootstrapLoadingScreen() {
+    BcsScaffold {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = BcsDimens.space5),
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space4, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(BcsDimens.emptyStateIcon),
+                color = MaterialTheme.colorScheme.primary,
+                strokeWidth = BcsDimens.loaderStroke,
+            )
+            Text(
+                text = "준비하고 있어요…",
+                style = MaterialTheme.typography.bodyMedium,
+                color = LocalBcsColors.current.textSecondary,
+            )
+        }
+    }
+}
+
 /** §5.12 부팅 실패(게스트 발급 불가) — 막다른 길 금지. 자산 안전 고지 + 재시도 경로. */
 @Composable
 private fun BootstrapErrorScreen(onRetry: () -> Unit) {
@@ -215,6 +258,32 @@ private fun BootstrapErrorScreen(onRetry: () -> Unit) {
             PrimaryButton(text = "다시 시도하기", onClick = onRetry)
         }
     }
+}
+
+/**
+ * 앱 루트가 그릴 최상위 국면. [rootPhase]가 [AuthState]에서 파생한다.
+ * 국면 분기를 순수 함수로 빼 둔 이유: "Loading이면 홈을 그리지 않는다"는 첫 실행 레이스 가드를
+ * Compose 트리 밖에서 결정적으로 테스트하기 위함(인수인계 §5.2 — 가드는 순수 함수로).
+ */
+internal enum class RootPhase {
+    /** 부트스트랩 진행 중 — 로딩만 그린다(홈 진입 차단). */
+    Loading,
+
+    /** 게스트 발급 실패 — 재시도 안내. */
+    BootstrapFailed,
+
+    /** 인증 확정(게스트/회원) — 내비게이션 진입. */
+    Main,
+}
+
+/**
+ * [AuthState] → [RootPhase]. ⚠️ [AuthState.Loading]은 반드시 [RootPhase.Loading]으로 가야 한다
+ * (Main으로 새면 토큰 저장 전 홈이 `getToday()`를 호출해 첫 실행 레이스가 재발한다).
+ */
+internal fun rootPhase(authState: AuthState): RootPhase = when (authState) {
+    AuthState.BootstrapFailed -> RootPhase.BootstrapFailed
+    AuthState.Loading -> RootPhase.Loading
+    is AuthState.Guest, is AuthState.Member -> RootPhase.Main
 }
 
 /** 화면 목적지. */
