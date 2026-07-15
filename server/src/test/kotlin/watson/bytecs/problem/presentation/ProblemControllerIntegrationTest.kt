@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.post
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
 
@@ -42,6 +43,8 @@ class ProblemControllerIntegrationTest(
                 questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
                 concept = concept,
                 acceptableAnswers = setOf("해시 충돌", "충돌", "collision"),
+                // 개념 이름을 묻는 문제라 근접 판정 대상이다. (유형이 없으면 근접이 꺼져 NEAR_MISS 자체가 나오지 않는다)
+                type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = EXPLANATION,
             ),

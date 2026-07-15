@@ -36,6 +36,18 @@ class Problem(
     @Column(name = "answer", nullable = false)
     val acceptableAnswers: Set<String>,
 
+    /**
+     * 문제 유형. 근접(오탈자) 판정을 켤지 여부를 가른다.
+     *
+     * null(유형 미상)을 허용하는 이유:
+     *  - 스키마가 `ddl-auto: update`라 기존 행을 백필할 수 없다. NOT NULL 컬럼 추가는 행이 있는 테이블에서 실패한다.
+     *  - 미상일 때 근접 판정이 꺼지는 쪽(= 정확 일치만)으로 퇴화하므로, 유형을 빠뜨려도 안전한 방향으로만 틀린다.
+     *    [DEFINITION_RECALL]을 기본값으로 두면 태깅을 빠뜨린 유도형에 근접 판정이 되살아나 버그가 재발한다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "problem_type")
+    val type: ProblemType? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "difficulty")
     val difficulty: Difficulty? = null,
@@ -60,7 +72,7 @@ class Problem(
     /**
      * 제출한 답을 결정적으로 판정한다.
      *  1. 정규화 후 허용답과 정확히 일치하면 CORRECT.
-     *  2. 오탈자 수준(편집거리 임계 내)으로 가까우면 NEAR_MISS.
+     *  2. 오탈자 수준(편집거리 임계 내)으로 가까우면 NEAR_MISS. 단, [isNearMissCandidate]를 만족할 때만.
      *  3. 그 외에는 MISMATCH.
      * 정규화는 [AnswerText]로 통일해, 정확 일치와 근접 판정이 같은 기준을 공유한다.
      */
@@ -78,6 +90,20 @@ class Problem(
         return if (isNearMiss) Judgement.NEAR_MISS else Judgement.MISMATCH
     }
 
+    /**
+     * 이 허용답에 근접 판정을 적용해도 되는지 판단한다. 두 관문을 모두 통과해야 한다.
+     *
+     * 1. **유형이 정의 재생형인가.** 근접 신호는 "편집거리가 작다 ⇒ 오타다"를 가정한다.
+     *    정의 재생형은 정답이 자연어 단어(개념 이름)라 개념명끼리 편집거리가 멀고(`TCP`↔`UDP` = 2),
+     *    편집거리 1은 실제로 오타다(`collsion` → `collision`). 유도형은 정답이 수식·숫자처럼
+     *    밀집한 공간의 한 점이라 이웃이 전부 유효한 다른 답이고, 한 글자가 곧 의미(지수·차수·자릿수)다.
+     *    `o(n²)`에 `o(n)`은 오타가 아니라 이중 반복문을 하나로 잘못 센 오답이므로,
+     *    근접으로 알려주면 틀린 유도를 맞았다고 알려주는 셈이 된다. 유형 미상(null)도 같은 이유로 제외한다.
+     * 2. **허용답이 충분히 긴가.** [MIN_NEAR_MISS_LENGTH] 참고. 유형과 별개로 필요한 조건이다.
+     */
+    private fun isNearMissCandidate(acceptable: String): Boolean =
+        type == ProblemType.DEFINITION_RECALL && acceptable.length >= MIN_NEAR_MISS_LENGTH
+
     companion object {
         // 1~2자 답은 근접 판정을 아예 하지 않는다.
         // (편집거리 1이 '전혀 다른 답'과 구분되지 않아, 근접이 정답의 길이·모양을 흘리기 때문)
@@ -89,9 +115,6 @@ class Problem(
 
         // 긴 답은 오타 2개까지 근접으로 완화하되, 보수적으로 유지한다.
         private const val LONG_ANSWER_THRESHOLD = 2
-
-        private fun isNearMissCandidate(acceptable: String): Boolean =
-            acceptable.length >= MIN_NEAR_MISS_LENGTH
 
         private fun nearMissThreshold(acceptableLength: Int): Int =
             if (acceptableLength <= SHORT_ANSWER_MAX_LENGTH) SHORT_ANSWER_THRESHOLD else LONG_ANSWER_THRESHOLD

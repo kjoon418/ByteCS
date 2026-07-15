@@ -53,6 +53,14 @@ class ProblemJudgeTest {
     inner class 오탈자_수준으로_가까우면_NEAR_MISS를_반환한다 {
 
         @Test
+        fun 개념명의_오타는_근접이다() {
+            // "collision"에서 i가 빠진 전형적인 오타.
+            val problem = problemWithAnswers("해시 충돌", "collision")
+
+            assertThat(problem.judge(AnswerText("collsion"))).isEqualTo(Judgement.NEAR_MISS)
+        }
+
+        @Test
         fun 짧은_답에서_편집거리가_1이면_근접이다() {
             // "stack"(길이 5, 임계 1)에서 한 글자가 빠진 "stak".
             val problem = problemWithAnswers("stack")
@@ -83,16 +91,67 @@ class ProblemJudgeTest {
         @Test
         fun 한_글자_답에_다른_한_글자를_제출하면_불일치다() {
             // "큐"(길이 1)에 "구" — 편집거리 1이지만 근접으로 오판해선 안 된다.
-            val problem = problemWithAnswers("큐", "queue")
+            // (정의 재생형이어도 길이 관문이 따로 막아야 하므로, 유형을 명시해 길이 조건만 검증한다)
+            val problem = problemWithAnswers("큐", "queue", type = ProblemType.DEFINITION_RECALL)
 
             assertThat(problem.judge(AnswerText("구"))).isEqualTo(Judgement.MISMATCH)
         }
 
         @Test
         fun 두_글자_답에_편집거리_1_오답을_제출하면_불일치다() {
-            val problem = problemWithAnswers("스택")
+            val problem = problemWithAnswers("스택", type = ProblemType.DEFINITION_RECALL)
 
             assertThat(problem.judge(AnswerText("스칵"))).isEqualTo(Judgement.MISMATCH)
+        }
+    }
+
+    /**
+     * 근접 신호는 "편집거리가 작다 ⇒ 오타다"를 가정한다.
+     * 유도형은 정답이 밀집 공간의 한 점(수식·숫자)이라 이웃이 전부 유효한 다른 답이므로, 이 가정이 깨진다.
+     */
+    @Nested
+    inner class 유도형은_근접_판정을_하지_않는다 {
+
+        @Test
+        fun 수식_답에_편집거리_1인_오답을_제출하면_불일치다() {
+            // "o(n²)"에 "o(n)" — 편집거리 1이지만, 이중 반복문을 하나로 잘못 센 전형적인 오답이다.
+            val derivationProblem = problemWithAnswers("o(n²)", type = ProblemType.DERIVATION)
+
+            assertThat(derivationProblem.judge(AnswerText("o(n)"))).isEqualTo(Judgement.MISMATCH)
+        }
+
+        @Test
+        fun 숫자_답에_편집거리_1인_오답을_제출하면_불일치다() {
+            // "1024"에 "1023" — 편집거리 1이지만, 계산을 틀린 것이지 오타가 아니다.
+            val derivationProblem = problemWithAnswers("1024", type = ProblemType.DERIVATION)
+
+            assertThat(derivationProblem.judge(AnswerText("1023"))).isEqualTo(Judgement.MISMATCH)
+        }
+
+        @Test
+        fun 허용답과_정확히_일치하면_정답이다() {
+            val derivationProblem = problemWithAnswers("o(n²)", type = ProblemType.DERIVATION)
+
+            assertThat(derivationProblem.judge(AnswerText("O(N²)"))).isEqualTo(Judgement.CORRECT)
+        }
+    }
+
+    @Nested
+    inner class 유형이_미상이면_근접_판정을_하지_않는다 {
+
+        @Test
+        fun 오타_수준으로_가까워도_불일치다() {
+            // 유형을 모르면 근접의 타당성도 알 수 없으니, 정확 일치만 인정하는 쪽으로 퇴화한다.
+            val untypedProblem = problemWithAnswers("collision", type = null)
+
+            assertThat(untypedProblem.judge(AnswerText("collsion"))).isEqualTo(Judgement.MISMATCH)
+        }
+
+        @Test
+        fun 허용답과_정확히_일치하면_정답이다() {
+            val untypedProblem = problemWithAnswers("collision", type = null)
+
+            assertThat(untypedProblem.judge(AnswerText("collision"))).isEqualTo(Judgement.CORRECT)
         }
     }
 
@@ -141,11 +200,19 @@ class ProblemJudgeTest {
         }
     }
 
-    private fun problemWithAnswers(vararg acceptableAnswers: String): Problem =
+    /**
+     * 유형을 명시하지 않는 케이스는 근접 판정이 살아 있는 [ProblemType.DEFINITION_RECALL]을 기본으로 둔다.
+     * (기본을 null로 두면 유형 관문만으로 근접이 꺼져, 길이·임계 조건을 검증하는 테스트가 무의미해진다)
+     */
+    private fun problemWithAnswers(
+        vararg acceptableAnswers: String,
+        type: ProblemType? = ProblemType.DEFINITION_RECALL,
+    ): Problem =
         Problem(
             questionText = "질문",
             concept = Concept("개념"),
             acceptableAnswers = acceptableAnswers.toSet(),
+            type = type,
             difficulty = Difficulty.EASY,
         )
 }
