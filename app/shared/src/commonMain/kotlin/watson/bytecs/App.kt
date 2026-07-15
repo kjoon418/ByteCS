@@ -14,8 +14,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,6 +49,9 @@ import watson.bytecs.session.SessionCompleteScreen
 import watson.bytecs.session.SessionRepository
 import watson.bytecs.session.SessionScreen
 import watson.bytecs.session.SessionViewModel
+import watson.bytecs.onboarding.OnboardingScreen
+import watson.bytecs.onboarding.OnboardingStore
+import watson.bytecs.onboarding.createOnboardingStore
 import watson.bytecs.session.data.KtorSessionRepository
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.PrimaryButton
@@ -104,7 +109,18 @@ private fun AppNavHost(dependencies: AppDependencies) {
     val authState by dependencies.sessionManager.state.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    when (rootPhase(authState)) {
+    // 온보딩 "봤음"은 로컬 영속 플래그다. 완료 시 즉시 true로 올려 다음 국면(Main)으로 넘어간다.
+    var onboardingSeen by remember { mutableStateOf(dependencies.onboardingStore.hasSeenOnboarding()) }
+    // 온보딩에서 로그인으로 진입하면, Main으로 넘어갈 때 백스택 위에 로그인을 얹는다.
+    var pendingAfterOnboarding by remember { mutableStateOf<Screen?>(null) }
+
+    fun completeOnboarding(next: Screen? = null) {
+        dependencies.onboardingStore.markOnboardingSeen()
+        pendingAfterOnboarding = next
+        onboardingSeen = true
+    }
+
+    when (rootPhase(authState, onboardingSeen)) {
         RootPhase.BootstrapFailed -> {
             BootstrapErrorScreen(onRetry = { scope.launch { dependencies.sessionManager.retry() } })
             return
@@ -114,11 +130,24 @@ private fun AppNavHost(dependencies: AppDependencies) {
             BootstrapLoadingScreen()
             return
         }
+        // 최초 실행 1회 — 01 온보딩. 부트스트랩이 끝난 뒤라 "바로 시작"에 토큰이 준비돼 있다.
+        RootPhase.Onboarding -> {
+            OnboardingScreen(
+                onStart = { completeOnboarding() },
+                onLogin = { completeOnboarding(Screen.Login(AuthMode.Login)) },
+            )
+            return
+        }
         RootPhase.Main -> Unit
     }
 
     // 항상 홈을 밑바닥에 둔다(재방문 기본 진입점·막다른 길 방지).
-    val backStack = remember { mutableStateListOf<Screen>(Screen.Home) }
+    // 온보딩에서 로그인을 택했으면 그 목적지를 백스택 위에 한 번만 얹는다.
+    val backStack = remember {
+        mutableStateListOf<Screen>(Screen.Home).also { stack ->
+            pendingAfterOnboarding?.let { stack.add(it) }
+        }
+    }
     val current = backStack.last()
 
     fun navigate(screen: Screen) {
@@ -272,18 +301,25 @@ internal enum class RootPhase {
     /** 게스트 발급 실패 — 재시도 안내. */
     BootstrapFailed,
 
-    /** 인증 확정(게스트/회원) — 내비게이션 진입. */
+    /** 최초 실행 1회 — 01 온보딩 시작 화면. */
+    Onboarding,
+
+    /** 인증 확정 + 온보딩 완료 — 내비게이션 진입. */
     Main,
 }
 
 /**
- * [AuthState] → [RootPhase]. ⚠️ [AuthState.Loading]은 반드시 [RootPhase.Loading]으로 가야 한다
- * (Main으로 새면 토큰 저장 전 홈이 `getToday()`를 호출해 첫 실행 레이스가 재발한다).
+ * ([AuthState], 온보딩 노출 여부) → [RootPhase].
+ *  - ⚠️ [AuthState.Loading]은 반드시 [RootPhase.Loading]으로 가야 한다
+ *    (Main으로 새면 토큰 저장 전 홈이 `getToday()`를 호출해 첫 실행 레이스가 재발한다).
+ *  - 인증이 확정된 뒤, 온보딩을 아직 안 봤으면([onboardingSeen]=false) 01을 먼저 그린다.
+ *    부트스트랩(게스트 발급)이 끝난 뒤라 온보딩에서 "바로 시작"하면 토큰이 이미 준비돼 있다.
  */
-internal fun rootPhase(authState: AuthState): RootPhase = when (authState) {
-    AuthState.BootstrapFailed -> RootPhase.BootstrapFailed
-    AuthState.Loading -> RootPhase.Loading
-    is AuthState.Guest, is AuthState.Member -> RootPhase.Main
+internal fun rootPhase(authState: AuthState, onboardingSeen: Boolean): RootPhase = when {
+    authState is AuthState.BootstrapFailed -> RootPhase.BootstrapFailed
+    authState is AuthState.Loading -> RootPhase.Loading
+    !onboardingSeen -> RootPhase.Onboarding
+    else -> RootPhase.Main
 }
 
 /** 화면 목적지. */
@@ -317,6 +353,7 @@ class AppDependencies(
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
+    val onboardingStore: OnboardingStore,
     private val onClose: () -> Unit = {},
 ) {
     fun close() = onClose()
@@ -347,6 +384,7 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,
+        onboardingStore = createOnboardingStore(),
         // 공유 클라이언트의 단일 소유자로서 한 번만 닫는다.
         onClose = { client.close() },
     )
