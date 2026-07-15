@@ -25,6 +25,7 @@ object BcsDimens {
     val radiusSm = 8.dp
     val radiusChip = 12.dp
     val radiusCard = 16.dp // 카드·입력·버튼 기본
+    val radiusSheet = 32.dp // 바텀시트 상단 모서리
     val radiusFull = 9999.dp
 
     // ── Elevation (§4.3) ─────────────────────────────────────────────────────
