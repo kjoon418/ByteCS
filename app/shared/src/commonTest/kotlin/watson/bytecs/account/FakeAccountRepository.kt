@@ -27,7 +27,7 @@ class FakeAccountRepository(
         calls += "issueGuest"
         issueGuestError?.let { throw it }
         val id = ++idCounter
-        current = Account(userId = id, role = Role.GUEST, email = null, dailySessionSize = 5)
+        current = Account(userId = id, role = Role.GUEST, email = null, dailySessionSize = SERVER_DEFAULT_SIZE)
         return GuestSession(token = "guest-$id", userId = id, role = Role.GUEST)
     }
 
@@ -41,7 +41,7 @@ class FakeAccountRepository(
             userId = id,
             role = Role.MEMBER,
             email = email,
-            dailySessionSize = existing?.dailySessionSize ?: 5,
+            dailySessionSize = existing?.dailySessionSize ?: SERVER_DEFAULT_SIZE,
         )
         return AuthSession(token = "member-$id")
     }
@@ -50,7 +50,7 @@ class FakeAccountRepository(
         calls += "login"
         loginError?.let { throw it }
         val id = ++idCounter
-        current = Account(userId = id, role = Role.MEMBER, email = email, dailySessionSize = 5)
+        current = Account(userId = id, role = Role.MEMBER, email = email, dailySessionSize = SERVER_DEFAULT_SIZE)
         return AuthSession(token = "member-$id")
     }
 
@@ -74,5 +74,13 @@ class FakeAccountRepository(
         deleteMeError?.let { throw it }
         deleteMeCount++
         current = null
+    }
+
+    companion object {
+        /**
+         * 새 계정에 서버가 실어 보내는 분량. 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`(=10)를 흉내 낸다 —
+         * 이 값이 서버와 어긋나면 테스트가 존재하지 않는 서버를 상대로 통과한다.
+         */
+        const val SERVER_DEFAULT_SIZE = 10
     }
 }

@@ -21,31 +21,25 @@ import kotlin.coroutines.cancellation.CancellationException
  */
 class ProblemViewModel(
     private val repository: ProblemRepository,
-    private val totalProblems: Int = DEFAULT_TOTAL,
-    private val currentIndex: Int = 1,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ProblemUiState>(ProblemUiState.Loading)
     val uiState: StateFlow<ProblemUiState> = _uiState.asStateFlow()
 
-    // 현재 세션에서 몇 번째 본 문제인지. 다음 문제로 넘어갈 때 증가한다(총량은 [totalProblems] 상수).
-    private var position = currentIndex.coerceIn(1, totalProblems)
-
     init {
         load()
     }
 
-    /** 현재 위치의 문제를 (다시) 불러온다. 오류 재시도에도 쓰인다(위치를 진전시키지 않음). */
+    /** 현재 문제를 (다시) 불러온다. 오류 재시도에도 쓰인다. */
     fun loadProblem() = load()
 
     /**
-     * M6: 정답 후 다음 문제로. 진행도를 한 칸 올리고 새 문제를 불러온다(입력·피드백 초기화).
-     * 마지막 문제(total 도달)면 위치를 유지한 채 안전하게 정지한다(04 세션 완료는 이 슬라이스 밖).
+     * 정답 후 다음 문제로. 새 문제를 불러온다(입력·피드백 초기화).
+     *
+     * ⭐️ 이 화면은 **추가 연습**('조금 더 풀기')이라 정해진 분량이 없다 — 원하는 만큼 계속 풀 수 있다.
+     * 세션 분량·진행도는 04 일일 세션(SessionViewModel)의 것이며 여기서 세지 않는다.
      */
-    fun loadNext() {
-        if (position < totalProblems) position++
-        load()
-    }
+    fun loadNext() = load()
 
     private fun load() {
         _uiState.value = ProblemUiState.Loading
@@ -56,8 +50,6 @@ class ProblemViewModel(
                     problem = problem,
                     inputText = "",
                     feedback = null,
-                    current = position,
-                    total = totalProblems,
                 )
             } catch (cancellation: CancellationException) {
                 throw cancellation // 스코프 취소는 오류가 아니므로 그대로 전파한다.
@@ -114,10 +106,6 @@ class ProblemViewModel(
         JudgeResult.NEAR_MISS -> Feedback.NearMiss
         JudgeResult.MISMATCH -> Feedback.Mismatch
     }
-
-    companion object {
-        const val DEFAULT_TOTAL = 5
-    }
 }
 
 /** 화면 상태. 로딩·준비·오류 세 국면. */
@@ -128,8 +116,6 @@ sealed interface ProblemUiState {
         val problem: ProblemView,
         val inputText: String,
         val feedback: Feedback?,
-        val current: Int,
-        val total: Int,
         val isSubmitting: Boolean = false,
         val submitFailed: Boolean = false,
     ) : ProblemUiState

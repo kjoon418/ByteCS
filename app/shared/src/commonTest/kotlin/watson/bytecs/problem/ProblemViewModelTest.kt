@@ -12,6 +12,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -128,32 +129,40 @@ class ProblemViewModelTest {
         assertNull(viewModel.ready().feedback)
     }
 
-    // ── M6: 다음 문제 진행 ────────────────────────────────────────────────────
+    // ── 다음 문제 진행(추가 연습 — 정해진 분량 없음) ──────────────────────────
 
     @Test
-    fun loadNext_advancesProgress_andResetsInputAndFeedback() = runTest {
-        val viewModel = newViewModel() // current=1, total=5
+    fun loadNext_servesNewProblem_andResetsInputAndFeedback() = runTest {
+        val viewModel = newViewModel()
 
         viewModel.onInputChange("스레드")
         viewModel.submit()
         assertTrue(viewModel.ready().feedback is Feedback.Correct)
-        assertEquals(1, viewModel.ready().current)
+        val first = viewModel.ready().problem.id
 
         viewModel.loadNext()
 
         val state = viewModel.ready()
-        assertEquals(2, state.current, "다음 문제로 진행도가 증가해야 한다")
+        assertNotEquals(first, state.problem.id, "다음 문제로 넘어가야 한다")
         assertEquals("", state.inputText, "새 문제에서 입력은 초기화된다")
         assertNull(state.feedback, "새 문제에서 피드백은 초기화된다")
     }
 
     @Test
-    fun loadNext_atLastProblem_staysAtTotal_withoutCrash() = runTest {
-        val viewModel = ProblemViewModel(FakeProblemRepository(), totalProblems = 5, currentIndex = 5)
+    fun loadNext_keepsServingProblems_pastAnyFixedCount() = runTest {
+        // 추가 연습은 '조금 더 풀기'라 상한이 없다. 예전 하드코딩 상한(5)을 넘겨도 계속 새 문제가 나와야 한다.
+        val viewModel = newViewModel()
 
-        viewModel.loadNext()
+        val served = mutableListOf(viewModel.ready().problem.id)
+        repeat(12) {
+            viewModel.loadNext()
+            assertTrue(viewModel.uiState.value is ProblemUiState.Ready, "${it + 1}번째 이후에도 문제가 나와야 한다")
+            served += viewModel.ready().problem.id
+        }
 
-        assertEquals(5, viewModel.ready().current, "마지막 문제에서는 진행도를 total로 유지한다")
+        assertEquals(13, served.size, "요청한 만큼 문제가 계속 제공된다")
+        // 같은 문제를 계속 되돌려주며 '멈춘' 게 아니라, 실제로 다음 문제로 넘어갔는지 확인한다.
+        assertTrue(served.zipWithNext().all { (a, b) -> a != b }, "연속으로 같은 문제를 내지 않는다")
     }
 
     // ── no-leak: 불일치·근접은 개념·해설을 절대 흘리지 않는다(무낙인·정답 비노출) ──────────

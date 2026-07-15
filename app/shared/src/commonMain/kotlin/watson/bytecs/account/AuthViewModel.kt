@@ -140,11 +140,20 @@ data class AuthUiState(
     val isEmailValid: Boolean
         get() = email.trim().let { it.isNotEmpty() && it.contains('@') && !it.startsWith('@') && !it.endsWith('@') }
 
-    /** 비밀번호 최소 검증(공백 아님). */
-    val isPasswordValid: Boolean get() = password.isNotBlank()
+    /**
+     * 비밀번호 최소 검증. 서버 도메인 VO(RawPassword)의 최소 8자 규칙과 **같은 기준**으로 맞춘다.
+     * 느슨하면 서버가 튕겨내고(사용자는 이유를 모른다), 빡빡하면 서버가 받아줄 비밀번호로 가입이 막힌다.
+     * 미달은 침묵으로 다룬다 — 화면은 CTA만 비활성화하고 경고를 띄우지 않는다(입력 중 미완성에 낙인 금지).
+     */
+    val isPasswordValid: Boolean get() = password.length >= MIN_PASSWORD_LENGTH
 
     /** 제출 가능 조건: 입력 유효 + 전송 중 아님. */
     val canSubmit: Boolean get() = isEmailValid && isPasswordValid && status != SubmitStatus.Submitting
+
+    companion object {
+        /** 서버 `watson.bytecs.account.domain.RawPassword.MINIMUM_LENGTH`와 동기화된 값. */
+        const val MIN_PASSWORD_LENGTH = 8
+    }
 }
 
 /** 제출 진행 상태(성공 제외 — 성공은 일회성 이벤트). */

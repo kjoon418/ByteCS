@@ -194,9 +194,16 @@ class AccountViewModel(
     }
 
     companion object {
+        // 서버 도메인 VO(UserSettings)의 MINIMUM..MAXIMUM과 동기화된 값.
         const val MIN_SESSION_SIZE = 1
         const val MAX_SESSION_SIZE = 50
-        const val DEFAULT_SESSION_SIZE = 5
+
+        /**
+         * 계정 정보를 아직 못 불러왔을 때 보여줄 분량. 도메인 명세 [결정] 기본값이자
+         * 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`와 같은 10 — 값이 어긋나면 계정이 도착하는 순간
+         * 숫자가 튄다.
+         */
+        const val DEFAULT_SESSION_SIZE = 10
     }
 }
 

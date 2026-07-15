@@ -56,7 +56,18 @@ class AccountViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.isMember)
         assertEquals("a@b.com", state.email)
-        assertEquals(5, state.sessionSize)
+        assertEquals(10, state.sessionSize, "회원 화면은 서버가 준 분량을 그대로 보여준다")
+    }
+
+    @Test
+    fun defaultSessionSize_beforeAccountLoads_matchesSpecDecision() = runTest {
+        // bootstrap 전이라 계정이 없다(AuthState.Loading) → 화면은 기본값으로 되돌아간다.
+        val manager = SessionManager(FakeAccountRepository(), SettingsTokenStore(MapSettings()))
+        val viewModel = AccountViewModel(manager, themeController())
+
+        // 도메인 명세 [결정]: 세션 크기 기본값은 10(서버 UserSettings.DEFAULT_DAILY_SESSION_SIZE와 동일).
+        assertEquals(10, viewModel.uiState.value.sessionSize, "계정 도착 전 기본 분량은 명세 결정값 10")
+        assertEquals(10, AccountViewModel.DEFAULT_SESSION_SIZE)
     }
 
     @Test
@@ -98,12 +109,12 @@ class AccountViewModelTest {
 
     @Test
     fun settingsUpdate_backToServerValue_isNotDirty_andSkipsPatch() = runTest {
-        val (viewModel, repository) = memberViewModel() // 서버 분량 5
+        val (viewModel, repository) = memberViewModel() // 서버 분량 10
 
-        viewModel.onSessionSizeChange(6)
+        viewModel.onSessionSizeChange(11)
         assertTrue(viewModel.uiState.value.isSettingsDirty)
 
-        viewModel.onSessionSizeChange(5) // 서버 값으로 되돌림
+        viewModel.onSessionSizeChange(10) // 서버 값으로 되돌림
         assertFalse(viewModel.uiState.value.isSettingsDirty, "서버 값과 같으면 변경 아님")
 
         viewModel.saveSettings()

@@ -74,6 +74,75 @@ class AuthViewModelTest {
         assertTrue(viewModel.uiState.value.canSubmit)
     }
 
+    // ── 비밀번호 최소 8자: 서버 RawPassword와 같은 기준 ────────────────────────
+
+    @Test
+    fun shortPassword_blocksSubmit_withValidEmail() = runTest {
+        // 이메일은 유효하게 두어 **비밀번호 규칙만** 게이팅을 결정하는지 본다
+        // (합성 조건의 다른 절반이 잠금을 대신해 주지 못하게).
+        val viewModel = AuthViewModel(guestSession())
+        viewModel.onEmailChange("a@b.com")
+        viewModel.onPasswordChange("pw1")
+
+        assertFalse(viewModel.uiState.value.isPasswordValid, "3자는 서버가 거절하므로 무효")
+        assertFalse(viewModel.uiState.value.canSubmit, "8자 미만이면 CTA 비활성")
+    }
+
+    @Test
+    fun shortPassword_submitIsIgnored_andNeverReachesServer() = runTest {
+        // 서버까지 가서 튕기는 게 아니라 화면에서 멈춰야 한다(사용자가 이유 없이 실패를 겪지 않게).
+        val repository = FakeAccountRepository()
+        val manager = SessionManager(repository, SettingsTokenStore(MapSettings()))
+        manager.bootstrap()
+        val viewModel = AuthViewModel(manager)
+        viewModel.onEmailChange("a@b.com")
+        viewModel.onPasswordChange("pw1")
+
+        viewModel.submit()
+
+        assertEquals(0, repository.calls.count { it == "login" }, "8자 미만은 서버로 보내지 않는다")
+        assertEquals(SubmitStatus.Idle, viewModel.uiState.value.status, "미달 입력 제출은 아무 전이도 만들지 않는다")
+    }
+
+    @Test
+    fun shortPassword_staysSilent_withoutFailureMessage() = runTest {
+        // 무낙인: 입력 중 미완성을 경고로 낙인찍지 않는다. 안내는 침묵 + 비활성 CTA로만.
+        val viewModel = AuthViewModel(guestSession())
+        viewModel.onEmailChange("a@b.com")
+
+        for (password in listOf("p", "pw1", "pw12345")) {
+            viewModel.onPasswordChange(password)
+            assertEquals(
+                SubmitStatus.Idle,
+                viewModel.uiState.value.status,
+                "미달($password)은 실패 메시지를 만들지 않는다",
+            )
+        }
+    }
+
+    @Test
+    fun passwordBoundary_sevenBlocked_eightAllowed() = runTest {
+        // 경계값: 서버 RawPassword.MINIMUM_LENGTH(=8)와 정확히 같은 지점에서 갈린다.
+        val viewModel = AuthViewModel(guestSession())
+        viewModel.onEmailChange("a@b.com")
+
+        viewModel.onPasswordChange("pw12345") // 7자
+        assertFalse(viewModel.uiState.value.canSubmit, "7자는 서버가 거절하므로 막는다")
+
+        viewModel.onPasswordChange("pw123456") // 8자
+        assertTrue(viewModel.uiState.value.canSubmit, "정확히 8자는 서버가 받으므로 통과시킨다")
+    }
+
+    @Test
+    fun longPassword_isNotBlockedByClient() = runTest {
+        // 클라이언트가 서버보다 빡빡하면 정상 가입이 막힌다 — 상한을 두지 않는다.
+        val viewModel = AuthViewModel(guestSession(), initialMode = AuthMode.Register)
+        viewModel.onEmailChange("a@b.com")
+        viewModel.onPasswordChange("p".repeat(64))
+
+        assertTrue(viewModel.uiState.value.canSubmit, "서버가 받는 긴 비밀번호를 클라이언트가 막으면 안 된다")
+    }
+
     @Test
     fun toggleMode_switchesBetweenLoginAndRegister() = runTest {
         val viewModel = AuthViewModel(guestSession())
