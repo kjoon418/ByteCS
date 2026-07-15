@@ -57,6 +57,33 @@ class ScrapListScreenUiTest {
         assertEquals(7L, opened)
     }
 
+    /**
+     * ⭐️ 회수·삭제된 문제(question=null)는 '더 이상 볼 수 없어요'로 담담히 표시하고, 재열람 진입을 막는다
+     * (서버 상세가 404라 눌러도 막다른 길이다 — 서버 [결정], 도메인 명세 406행).
+     * 정상 항목과 함께 두어, 회수 항목만 진입이 막히고 정상 항목은 그대로 열리는지 양쪽을 못박는다.
+     */
+    @Test
+    fun 회수된_문제는_더_이상_볼_수_없음으로_표시하고_진입을_막는다() = runComposeUiTest {
+        val opened = mutableListOf<Long>()
+        setScreen(
+            ScrapListUiState.Ready(
+                items = listOf(
+                    ScrapListItem(7L, question = null, scrappedAt = "2026-07-15"),
+                    ScrapListItem(8L, question = "정상 문제", scrappedAt = "2026-07-15"),
+                ),
+            ),
+            onOpenScrap = { opened += it },
+        )
+
+        // 회수 항목: 안내 문구가 뜨고, 눌러도 재열람으로 들어가지 않는다.
+        onNodeWithText("더 이상 볼 수 없어요").assertIsDisplayed().performClick()
+        assertEquals(emptyList(), opened, "회수된 문제는 재열람 진입을 열지 않는다")
+
+        // 정상 항목은 그대로 열린다(회수 처리가 목록 전체를 막다른 길로 만들지 않는다).
+        onNodeWithText("정상 문제").assertIsDisplayed().performClick()
+        assertEquals(listOf(8L), opened)
+    }
+
     /** §5.12: 로드 실패는 막다른 길 없이 재시도 경로를 준다. */
     @Test
     fun 로드에_실패하면_기록_안전을_고지하고_재시도_경로를_준다() = runComposeUiTest {

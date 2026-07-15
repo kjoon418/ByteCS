@@ -6,10 +6,11 @@ package watson.bytecs.scrap
 
 /**
  * 스크랩 목록의 한 항목. 목록은 정답을 유추할 정보를 담지 않는다 — 문제 식별과 재열람 진입에 필요한 것만.
+ * [question]이 null이면 스크랩한 문제가 회수·삭제된 것이다(재열람 불가 — '더 이상 볼 수 없음').
  */
 data class ScrapListItem(
     val problemId: Long,
-    val question: String,
+    val question: String?,
     val scrappedAt: String,
 )
 

@@ -109,17 +109,23 @@ internal fun ScrapListScreenContent(
                         ScrapEmptyState()
                     } else {
                         for (item in state.items) {
-                            BcsCard(onClick = { onOpenScrap(item.problemId) }) {
-                                Text(
-                                    text = item.question,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = colors.textPrimary,
-                                )
-                                Text(
-                                    text = "${item.scrappedAt} 스크랩",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = colors.textTertiary,
-                                )
+                            val question = item.question
+                            if (question == null) {
+                                // 회수·삭제된 문제 — 재열람이 불가(서버 상세가 404)하므로 진입점을 열지 않는다.
+                                WithdrawnScrapCard(scrappedAt = item.scrappedAt)
+                            } else {
+                                BcsCard(onClick = { onOpenScrap(item.problemId) }) {
+                                    Text(
+                                        text = question,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = colors.textPrimary,
+                                    )
+                                    Text(
+                                        text = "${item.scrappedAt} 스크랩",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = colors.textTertiary,
+                                    )
+                                }
                             }
                         }
                     }
@@ -127,6 +133,28 @@ internal fun ScrapListScreenContent(
 
             Spacer(Modifier.height(BcsDimens.space6))
         }
+    }
+}
+
+/**
+ * 회수·삭제된 스크랩 항목. 문제가 사라져 재열람할 수 없으므로 클릭(진입)을 열지 않고
+ * '더 이상 볼 수 없어요'만 담담히 알린다(막다른 길 아님 — 목록의 다른 항목은 그대로 열린다).
+ */
+@Composable
+private fun WithdrawnScrapCard(scrappedAt: String) {
+    val colors = LocalBcsColors.current
+    // onClick 없음(null) — 진입 차단. BcsCard는 onClick이 null이면 눌리지 않는다.
+    BcsCard {
+        Text(
+            text = "더 이상 볼 수 없어요",
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.textSecondary,
+        )
+        Text(
+            text = "이 문제는 더 이상 제공되지 않아요. ${scrappedAt} 스크랩",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textTertiary,
+        )
     }
 }
 

@@ -8,11 +8,14 @@ import watson.bytecs.scrap.ScrapListItem
  * 백엔드 `/api/scraps` 계약과 1:1 대응하는 유선(wire) DTO. 도메인 모델과 분리한다.
  */
 
-/** `GET /api/scraps` 응답 항목. */
+/**
+ * `GET /api/scraps` 응답 항목.
+ * question은 스크랩한 문제가 회수·삭제됐으면 null이다('더 이상 볼 수 없음' — 서버 [결정], 도메인 명세 406행).
+ */
 @Serializable
 internal data class ScrapListItemDto(
     val problemId: Long,
-    val question: String,
+    val question: String? = null,
     val scrappedAt: String,
 ) {
     fun toDomain(): ScrapListItem = ScrapListItem(problemId, question, scrappedAt)
