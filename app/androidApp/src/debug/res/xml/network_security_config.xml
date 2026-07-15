@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  개발용 네트워크 보안 구성(debug 소스셋 전용).
-  로컬 백엔드 호스트에 한해서만 평문(cleartext) HTTP를 허용한다.
-  그 외 모든 트래픽은 기본 정책(HTTPS 강제)을 따른다.
+  개발용 네트워크 보안 구성 — src/debug 소스셋 전용.
+  로컬 백엔드 호스트에 한해서만 평문(cleartext) HTTP를 허용하고, 그 외는 기본 정책(HTTPS 강제)을 따른다.
+
+  실기기 테스트는 `adb reverse tcp:8080 tcp:8080`(USB 터널)로 한다.
+  이때 기기가 보는 주소가 localhost라 아래 목록만으로 충분하다 — 호스트를 넓힐 이유가 없다.
+  (기기 쪽 베이스 URL은 local.properties의 bytecs.apiBaseUrl로 지정한다. app/shared/build.gradle.kts 참고)
+
+  만약 adb reverse 대신 개발 PC의 LAN IP로 붙어야 한다면 두 가지가 추가로 필요하다.
+  (1) 그 IP를 아래 domain에 직접 추가 — 이 형식은 CIDR·IP 대역을 지원하지 않아 하나씩 열거해야 한다.
+  (2) 8080 인바운드를 허용하는 Windows 방화벽 규칙.
+
+  이 완화가 release로 새지 않는 근거:
+  - 이 파일은 src/debug에만 존재하므로 debug 빌드의 리소스 병합에만 참여한다.
+  - src/main/AndroidManifest.xml은 networkSecurityConfig를 참조하지 않는다.
+    따라서 release 빌드는 이 구성을 아예 알지 못하고, Android 기본 정책(HTTPS 강제)을 그대로 따른다.
+  이 파일을 src/main으로 옮기거나 release 매니페스트에서 참조하면 위 보장이 즉시 깨진다.
 -->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
         <!-- Android 에뮬레이터가 호스트 머신 localhost로 접근하는 특수 주소 -->
         <domain includeSubdomains="false">10.0.2.2</domain>
+        <!-- adb reverse USB 터널로 실기기가 개발 PC 서버에 접근하는 경로 -->
         <domain includeSubdomains="false">localhost</domain>
         <domain includeSubdomains="false">127.0.0.1</domain>
     </domain-config>

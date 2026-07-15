@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  debug 빌드 전용 오버레이. 로컬 백엔드(10.0.2.2/localhost)로의 평문 HTTP를
-  네트워크 보안 구성으로만 허용한다. 릴리스 매니페스트에는 병합되지 않으므로 운영은 HTTPS 전제로 안전하다.
+  debug 빌드 전용 오버레이. 로컬 백엔드(에뮬레이터 10.0.2.2, adb reverse 실기기 localhost)로의
+  평문 HTTP를 네트워크 보안 구성으로만 허용한다.
+  이 오버레이는 debug 빌드에만 병합되므로 릴리스는 networkSecurityConfig 자체를 갖지 않고
+  Android 기본 정책(HTTPS 강제)을 따른다. 완화 범위의 근거는 res/xml/network_security_config.xml 참고.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
