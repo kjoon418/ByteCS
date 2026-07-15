@@ -58,6 +58,11 @@ class SecurityConfig(
                 // 게스트 발급·인증·문제 조회는 로그인 전에도 열려 있어야 한다(부담 없는 학습 시작).
                 authorize(HttpMethod.POST, "/api/guests", permitAll)
                 authorize("/api/auth/**", permitAll)
+                // 신고·스크랩은 사용자 소유 동작이라 인증이 필요하다. /api/problems/** permitAll보다 먼저 선언해(첫 매칭 우선)
+                // 이 하위 경로만 인증을 강제한다. 문제 자체의 조회(GET)는 여전히 permitAll이다.
+                authorize(HttpMethod.POST, "/api/problems/*/reports", authenticated)
+                authorize(HttpMethod.POST, "/api/problems/*/scraps", authenticated)
+                authorize(HttpMethod.DELETE, "/api/problems/*/scraps", authenticated)
                 authorize("/api/problems/**", permitAll)
                 authorize("/h2-console/**", permitAll)
                 authorize(anyRequest, authenticated)
