@@ -84,6 +84,13 @@ kotlin {
         }
     }
 
+    // 데스크톱(JVM) 타겟은 배포 대상이 아니라 **테스트 실행기**다.
+    // Compose UI 테스트를 돌리려면 실제 컴포지션을 그릴 수 있는 타겟이 필요한데,
+    // Android instrumented 테스트는 에뮬레이터가 있어야 해 로컬·CI 모두 무겁다.
+    // JVM은 에뮬레이터 없이 `gradlew :app:shared:jvmTest`로 즉시 돌아가고,
+    // 이미 있던 jvmMain/jvmTest 고아 디렉터리도 이 선언으로 비로소 빌드에 편입된다.
+    jvm()
+
     androidLibrary {
         namespace = "watson.bytecs.app.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -112,6 +119,15 @@ kotlin {
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+        }
+        jvmMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        jvmTest.dependencies {
+            // Compose UI 테스트의 실행 런타임. desktop.currentOs가 호스트 OS용 skiko를 끌어와
+            // 헤드리스 JVM에서도 컴포지션을 실제로 그릴 수 있게 한다.
+            implementation(compose.desktop.currentOs)
+            implementation(libs.compose.uiTest)
         }
         commonMain.dependencies {
             api(projects.core)
