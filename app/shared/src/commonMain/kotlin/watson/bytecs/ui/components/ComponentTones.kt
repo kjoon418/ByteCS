@@ -1,5 +1,6 @@
 package watson.bytecs.ui.components
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import watson.bytecs.ui.theme.BcsColors
@@ -19,6 +20,62 @@ internal data class BcsTone(
     val accent: Color,
     val content: Color,
 )
+
+/** 버튼 한 벌의 색. 눌림 색이 따로 있어 카드·배지의 [BcsTone]과 슬롯이 다르다. */
+@Immutable
+internal data class ButtonTone(
+    val container: Color,
+    val containerPressed: Color,
+    val content: Color,
+)
+
+/**
+ * §5.1 PrimaryButton의 **역할**. 색이 아니라 의도를 고른다.
+ *
+ * ⭐️ 색(`containerColor: Color`)을 직접 받지 않는 게 핵심이다. §2.2는 danger를 "파괴적 행동에만,
+ * 계정 삭제에서만 등장"으로 못박는데, 임의 색을 받는 순간 그 규칙은 검증도 감사도 불가능해진다
+ * (오답 제출 버튼을 빨갛게 만드는 데 한 줄이면 충분해진다).
+ *
+ * 역할로 받으면 두 가지를 얻는다.
+ *  1. 색 결정이 [primaryButtonTone] 한 곳을 지나므로 테스트로 못박을 수 있다.
+ *  2. `role = Destructive`를 grep하면 **danger 사용처 전수**가 나온다 — "여기서만 등장"이 감사 가능해진다.
+ *
+ * 다른 색이 필요해지면 항목을 늘려야 하는데, 그 불편함이 곧 "정말 필요한가"를 묻는 관문이다.
+ */
+enum class PrimaryButtonRole {
+    /** 기본 — 브랜드 primary. 화면의 유일한 강조 액션(정답 확인하기 등). */
+    Default,
+
+    /** ⚠️ 되돌릴 수 없는 파괴적 행동(계정 삭제, §5.13). **이 서비스에서 danger가 등장하는 유일한 자리.** */
+    Destructive,
+}
+
+/**
+ * §5.1 · §5.13 PrimaryButton 역할별 색 매핑.
+ *
+ * ⚠️ [PrimaryButtonRole.Default]에는 어떤 처벌색도 섞이지 않고, danger는 오직
+ * [PrimaryButtonRole.Destructive]에만 나온다. 두 규칙 모두 테스트로 못박혀 있다.
+ *
+ * 파괴적 역할의 눌림 색이 container와 같은 건 판단이다: `dangerPressed` 토큰이 없고, 눌림 피드백은
+ * 이미 `pressScaleStrong` 스케일이 담당한다. 없는 토큰을 있는 척 만들지 않는다.
+ */
+internal fun primaryButtonTone(
+    role: PrimaryButtonRole,
+    colors: BcsColors,
+    colorScheme: ColorScheme,
+): ButtonTone = when (role) {
+    PrimaryButtonRole.Default -> ButtonTone(
+        container = colorScheme.primary,
+        containerPressed = colors.primaryPressed, // §2.1 실제 primaryPressed 토큰
+        content = colorScheme.onPrimary,
+    )
+
+    PrimaryButtonRole.Destructive -> ButtonTone(
+        container = colorScheme.error,
+        containerPressed = colorScheme.error,
+        content = colorScheme.onError,
+    )
+}
 
 /**
  * 아무 상태도 주장하지 않는 기본 톤(옅은 표면 + 보조 텍스트).

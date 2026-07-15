@@ -66,6 +66,8 @@ import watson.bytecs.ui.theme.LocalBcsColors
 /**
  * §5.1 PrimaryButton — 화면의 유일한 강조 액션(정답 확인하기).
  * fillMaxWidth, height 56dp, radius 16, 눌림 시 강조 스케일. 로딩 중에는 클릭을 막는다.
+ *
+ * [role]로 §5.13의 파괴적 버튼(계정 삭제)을 만든다. 색을 직접 받지 않는 이유는 [PrimaryButtonRole] 참고.
  */
 @Composable
 fun PrimaryButton(
@@ -74,6 +76,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     loading: Boolean = false,
+    role: PrimaryButtonRole = PrimaryButtonRole.Default,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
@@ -82,12 +85,11 @@ fun PrimaryButton(
         targetValue = if (pressed && clickable) BcsMotion.pressScaleStrong else 1f,
         animationSpec = tween(BcsMotion.durFast, easing = BcsMotion.easing),
     )
-    val colorScheme = MaterialTheme.colorScheme
-    val colors = LocalBcsColors.current
+    val tone = primaryButtonTone(role, LocalBcsColors.current, MaterialTheme.colorScheme)
     val container = when {
-        !clickable -> colorScheme.primary.copy(alpha = 0.4f)
-        pressed -> colors.primaryPressed // §2.1 실제 primaryPressed 토큰
-        else -> colorScheme.primary
+        !clickable -> tone.container.copy(alpha = 0.4f)
+        pressed -> tone.containerPressed
+        else -> tone.container
     }
 
     Box(
@@ -110,14 +112,14 @@ fun PrimaryButton(
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(BcsDimens.loaderSize),
-                color = colorScheme.onPrimary,
+                color = tone.content,
                 strokeWidth = BcsDimens.loaderStroke,
             )
         } else {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                color = colorScheme.onPrimary,
+                color = tone.content,
             )
         }
     }

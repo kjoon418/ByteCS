@@ -1,5 +1,6 @@
 package watson.bytecs.ui.components
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,8 +27,14 @@ class ComponentTonesTest {
     )
 
     /** 해당 스킴에서 '처벌 신호'로 취급되는 색 전부(전경·옅은 배경 모두). */
-    private fun punitiveColors(scheme: androidx.compose.material3.ColorScheme): List<Color> =
+    private fun punitiveColors(scheme: ColorScheme): List<Color> =
         listOf(scheme.error, scheme.errorContainer, scheme.onErrorContainer)
+
+    /** 라이트/다크 각각의 (브랜드 토큰, Material 스킴) 쌍. */
+    private val schemePairs: List<Pair<BcsColors, ColorScheme>> = listOf(
+        BcsLightColors to BcsLightColorScheme,
+        BcsDarkColors to BcsDarkColorScheme,
+    )
 
     private val schemesWithPunitive = listOf(
         BcsLightColors to punitiveColors(BcsLightColorScheme),
@@ -111,6 +118,74 @@ class ComponentTonesTest {
                 assertNotEquals(bad, tone.accent)
                 assertNotEquals(bad, tone.content)
             }
+        }
+    }
+
+    // ── §5.1 · §5.13 PrimaryButton 역할 ──────────────────────────────────────
+
+    /**
+     * ⭐️ 기본 주요 버튼('정답 확인하기')에는 어떤 처벌색도 섞이지 않는다.
+     * 화면에서 가장 많이 쓰이는 버튼이라, 여기가 뚫리면 오답 순간에 빨강이 뜨는 길이 열린다.
+     */
+    @Test
+    fun 기본_주요_버튼은_어떤_처벌색도_쓰지_않는다() {
+        for ((colors, scheme) in schemePairs) {
+            val tone = primaryButtonTone(PrimaryButtonRole.Default, colors, scheme)
+            for (bad in punitiveColors(scheme)) {
+                assertNotEquals(bad, tone.container, "기본 버튼 container에 처벌색")
+                assertNotEquals(bad, tone.containerPressed, "기본 버튼 눌림에 처벌색")
+                assertNotEquals(bad, tone.content, "기본 버튼 본문에 처벌색")
+            }
+        }
+    }
+
+    /** 기본 주요 버튼은 브랜드 primary를 쓴다(§5.1). 눌림은 primaryPressed 토큰. */
+    @Test
+    fun 기본_주요_버튼은_브랜드_primary를_쓴다() {
+        for ((colors, scheme) in schemePairs) {
+            val tone = primaryButtonTone(PrimaryButtonRole.Default, colors, scheme)
+            assertEquals(scheme.primary, tone.container)
+            assertEquals(colors.primaryPressed, tone.containerPressed)
+            assertEquals(scheme.onPrimary, tone.content)
+        }
+    }
+
+    /** §5.13: 파괴적 버튼(계정 삭제)은 danger를 쓴다 — danger가 등장해야 하는 유일한 자리다. */
+    @Test
+    fun 파괴적_버튼은_danger를_쓴다() {
+        for ((colors, scheme) in schemePairs) {
+            val tone = primaryButtonTone(PrimaryButtonRole.Destructive, colors, scheme)
+            assertEquals(scheme.error, tone.container)
+            assertEquals(scheme.onError, tone.content)
+            // 눌림에도 container를 유지한다(dangerPressed 토큰이 없고, 눌림은 스케일이 담당).
+            assertEquals(scheme.error, tone.containerPressed)
+        }
+    }
+
+    /**
+     * ⭐️⭐️ §2.2 "danger 색은 계정 삭제에서만 등장"을 역할 전수로 못박는다.
+     *
+     * 앞으로 역할이 늘어도 danger를 쓰는 건 파괴적 행동 **하나뿐**이어야 한다.
+     * 새 역할에 danger를 실으면 여기서 깨진다 — 그 순간이 "정말 필요한가"를 묻는 관문이다.
+     */
+    @Test
+    fun danger를_쓰는_역할은_파괴적_행동_하나뿐이다() {
+        for ((colors, scheme) in schemePairs) {
+            val rolesUsingDanger = PrimaryButtonRole.entries.filter { role ->
+                val tone = primaryButtonTone(role, colors, scheme)
+                punitiveColors(scheme).any { it == tone.container || it == tone.containerPressed }
+            }
+            assertEquals(listOf(PrimaryButtonRole.Destructive), rolesUsingDanger)
+        }
+    }
+
+    /** 기본과 파괴적은 반드시 구별된다 — 삭제 버튼이 평범한 버튼처럼 보이면 §5.13의 경고 기능이 사라진다. */
+    @Test
+    fun 파괴적_버튼은_기본_버튼과_다른_색이다() {
+        for ((colors, scheme) in schemePairs) {
+            val default = primaryButtonTone(PrimaryButtonRole.Default, colors, scheme)
+            val destructive = primaryButtonTone(PrimaryButtonRole.Destructive, colors, scheme)
+            assertNotEquals(default.container, destructive.container)
         }
     }
 

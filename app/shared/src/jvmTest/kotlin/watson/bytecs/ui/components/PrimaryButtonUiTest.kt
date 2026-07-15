@@ -30,6 +30,29 @@ class PrimaryButtonUiTest {
         assertEquals(1, clicks)
     }
 
+    /**
+     * §5.13 파괴적 버튼(계정 삭제)도 평범하게 렌더·클릭된다.
+     * 색 계약은 [ComponentTonesTest]가 매핑 함수에서 본다 — 여기서는 role이 동작을 바꾸지 않는지만 확인한다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 파괴적_역할_버튼도_텍스트를_보여주고_클릭을_전달한다() = runComposeUiTest {
+        var clicks = 0
+        setContent {
+            BcsTheme(darkTheme = false) {
+                PrimaryButton(
+                    text = "삭제",
+                    onClick = { clicks++ },
+                    role = PrimaryButtonRole.Destructive,
+                )
+            }
+        }
+
+        onNodeWithText("삭제").assertIsDisplayed().performClick()
+
+        assertEquals(1, clicks)
+    }
+
     /** loading 중에는 클릭이 막힌다(PrimaryButton의 clickable = enabled && !loading). */
     @OptIn(ExperimentalTestApi::class)
     @Test
