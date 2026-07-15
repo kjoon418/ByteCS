@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.BcsTextField
 import watson.bytecs.ui.components.ErrorBanner
+import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
@@ -191,6 +192,13 @@ internal fun LoginScreenContent(
                 UpgradeBanner()
             }
 
+            // 게스트가 로그인 모드로 전환한 자리 — 여기서만 이 기기 기록이 사라질 수 있다.
+            // 게스트용 CTA는 전부 가입 모드로 진입하므로(App.kt), 게스트가 로그인 모드에 오는 경로는
+            // "이미 계정이 있나요? 로그인하기"뿐이다. 그 선택의 결과를 그 자리에서 알린다.
+            if (state.isGuestUpgrade && !isRegister) {
+                GuestLoginNotice(onSwitchToRegister = onToggleMode)
+            }
+
             Spacer(Modifier.height(BcsDimens.space2))
 
             // 이메일 — 이메일 키패드 + 인라인 검증(긍정 문구만).
@@ -240,6 +248,38 @@ internal fun LoginScreenContent(
 
             Spacer(Modifier.height(BcsDimens.space4))
         }
+    }
+}
+
+/**
+ * 게스트가 **로그인 모드**로 갔을 때의 사실 고지 — 이 기기 기록은 가입할 때만 옮겨진다.
+ *
+ * ⭐️ 경고가 아니라 **사실 고지**다. danger 금지(§2.2) — 로그인은 여전히 정당한 선택이고, 이 안내가
+ * "가입 안 하면 손해"로 읽히면 그게 가입 강요다. 사실만 말하고 대안([onSwitchToRegister])을 함께 낸다.
+ * 막다른 길로 두지 않되, 가입을 정답으로 밀지도 않는다.
+ *
+ * ⭐️ 공용 [ErrorBanner]를 쓰지 않는 이유: 그 컴포넌트는 "학습 기록은 안전해요."를 머리말로 **하드코딩**한다.
+ * 여기서는 그게 정확히 거짓이다(로그인하면 이 기기 기록은 사라진다). 안심시키면 안 되는 자리다.
+ *
+ * ⚠️ **한계 — "고지했으니 됐다"로 읽지 말 것.** 이 고지는 유실 자체를 막지 않는다. 오늘의 `login()`은
+ * 게스트 진행분을 그대로 폐기하며, 이 화면은 사용자가 그 사실을 **알고 선택하게** 할 뿐이다.
+ * 병합할지·차단할지는 여전히 열린 결정이고, 정해지면 이 고지도 함께 바뀌어야 한다.
+ */
+@Composable
+private fun GuestLoginNotice(onSwitchToRegister: () -> Unit) {
+    val colors = LocalBcsColors.current
+    InfoCard {
+        Text(
+            text = "이 기기에 쌓인 학습 기록은 가입할 때만 옮겨져요.",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onInfoContainer,
+        )
+        Text(
+            text = "로그인하면 기존 계정의 기록을 불러와요.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.onInfoContainer,
+        )
+        TextLink(text = "가입으로 돌아가기", onClick = onSwitchToRegister)
     }
 }
 

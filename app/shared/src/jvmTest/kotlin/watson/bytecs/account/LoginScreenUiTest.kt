@@ -275,6 +275,10 @@ class LoginScreenUiTest {
      * `isGuestUpgrade`는 "지금 게스트인가"일 뿐 "가입 중인가"가 아니다. 오늘의 `login()`은 다른 계정
      * 토큰으로 갈아끼울 뿐 게스트 진행분을 옮기지 않으므로(§340 재로그인=영속), 이 조합에 배너를 내면
      * **지킬 수 없는 약속**이 된다. 모드 조건 없이 `isGuestUpgrade`만 보는 게이팅으로 되돌아가면 죽는다.
+     *
+     * ⚠️ "옮겨져요" substring 부재로는 더 이상 이 규칙을 표현할 수 없다 — 기록 보존 고지가 바로 그 말을
+     * **부정하는 데** 쓰기 때문이다("가입할 때만 옮겨져요"). 그래서 **약속 문장 자체의 부재**를 보고,
+     * 대신 정정 사실이 **있는지**를 함께 단언해 검사력을 잃지 않는다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
@@ -284,7 +288,9 @@ class LoginScreenUiTest {
         }
 
         onNodeWithText("기록 승계 준비 완료").assertDoesNotExist()
-        onNodeWithText("옮겨져요", substring = true).assertDoesNotExist()
+        onNodeWithText("지금까지의 학습 기록이 그대로 옮겨져요.").assertDoesNotExist()
+        // 약속을 안 하는 데 그치지 않고, 사실을 말한다.
+        onNodeWithText("이 기기에 쌓인 학습 기록은 가입할 때만 옮겨져요.").assertIsDisplayed()
     }
 
     /**
@@ -300,6 +306,73 @@ class LoginScreenUiTest {
 
         onNodeWithText("기록 승계 준비 완료").assertIsDisplayed()
         onNodeWithText("지금까지의 학습 기록이 그대로 옮겨져요.").assertIsDisplayed()
+        // 승계가 사실인 자리에 "가입할 때만" 고지가 끼어들면 중복이자 모순이다.
+        onNodeWithText("이 기기에 쌓인 학습 기록은 가입할 때만 옮겨져요.").assertDoesNotExist()
+    }
+
+    /**
+     * ⭐️⭐️ 게스트가 로그인 모드로 가면 **기록 보존 조건을 그 자리에서** 고지한다.
+     *
+     * 게스트용 CTA는 전부 가입 모드로 진입하므로(`App.kt`), 게스트가 로그인 모드에 닿는 경로는 전환 링크뿐이다.
+     * "아 나 계정 있지" 하고 누르는 그 순간이 이 기기 기록이 사라지는 분기점이라, 고지가 거기 있어야 한다.
+     *
+     * 막다른 길로 두지 않는다 — 가입으로 돌아가는 경로가 함께 있고 실제로 동작한다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 게스트가_로그인_모드로_가면_기록_보존_조건을_고지한다() = runComposeUiTest {
+        var toggled = 0
+        setContent {
+            BcsTheme(darkTheme = false) {
+                Screen(AuthUiState(mode = AuthMode.Login, isGuestUpgrade = true), onToggleMode = { toggled++ })
+            }
+        }
+
+        onNodeWithText("이 기기에 쌓인 학습 기록은 가입할 때만 옮겨져요.").assertIsDisplayed()
+        onNodeWithText("로그인하면 기존 계정의 기록을 불러와요.").assertIsDisplayed()
+        onNodeWithText("가입으로 돌아가기").assertIsDisplayed().performClick()
+        assertEquals(1, toggled, "'가입으로 돌아가기'가 가입 모드 전환으로 이어지지 않았다")
+    }
+
+    /**
+     * 짝 단언 — 고지는 **게스트 + 로그인**에만. 조건이 합성(`isGuestUpgrade && !isRegister`)이라
+     * 각 절반을 따로 죽이는 픽스처를 둘 다 둔다:
+     *  - 비게스트 + 로그인 → `isGuestUpgrade` 절반을 고정(옮겨질 기록이 없는 사람에게 고지는 소음이다)
+     *  - 게스트 + 가입 → `!isRegister` 절반을 고정(승계가 사실인 자리다)
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 기록_보존_고지는_게스트_로그인_모드가_아니면_나오지_않는다() {
+        listOf(
+            "비게스트 로그인" to AuthUiState(mode = AuthMode.Login, isGuestUpgrade = false),
+            "게스트 가입" to AuthUiState(mode = AuthMode.Register, isGuestUpgrade = true),
+        ).forEach { (label, state) ->
+            runComposeUiTest {
+                setContent { BcsTheme(darkTheme = false) { Screen(state) } }
+
+                onNodeWithText("이 기기에 쌓인 학습 기록은 가입할 때만 옮겨져요.")
+                    .assertDoesNotExist()
+                onNodeWithText("가입으로 돌아가기").assertDoesNotExist()
+            }
+        }
+    }
+
+    /** ⭐️ 고지는 사실 전달이지 처벌이 아니다 — 로그인은 여전히 정당한 선택이다(danger 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 기록_보존_고지에_처벌색을_쓰지_않는다() = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) { Screen(AuthUiState(mode = AuthMode.Login, isGuestUpgrade = true)) }
+        }
+
+        val rendered = renderedColors()
+        listOf(
+            BcsLightColorScheme.error,
+            BcsLightColorScheme.errorContainer,
+            BcsLightColorScheme.onErrorContainer,
+        ).forEach { forbidden ->
+            assertTrue(forbidden !in rendered, "기록 보존 고지에 처벌색($forbidden) — 경고가 아니라 사실 고지다")
+        }
     }
 
     /**
@@ -364,12 +437,13 @@ private fun Screen(
     state: AuthUiState,
     onSubmit: () -> Unit = {},
     onBack: () -> Unit = {},
+    onToggleMode: () -> Unit = {},
 ) {
     LoginScreenContent(
         state = state,
         onEmailChange = {},
         onPasswordChange = {},
-        onToggleMode = {},
+        onToggleMode = onToggleMode,
         onSubmit = onSubmit,
         onBack = onBack,
     )
