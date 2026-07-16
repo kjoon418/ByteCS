@@ -126,6 +126,7 @@ fun SessionScreen(
         onInputChange = viewModel::onInputChange,
         onSubmit = viewModel::submit,
         onAdvance = viewModel::advance,
+        onFinish = viewModel::finishSession,
         onReveal = viewModel::requestReveal,
         onRevealHint = viewModel::revealNextHint,
         onOpenPast = viewModel::openPast,
@@ -145,6 +146,7 @@ internal fun SessionScreenContent(
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onAdvance: () -> Unit,
+    onFinish: () -> Unit,
     onReveal: () -> Unit,
     onOpenPast: (Int) -> Unit,
     onClosePast: () -> Unit,
@@ -192,9 +194,19 @@ internal fun SessionScreenContent(
                         .fillMaxWidth()
                         .padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4),
                 ) {
+                    // ⭐️ [결정 2026-07-16] 세션의 마지막 본 문제를 맞히면 CTA가 [다음 문제] 대신
+                    //    [한입 마치기]로 바뀐다 — 눌러야 04 완료 화면으로 넘어간다(§ SessionViewModel.finishSession).
                     PrimaryButton(
-                        text = if (active.solved) "다음 문제" else "정답 확인하기",
-                        onClick = if (active.solved) onAdvance else onSubmit,
+                        text = when {
+                            active.isLastProblem -> "한입 마치기"
+                            active.solved -> "다음 문제"
+                            else -> "정답 확인하기"
+                        },
+                        onClick = when {
+                            active.isLastProblem -> onFinish
+                            active.solved -> onAdvance
+                            else -> onSubmit
+                        },
                         enabled = active.solved || active.inputText.isNotBlank(),
                         loading = active.isSubmitting,
                     )
@@ -230,6 +242,7 @@ internal fun SessionScreenContent(
                         onInputChange = onInputChange,
                         onSubmit = onSubmit,
                         onAdvance = onAdvance,
+                        onFinish = onFinish,
                         onReveal = onReveal,
                         onRevealHint = onRevealHint,
                         onReport = onReport,
@@ -291,6 +304,7 @@ private fun ActiveContent(
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onAdvance: () -> Unit,
+    onFinish: () -> Unit,
     onReveal: () -> Unit,
     onRevealHint: () -> Unit,
     onReport: (Long) -> Unit,
@@ -302,10 +316,14 @@ private fun ActiveContent(
     val focusRequester = remember { FocusRequester() }
     val haptics = LocalHapticFeedback.current
 
-    // ⭐️ 엔터는 하단 CTA와 **같은 곳으로** 간다. 정답 상태의 CTA는 '다음 문제'인데 엔터만 제출로 남으면,
-    //    엔터로 맞힌 사람이 자연히 한 번 더 누를 때 낡은 입력이 다시 나간다(뷰모델이 막지만, 그러면 엔터가
-    //    아무 일도 하지 않아 막힌 느낌을 준다). 같은 자리에서 같은 뜻이어야 한다.
-    val onImeSubmit = if (state.solved) onAdvance else onSubmit
+    // ⭐️ 엔터는 하단 CTA와 **같은 곳으로** 간다. 정답 상태의 CTA는 '다음 문제'(마지막 문제면 '한입 마치기')인데
+    //    엔터만 제출로 남으면, 엔터로 맞힌 사람이 자연히 한 번 더 누를 때 낡은 입력이 다시 나간다(뷰모델이
+    //    막지만, 그러면 엔터가 아무 일도 하지 않아 막힌 느낌을 준다). 같은 자리에서 같은 뜻이어야 한다.
+    val onImeSubmit = when {
+        state.isLastProblem -> onFinish
+        state.solved -> onAdvance
+        else -> onSubmit
+    }
 
     // 새 문제가 오면 입력에 자동 포커스. 공개 후에는 따라 입력 칸으로 바뀌어 이 requester가 붙을 곳이 없다.
     LaunchedEffect(state.problem.id) {

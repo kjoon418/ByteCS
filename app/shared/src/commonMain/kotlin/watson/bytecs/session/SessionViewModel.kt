@@ -86,18 +86,22 @@ class SessionViewModel(
         viewModelScope.launch {
             try {
                 val outcome = repository.submitAttempt(current.inputText)
-                if (outcome.isCompleted) {
-                    _events.send(SessionEvent.Completed(outcome.toSummary()))
-                    return@launch
-                }
+                // ⭐️ [결정 2026-07-16] 마지막 본 문제를 맞혀 세션이 완료돼도 곧장 완료 이벤트를 보내지 않는다.
+                //    이 문제의 피드백(개념·해설·심화)을 다른 문제와 동등하게 보여준 뒤, 사용자가 [한입 마치기]를
+                //    눌러야([finishSession]) 완료 이벤트가 나간다 — 그래야 마지막 문제라는 이유로 해설을
+                //    못 보고 넘어가는 일이 없다. 완료 요약은 이 응답에 이미 실려 있으므로 [pendingCompletion]에
+                //    보존해 두고, 전환은 순수하게 화면 타이밍 문제로 미룬다.
                 _uiState.update { state ->
                     if (state !is SessionUiState.Active) return@update state
                     when (outcome.result) {
                         JudgeResult.CORRECT -> state.copy(
                             feedback = SessionFeedback.Correct(outcome.concepts, outcome.explanation, outcome.enrichment),
                             // 다음 칸은 [advance]에서 실제로 이동한다(정답 후 [다음 문제] CTA).
+                            // 완료된 경우 서버가 currentProblem을 null로 주므로 pendingNext는 자연히 비고,
+                            // [advance]는 no-op이 된다 — CTA가 [finishSession]으로 갈라지는 이유다.
                             pendingNext = outcome.currentProblem,
                             pendingPosition = outcome.position,
+                            pendingCompletion = if (outcome.isCompleted) outcome.toSummary() else null,
                             solvedCount = outcome.solvedCount,
                             // 공개 후 따라 입력해 맞힌 경우, 정답 카드 옆에 낡은 공개 패널이 남지 않게 지운다.
                             reveal = null,
@@ -134,6 +138,24 @@ class SessionViewModel(
                 solvedCount = state.solvedCount,
                 revealedHints = next.revealedHints,
             )
+        }
+    }
+
+    /**
+     * 마지막 본 문제까지 맞혀 세션이 완료됐을 때, [한입 마치기]를 눌러 완료 화면으로 넘어간다.
+     * [pendingCompletion]이 없으면(완료 대상이 아니거나 이미 한 번 보냈으면) 아무것도 하지 않는다.
+     *
+     * ⭐️ 이중 탭·백 버튼 경계: 보내기 전에 [pendingCompletion]을 먼저 비운다 — 그래서 화면 전환 전에
+     * 버튼을 두 번 눌러도 두 번째 호출은 여기서 조용히 막히고, 완료 이벤트는 정확히 한 번만 나간다.
+     */
+    fun finishSession() {
+        val current = _uiState.value
+        if (current !is SessionUiState.Active) return
+        val summary = current.pendingCompletion ?: return
+
+        _uiState.value = current.copy(pendingCompletion = null)
+        viewModelScope.launch {
+            _events.send(SessionEvent.Completed(summary))
         }
     }
 
@@ -284,6 +306,10 @@ sealed interface SessionUiState {
         val isRevealing: Boolean = false,
         val pendingNext: SessionProblem? = null,
         val pendingPosition: Int? = null,
+        // 마지막 본 문제를 맞혀 세션이 완료됐을 때만 채워진다(§ SessionViewModel.submit). [finishSession]이
+        // 이걸 넣어 완료 이벤트를 보내고 나면 다시 null로 비운다(이중 탭 가드). 이 값이 있는 동안은 이
+        // 문제의 피드백(개념·해설·심화)이 04로 즉시 넘어가지 않고 화면에 그대로 남는다(2026-07-16 결정).
+        val pendingCompletion: CompletionSummary? = null,
         val past: PastView? = null,
         // 공개된 힌트 본문(약→강). 서버 응답이 원천 — 새 문제 진입 시 problem.revealedHints로 복원한다(재진입 복원).
         val revealedHints: List<SessionHint> = emptyList(),
@@ -294,6 +320,9 @@ sealed interface SessionUiState {
 
         /** 정답을 맞혀 다음으로 넘어갈 수 있는 상태. */
         val solved: Boolean get() = feedback is SessionFeedback.Correct
+
+        /** 방금 맞힌 문제가 세션의 마지막 본 문제였는지 — CTA가 [다음 문제] 대신 [한입 마치기]로 바뀐다. */
+        val isLastProblem: Boolean get() = pendingCompletion != null
 
         /** 되돌아볼 지난 문제가 있는지. */
         val hasPast: Boolean get() = position > 0

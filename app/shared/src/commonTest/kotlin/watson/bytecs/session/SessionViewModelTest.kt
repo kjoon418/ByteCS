@@ -122,8 +122,13 @@ class SessionViewModelTest {
         assertEquals("", advanced.inputText)
     }
 
+    /**
+     * [결정 2026-07-16] 마지막 본 문제를 맞혀도 곧장 완료 이벤트를 보내지 않는다 — 이 문제도 다른 문제와
+     * 동등하게 피드백(개념·해설·심화)을 보여주고, [finishSession]을 눌러야 완료로 넘어간다. 완료 요약은
+     * 미리 [pendingCompletion]에 담아 둔다(전환을 미뤄도 유실 없음).
+     */
     @Test
-    fun completingAttempt_emitsCompletedEvent_withStreak() = runTest {
+    fun correctOnLastProblem_showsFeedback_withoutEmittingCompletedEvent() = runTest {
         val repo = FakeSessionRepository(today = activeSession(position = 2, total = 3, solved = 2))
         repo.onSubmit = {
             correctOutcome(next = null, position = 3, solved = 3, total = 3, completed = true, streak = Streak(7, "2026-07-14"))
@@ -133,10 +138,66 @@ class SessionViewModelTest {
         viewModel.onInputChange("정답")
         viewModel.submit()
 
+        val state = viewModel.active()
+        assertTrue(state.feedback is SessionFeedback.Correct, "마지막 문제도 다른 문제와 동등하게 피드백을 보여준다")
+        assertTrue(state.isLastProblem, "CTA가 [한입 마치기]로 바뀌는 신호")
+        assertEquals(3, state.pendingCompletion?.solvedCount)
+        assertEquals(7, state.pendingCompletion?.streak?.count)
+        assertNull(
+            withTimeoutOrNull(100) { viewModel.events.first() },
+            "finishSession을 부르기 전에는 완료 이벤트가 나가지 않는다",
+        )
+    }
+
+    /** [finishSession]을 부르면 그제서야 완료 이벤트가 나간다. 요약은 마지막 제출 응답에서 보존된 값이다. */
+    @Test
+    fun finishSession_emitsCompletedEvent_usingPendingSummary() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 2, total = 3, solved = 2))
+        repo.onSubmit = {
+            correctOutcome(next = null, position = 3, solved = 3, total = 3, completed = true, streak = Streak(7, "2026-07-14"))
+        }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("정답")
+        viewModel.submit()
+        viewModel.finishSession()
+
         val event = viewModel.events.first()
         assertTrue(event is SessionEvent.Completed)
         assertEquals(3, event.summary.solvedCount)
         assertEquals(7, event.summary.streak?.count)
+    }
+
+    /** ⭐️ 이중 탭·백 버튼 경계: [finishSession]을 두 번 불러도 완료 이벤트는 한 번만 나간다. */
+    @Test
+    fun finishSession_calledTwice_emitsEventOnlyOnce() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 2, total = 3, solved = 2))
+        repo.onSubmit = { correctOutcome(next = null, position = 3, solved = 3, total = 3, completed = true) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("정답")
+        viewModel.submit()
+        viewModel.finishSession()
+        viewModel.finishSession() // 이중 탭
+
+        assertTrue(viewModel.events.first() is SessionEvent.Completed)
+        assertNull(withTimeoutOrNull(100) { viewModel.events.first() }, "완료 이벤트는 정확히 한 번만 나간다")
+    }
+
+    /** 마지막 문제가 아니면 기존과 동일하게 CTA는 [다음 문제]로 남는다(완료 대상 아님). */
+    @Test
+    fun correctOnNonLastProblem_doesNotMarkAsLastProblem() = runTest {
+        val next = problem(2L)
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { correctOutcome(next = next, position = 1, solved = 1, total = 3) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+
+        val state = viewModel.active()
+        assertFalse(state.isLastProblem)
+        assertNull(state.pendingCompletion)
     }
 
     @Test
@@ -251,20 +312,6 @@ class SessionViewModelTest {
 
         assertTrue(viewModel.active().feedback is SessionFeedback.Correct)
         assertNull(viewModel.active().reveal, "정답 후 공개 패널은 지워진다")
-    }
-
-    @Test
-    fun completion_emitsEventExactlyOnce() = runTest {
-        val repo = FakeSessionRepository(today = activeSession(position = 2, total = 3, solved = 2))
-        repo.onSubmit = { correctOutcome(next = null, position = 3, solved = 3, total = 3, completed = true) }
-        val viewModel = SessionViewModel(repo).apply { loadSession() }
-
-        viewModel.onInputChange("정답")
-        viewModel.submit()
-
-        assertTrue(viewModel.events.first() is SessionEvent.Completed)
-        // ⭐️ 두 번째 완료 이벤트는 없다(중복 로드/축하 방지 회귀 가드).
-        assertNull(withTimeoutOrNull(100) { viewModel.events.first() }, "완료 이벤트는 한 번만 발사된다")
     }
 
     @Test

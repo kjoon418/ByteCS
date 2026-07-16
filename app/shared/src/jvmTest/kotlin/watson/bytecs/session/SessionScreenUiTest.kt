@@ -41,6 +41,7 @@ class SessionScreenUiTest {
         past: PastView? = null,
         position: Int = 1,
         total: Int = 10,
+        pendingCompletion: CompletionSummary? = null,
     ) = SessionUiState.Active(
         problem = problem,
         position = position,
@@ -50,6 +51,7 @@ class SessionScreenUiTest {
         feedback = feedback,
         reveal = reveal,
         past = past,
+        pendingCompletion = pendingCompletion,
     )
 
     private fun revealOf() = Reveal(
@@ -64,6 +66,7 @@ class SessionScreenUiTest {
         onInputChange: (String) -> Unit = {},
         onSubmit: () -> Unit = {},
         onAdvance: () -> Unit = {},
+        onFinish: () -> Unit = {},
         onReveal: () -> Unit = {},
         onOpenPast: (Int) -> Unit = {},
         onClosePast: () -> Unit = {},
@@ -79,6 +82,7 @@ class SessionScreenUiTest {
                     onInputChange = onInputChange,
                     onSubmit = onSubmit,
                     onAdvance = onAdvance,
+                    onFinish = onFinish,
                     onReveal = onReveal,
                     onOpenPast = onOpenPast,
                     onClosePast = onClosePast,
@@ -342,6 +346,42 @@ class SessionScreenUiTest {
             onNodeWithText("다음 문제").performClick()
         }
         assertEquals(1, advanced)
+    }
+
+    /**
+     * [결정 2026-07-16] 세션의 마지막 본 문제를 맞히면 CTA가 [다음 문제] 대신 [한입 마치기]로 바뀐다 —
+     * 이 문제의 피드백(개념·해설)도 다른 문제와 동등하게 그대로 남아 있다(완료 화면으로 곧장 넘어가지 않음).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 마지막_문제를_맞히면_CTA가_한입_마치기로_바뀐다() {
+        var finished = 0
+        var advanced = 0
+        runScreen(
+            active(
+                inputText = answer,
+                feedback = SessionFeedback.Correct(listOf(answer), "해설"),
+                pendingCompletion = CompletionSummary(solvedCount = 10, totalCount = 10, streak = null),
+            ),
+            onAdvance = { advanced++ },
+            onFinish = { finished++ },
+        ) {
+            onNodeWithText("맞았어요!").assertIsDisplayed()
+            onNodeWithText("다음 문제").assertDoesNotExist()
+            onNodeWithText("한입 마치기").assertIsDisplayed().performClick()
+        }
+        assertEquals(1, finished)
+        assertEquals(0, advanced, "마지막 문제에서는 다음 문제로의 진행이 아니라 완료 전환이어야 한다")
+    }
+
+    /** 마지막 문제가 아니면(완료 대상 아님) 기존과 동일하게 [다음 문제] CTA가 유지된다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 마지막_문제가_아니면_CTA는_다음_문제로_남는다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+    ) {
+        onNodeWithText("다음 문제").assertIsDisplayed()
+        onNodeWithText("한입 마치기").assertDoesNotExist()
     }
 
     /**
