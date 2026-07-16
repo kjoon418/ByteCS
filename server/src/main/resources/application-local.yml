@@ -1,7 +1,7 @@
 # local 프로파일: Docker 없이 서버를 띄워 스모크 테스트하기 위한 설정.
 # 운영 기본(application.yml)은 Postgres를 유지하며, 이 프로파일에서만 인메모리 H2를 쓴다.
 # 실행: ./gradlew :server:bootRun --args='--spring.profiles.active=local'
-# test 프로파일이 아니므로 ProblemSeeder(@Profile("!test"))가 동작해 시드 문제가 채워진다.
+# test 프로파일이 아니므로 ProblemDataLoader(@Profile("!test"))가 동작해 시드 문제가 채워진다.
 spring:
   datasource:
     url: jdbc:h2:mem:bytecs;MODE=PostgreSQL;DB_CLOSE_DELAY=-1

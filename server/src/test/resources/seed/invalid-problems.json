@@ -1,0 +1,16 @@
+{
+  "problems": [
+    {
+      "question": "대표 정답이 허용답 집합에 없는 불량 데이터.",
+      "type": "DEFINITION_RECALL",
+      "difficulty": "EASY",
+      "concepts": ["불량 개념"],
+      "acceptableAnswers": ["가짜 정답"],
+      "representativeAnswer": "허용답에 없는 표기",
+      "explanation": null,
+      "hints": [],
+      "misconceptionHints": [],
+      "enrichment": null
+    }
+  ]
+}
