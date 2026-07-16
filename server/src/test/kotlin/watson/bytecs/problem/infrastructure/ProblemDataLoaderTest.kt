@@ -288,9 +288,9 @@ class ProblemDataLoaderTest {
 
             problemDataLoader.run()
 
-            // 시드 JSON의 고유 개념 이름은 7개(프로세스와 스레드·스택·큐·해시 충돌·TCP·캐시·시간 복잡도) —
-            // "스택"이 두 문제에 걸쳐 재사용되므로, 개념 저장 횟수는 문제 태깅 총량이 아니라 고유 이름 수와 같아야 한다.
-            verify(conceptRepository, times(7)).save(any(Concept::class.java))
+            // 시드 JSON의 고유 개념 이름은 45개(초기 7개 + 테스트용 100문제의 신규 38개) —
+            // "스택"처럼 여러 문제에 재사용되는 개념이 있으므로, 개념 저장 횟수는 문제 태깅 총량이 아니라 고유 이름 수와 같아야 한다.
+            verify(conceptRepository, times(45)).save(any(Concept::class.java))
         }
 
         @Test
