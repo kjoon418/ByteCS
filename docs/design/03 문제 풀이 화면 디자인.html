@@ -26,15 +26,6 @@
                 <i class="fa-regular fa-bookmark text-xl"></i>
             </button>
         </div>
-
-        <!-- 파고들기(디딤 문제) 맥락 배지: 디딤 문제 진입 시 노출 -->
-        <div id="context-badge" class="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-xl border border-blue-100">
-            <i class="fa-solid fa-level-down-alt text-blue-400 text-xs rotate-90"></i>
-            <span class="text-xs text-blue-600 font-medium truncate flex-1">
-                '해시 함수'를 이해하기 위한 더 쉬운 문제예요
-            </span>
-            <button class="text-[10px] font-bold text-blue-400 underline underline-offset-2">돌아가기</button>
-        </div>
     </header>
 
     <!-- #content: 문제 및 입력 영역 -->
@@ -42,7 +33,10 @@
         <!-- 문제 영역 -->
         <section id="problem-area" class="mb-8">
             <div class="flex items-center gap-2 mb-3">
-                <span class="px-2 py-0.5 bg-gray-100 text-[10px] font-bold text-gray-500 rounded uppercase tracking-tighter">Difficulty: Medium</span>
+                <span class="flex items-center gap-1.5 px-2 py-0.5 bg-gray-100 text-[10px] font-bold text-gray-500 rounded">
+                    <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                    보통
+                </span>
             </div>
             <h2 id="problem-text" class="text-xl font-bold leading-relaxed break-keep">
                 다음 코드에서 두 데이터가 동일한 인덱스에 저장되려고 할 때 발생하는 현상을 무엇이라고 하나요?
@@ -122,7 +116,7 @@
         <!-- 단계적 힌트 영역 -->
         <section id="hint-section" class="mt-10 space-y-3">
             <div class="flex items-center gap-2 mb-2">
-                <span class="text-[11px] font-bold text-gray-400 tracking-wider">HINTS</span>
+                <span class="text-[11px] font-bold text-gray-400 tracking-wider">힌트</span>
                 <div class="flex-1 h-px bg-gray-100"></div>
             </div>
             
@@ -131,17 +125,6 @@
                 <p class="text-sm text-gray-600 leading-relaxed">
                     두 물체가 한 곳에서 부딪히는 상황을 떠올려 보세요.
                 </p>
-            </div>
-
-            <!-- 힌트 2 (디딤 문제 포함) -->
-            <div class="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex flex-col gap-3">
-                <p class="text-sm text-gray-600 leading-relaxed font-medium">
-                    <i class="fa-solid fa-lock text-[10px] mr-1 text-gray-300"></i> 선행 개념이 필요하신가요?
-                </p>
-                <button class="w-full py-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-stairs"></i>
-                    더 쉬운 문제로 원리 이해하기
-                </button>
             </div>
 
             <!-- 힌트 펼치기 버튼 (Secondary) -->
