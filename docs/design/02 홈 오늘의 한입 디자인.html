@@ -27,20 +27,29 @@
         </h1>
     </header>
 
-    <!-- Streak Section -->
+    <!-- Streak Section — §5.16 승격(2026-07-16 오너 결정): 알약 배지가 아니라 독립 카드.
+         ⚠️ "내일도 오시면 N일 연속이에요" 같은 미래 문구는 뺐다 — 지키지 못하면(내일 못 오면) 실망을
+         예약하는 손실 프레임이라는 우려로, 오늘 성취를 말하는 한 줄만 남긴다. -->
     <section id="streak-card" class="px-6 mb-6">
         <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
             <div class="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center">
                 <i class="fa-solid fa-fire text-orange-500 text-xl"></i>
             </div>
-            <div>
-                <p class="text-[#1E293B] font-bold text-lg">3일째 꾸준히 한입!</p>
-                <p class="text-[#64748B] text-sm">내일도 오시면 4일 연속이에요.</p>
-            </div>
+            <p class="text-[#1E293B] font-bold text-lg">3일째 꾸준히 한입!</p>
         </div>
+        <!-- 0일(끊김/시작 전) 변형: 불꽃·주황 톤 금지 — 상실 공포 연출 금지(기존 StreakBadge 규칙 승계).
+        <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex items-center gap-4">
+            <div class="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center">
+                <i class="fa-solid fa-seedling text-slate-400 text-xl"></i>
+            </div>
+            <p class="text-[#1E293B] font-bold text-lg">오늘 한입으로 연속 학습을 시작해요</p>
+        </div>
+        -->
     </section>
 
-    <!-- Main Session Card -->
+    <!-- Main Session Card — 완료 시 별도 카드를 얹지 않고 이 카드 자체가 완료 표식으로 바뀐다
+         (2026-07-16 오너 결정, 홈 복잡도 감소). "오늘의 한입" 배지 → "✓ 완료", 진행 막대 → success 색,
+         제목 → "오늘 몫은 다 했어요!" + "원한다면 조금 더 풀어볼 수도 있어요." 안내 한 줄 추가. -->
     <main id="main-session" class="px-6 mb-8">
         <div class="bg-white rounded-[32px] p-8 shadow-xl shadow-blue-900/5 border border-slate-50 relative overflow-hidden">
             <!-- Background Accent -->
