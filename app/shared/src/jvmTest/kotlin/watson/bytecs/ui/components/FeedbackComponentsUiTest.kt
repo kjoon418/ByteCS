@@ -146,29 +146,30 @@ class FeedbackComponentsUiTest {
     fun 심화_정보가_없으면_더_알아보기를_그리지_않는다() = runComposeUiTest {
         setContent {
             BcsTheme(darkTheme = false) {
-                EnrichmentBlock(content = null, expanded = false, onToggle = {})
+                EnrichmentBlock(content = null)
             }
         }
 
         onNodeWithText("더 알아보기").assertDoesNotExist()
     }
 
-    /** 심화 정보는 **선택**이다 — 펼치기 전에는 본문이 보이지 않는다. */
+    /**
+     * [결정 2026-07-16] 심화 정보는 더 이상 토글이 아니다 — 정답 처리 시점에 별도 조작 없이 바로 보인다
+     * (확인하려 매번 한 번 더 누르는 마찰 제거).
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 심화_정보는_펼쳐야_보인다() = runComposeUiTest {
-        var expanded by mutableStateOf(false)
+    fun 심화_정보는_바로_보인다() = runComposeUiTest {
         val body = "해시 충돌은 생일 문제와 연결돼요."
         setContent {
             BcsTheme(darkTheme = false) {
-                EnrichmentBlock(content = body, expanded = expanded, onToggle = { expanded = !expanded })
+                EnrichmentBlock(content = body)
             }
         }
 
-        onNodeWithText(body).assertDoesNotExist()
-
-        onNodeWithText("더 알아보기").performClick()
+        onNodeWithText("더 알아보기").assertIsDisplayed()
         onNodeWithText(body).assertIsDisplayed()
-        onNodeWithText("접기").assertIsDisplayed()
+        // 접기 버튼은 없다 — 토글 자체가 사라졌다.
+        onNodeWithText("접기").assertDoesNotExist()
     }
 }

@@ -26,9 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -312,13 +310,8 @@ private fun FeedbackSection(feedback: Feedback, problemId: Long) {
                     concepts = feedback.concepts,
                     explanation = feedback.explanation,
                 )
-                // '더 알아보기'(§5.7) — 문제가 바뀌면 접힘으로 초기화.
-                var expanded by remember(problemId) { mutableStateOf(false) }
-                EnrichmentBlock(
-                    content = feedback.enrichment,
-                    expanded = expanded,
-                    onToggle = { expanded = !expanded },
-                )
+                // '더 알아보기'(§5.7) — 정답 처리 즉시 바로 보인다(2026-07-16 결정, 토글 없음).
+                EnrichmentBlock(content = feedback.enrichment)
             }
             Feedback.Mismatch -> RetryNudge()
             Feedback.NearMiss -> NearMissNudge()

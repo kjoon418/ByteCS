@@ -265,16 +265,15 @@ fun TypeAlongField(
 }
 
 /**
- * §5.7 EnrichmentBlock — '더 알아보기'. 정답 처리 후 그 개념의 추가 정보를 **선택적으로** 펼친다.
+ * §5.7 EnrichmentBlock — '더 알아보기'. 정답 처리 후 그 개념의 추가 정보를 **바로** 보여준다.
  *
- * ⭐️ 두 가지를 지킨다: [content]가 없으면 아무것도 그리지 않고(빈 껍데기 금지), 진행을 막지 않는다
- * (펼치든 말든 다음 문제로 갈 수 있다 — 하단 CTA는 이 컴포넌트와 무관하다).
+ * ⭐️ [결정 2026-07-16] 예전엔 토글로 펼쳐야 보였지만, 확인하려 매번 한 번 더 누르는 마찰을 없애려고
+ * 정적 노출로 바꿨다. 두 가지는 그대로 지킨다: [content]가 없으면 아무것도 그리지 않고(빈 껍데기 금지),
+ * 진행을 막지 않는다(있든 없든 다음 문제로 갈 수 있다 — 하단 CTA는 이 컴포넌트와 무관하다).
  */
 @Composable
 fun EnrichmentBlock(
     content: String?,
-    expanded: Boolean,
-    onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (content == null) return
@@ -284,19 +283,17 @@ fun EnrichmentBlock(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
     ) {
-        TextLink(
-            text = if (expanded) "접기" else "더 알아보기",
-            onClick = onToggle,
+        Text(
+            text = "더 알아보기",
+            style = MaterialTheme.typography.labelLarge,
             color = colors.textSecondary,
         )
-        if (expanded) {
-            InfoCard {
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onInfoContainer,
-                )
-            }
+        InfoCard {
+            Text(
+                text = content,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onInfoContainer,
+            )
         }
     }
 }

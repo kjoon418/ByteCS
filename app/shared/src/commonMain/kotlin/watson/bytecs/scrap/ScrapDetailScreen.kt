@@ -13,9 +13,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -154,13 +151,8 @@ private fun ReadyContent(
             explanation = detail.explanation,
         )
 
-        // '더 알아보기'(§5.7) — 재열람은 이미 정답 접근이 가능한 맥락이라 노출한다.
-        var expanded by remember(detail.problemId) { mutableStateOf(false) }
-        EnrichmentBlock(
-            content = detail.enrichment,
-            expanded = expanded,
-            onToggle = { expanded = !expanded },
-        )
+        // '더 알아보기'(§5.7) — 재열람은 이미 정답 접근이 가능한 맥락이라 바로 보인다.
+        EnrichmentBlock(content = detail.enrichment)
 
         // 콘텐츠 오류 신고 진입점(07).
         TextLink(

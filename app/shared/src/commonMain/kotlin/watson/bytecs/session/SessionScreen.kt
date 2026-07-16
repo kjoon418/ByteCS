@@ -24,10 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -420,12 +418,7 @@ private fun ActiveContent(
 
             // '더 알아보기'(§5.7) — 정답 공개도 정답 접근이 허용된 맥락이라 노출한다. 다음 행동(따라 입력) 위.
             Spacer(Modifier.height(BcsDimens.space3))
-            var revealExpanded by remember(state.problem.id) { mutableStateOf(false) }
-            EnrichmentBlock(
-                content = reveal.enrichment,
-                expanded = revealExpanded,
-                onToggle = { revealExpanded = !revealExpanded },
-            )
+            EnrichmentBlock(content = reveal.enrichment)
 
             Spacer(Modifier.height(BcsDimens.space5))
             TypeAlongField(
@@ -490,13 +483,8 @@ private fun FeedbackCard(feedback: SessionFeedback, problemId: Long) {
                 concepts = feedback.concepts,
                 explanation = feedback.explanation,
             )
-            // '더 알아보기'(§5.7) — 문제가 바뀌면 접힘으로 초기화.
-            var expanded by remember(problemId) { mutableStateOf(false) }
-            EnrichmentBlock(
-                content = feedback.enrichment,
-                expanded = expanded,
-                onToggle = { expanded = !expanded },
-            )
+            // '더 알아보기'(§5.7) — 정답 처리 즉시 바로 보인다(2026-07-16 결정, 토글 없음).
+            EnrichmentBlock(content = feedback.enrichment)
         }
 
         // 불일치엔 비처벌 넛지. 큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
@@ -560,13 +548,8 @@ private fun PastItemView(
                 item.explanation?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
                 }
-                // '더 알아보기'(§5.7) — 이미 정답 접근이 가능한 맥락. 지난 문제가 바뀌면 접힘으로 초기화.
-                var pastExpanded by remember(item.problemId) { mutableStateOf(false) }
-                EnrichmentBlock(
-                    content = item.enrichment,
-                    expanded = pastExpanded,
-                    onToggle = { pastExpanded = !pastExpanded },
-                )
+                // '더 알아보기'(§5.7) — 이미 정답 접근이 가능한 맥락이라 바로 보인다.
+                EnrichmentBlock(content = item.enrichment)
                 GhostButton(text = "돌아가기", onClick = onClose)
                 Spacer(Modifier.height(BcsDimens.space6))
             }
