@@ -254,7 +254,7 @@ private fun AccountStatusHeader(state: AccountUiState, onNavigateToLogin: () -> 
     }
 }
 
-/** 일일 세션 분량 스텝퍼. 1~50 범위. 변경 시에만 저장 버튼 활성. */
+/** 세션 크기 스텝퍼. 1~50 범위. 변경 시에만 저장 버튼 활성. */
 @Composable
 private fun SessionSizeSetting(
     size: Int,
@@ -272,7 +272,7 @@ private fun SessionSizeSetting(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = "하루 학습 분량",
+                text = "세션 크기",
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.textPrimary,
             )
@@ -280,7 +280,7 @@ private fun SessionSizeSetting(
                 // ⭐️ 범위 밖 값이 표시·낭독되지 않도록 콜백에서 클램프하고, 경계에서는 버튼을 비활성화한다.
                 StepperButton(
                     symbol = "−",
-                    description = "분량 줄이기",
+                    description = "세션 크기 줄이기",
                     enabled = size > AccountViewModel.MIN_SESSION_SIZE,
                     onClick = { onChange((size - 1).coerceAtLeast(AccountViewModel.MIN_SESSION_SIZE)) },
                 )
@@ -288,16 +288,21 @@ private fun SessionSizeSetting(
                     text = "${size}문제",
                     style = MaterialTheme.typography.titleMedium,
                     color = colors.textPrimary,
-                    modifier = Modifier.semantics { contentDescription = "하루 학습 분량 ${size}문제" },
+                    modifier = Modifier.semantics { contentDescription = "세션 크기 ${size}문제" },
                 )
                 StepperButton(
                     symbol = "+",
-                    description = "분량 늘리기",
+                    description = "세션 크기 늘리기",
                     enabled = size < AccountViewModel.MAX_SESSION_SIZE,
                     onClick = { onChange((size + 1).coerceAtMost(AccountViewModel.MAX_SESSION_SIZE)) },
                 )
             }
         }
+        Text(
+            text = "하루 세션에서 풀 문제 수예요",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary,
+        )
         if (error != null) {
             Text(
                 text = error,

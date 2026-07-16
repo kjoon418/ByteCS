@@ -50,20 +50,20 @@ class AccountViewModel(
     }
 
     /**
-     * 일일 세션 분량 편집. 1..50 밖이면 저장을 막고 사실 기반 안내를 남긴다(입력값 자체는 유지).
+     * 세션 크기 편집. 1..50 밖이면 저장을 막고 사실 기반 안내를 남긴다(입력값 자체는 유지).
      */
     fun onSessionSizeChange(value: Int) {
         transient.update {
             it.copy(
                 sessionSizeDraft = value,
                 sessionSizeError = if (value in MIN_SESSION_SIZE..MAX_SESSION_SIZE) null
-                else "하루 분량은 ${MIN_SESSION_SIZE}~${MAX_SESSION_SIZE}문제 사이로 정할 수 있어요.",
+                else "세션 크기는 ${MIN_SESSION_SIZE}~${MAX_SESSION_SIZE}문제 사이로 정할 수 있어요.",
                 noticeError = null,
             )
         }
     }
 
-    /** 변경한 분량을 저장(PATCH). 범위 밖·전송 중·변경 없음(=서버 값과 동일)이면 아무 일도 하지 않는다. */
+    /** 변경한 세션 크기를 저장(PATCH). 범위 밖·전송 중·변경 없음(=서버 값과 동일)이면 아무 일도 하지 않는다. */
     fun saveSettings() {
         val local = transient.value
         val draft = local.sessionSizeDraft ?: return
@@ -199,7 +199,7 @@ class AccountViewModel(
         const val MAX_SESSION_SIZE = 50
 
         /**
-         * 계정 정보를 아직 못 불러왔을 때 보여줄 분량. 도메인 명세 [결정] 기본값이자
+         * 계정 정보를 아직 못 불러왔을 때 보여줄 세션 크기. 도메인 명세 [결정] 기본값이자
          * 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`와 같은 10 — 값이 어긋나면 계정이 도착하는 순간
          * 숫자가 튄다.
          */

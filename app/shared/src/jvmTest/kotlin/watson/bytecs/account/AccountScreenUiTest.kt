@@ -285,4 +285,18 @@ class AccountScreenUiTest {
         onNodeWithText("다크").assertIsDisplayed()
         onNodeWithText("시스템").assertIsDisplayed()
     }
+
+    // ── 세션 크기 설정 (명세 용어 정렬, 2026-07-16 오너 결정) ──────────────────────
+
+    /** ⭐️ 라벨은 명세 용어 "세션 크기"를 쓴다 — "하루 학습 분량"은 명세에 없는 신조어라 금지어다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 세션_크기_설정은_명세_용어_라벨과_보조_설명을_보여준다() = runComposeUiTest {
+        showScreen(memberState)
+
+        onNodeWithText("세션 크기").assertIsDisplayed()
+        onNodeWithText("하루 세션에서 풀 문제 수예요").assertIsDisplayed()
+        onNodeWithText("${memberState.sessionSize}문제").assertIsDisplayed()
+        onNodeWithText("하루 학습 분량").assertDoesNotExist()
+    }
 }

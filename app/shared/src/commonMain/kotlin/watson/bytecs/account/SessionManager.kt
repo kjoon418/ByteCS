@@ -68,7 +68,7 @@ class SessionManager(
         _state.value = loadMemberOrProvisional()
     }
 
-    /** 학습 설정(일일 세션 분량)을 변경하고, 갱신된 프로필로 상태를 다시 그린다. */
+    /** 학습 설정(세션 크기)을 변경하고, 갱신된 프로필로 상태를 다시 그린다. */
     suspend fun updateSettings(dailySessionSize: Int) {
         val account = repository.updateSettings(dailySessionSize)
         _state.value = account.toState()

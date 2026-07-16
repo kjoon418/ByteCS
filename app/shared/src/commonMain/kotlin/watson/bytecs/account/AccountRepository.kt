@@ -20,7 +20,7 @@ interface AccountRepository {
     /** 본인 조회. `GET /api/users/me`(인증 필요). */
     suspend fun getMe(): Account
 
-    /** 학습 설정(일일 세션 분량) 변경. `PATCH /api/users/me/settings`(인증 필요). */
+    /** 학습 설정(세션 크기) 변경. `PATCH /api/users/me/settings`(인증 필요). */
     suspend fun updateSettings(dailySessionSize: Int): Account
 
     /** 본인 계정 삭제. `DELETE /api/users/me`(인증 필요). */

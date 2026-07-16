@@ -78,7 +78,7 @@ class FakeAccountRepository(
 
     companion object {
         /**
-         * 새 계정에 서버가 실어 보내는 분량. 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`(=10)를 흉내 낸다 —
+         * 새 계정에 서버가 실어 보내는 세션 크기. 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`(=10)를 흉내 낸다 —
          * 이 값이 서버와 어긋나면 테스트가 존재하지 않는 서버를 상대로 통과한다.
          */
         const val SERVER_DEFAULT_SIZE = 10
