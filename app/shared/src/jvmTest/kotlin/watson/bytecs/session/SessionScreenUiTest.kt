@@ -345,26 +345,35 @@ class SessionScreenUiTest {
     }
 
     /**
-     * ⭐️ 엔터는 하단 CTA와 **같은 곳으로** 간다. 정답 상태의 CTA는 '다음 문제'인데 엔터만 제출로 남으면,
-     * 세션 제출은 위치 기반이라 낡은 입력이 **사용자가 본 적 없는 다음 문제**로 채점돼 통째로 소비된다.
-     *
-     * 입력값을 정답·개념과 다른 문자열로 두는 이유: 텍스트 필드를 `hasSetTextAction()`으로 집으므로
-     * 값이 무엇이든 상관없지만, 정답 문자열을 쓰면 이 화면의 no-leak 단언들과 얽혀 읽기 어려워진다.
+     * ⭐️ 정답을 맞히면 입력칸이 [watson.bytecs.ui.components.ConfirmedAnswerField]로 바뀌어 더 이상
+     * 텍스트를 받지 않는다 — 예전에는 "엔터가 다음 문제로 새는" 라우팅으로 재제출 버그를 막았지만,
+     * 이제는 편집 가능한 칸 자체가 없어 그 버그가 **구조적으로** 불가능하다(누를 입력칸이 없다).
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 정답_후_엔터는_제출이_아니라_다음_문제로_간다() {
-        var submitted = 0
-        var advanced = 0
-        runScreen(
-            active(inputText = "내가 쓴 답", feedback = SessionFeedback.Correct(listOf("개념"), "해설")),
-            onSubmit = { submitted++ },
-            onAdvance = { advanced++ },
-        ) {
-            onNode(hasSetTextAction()).performImeAction()
-        }
-        assertEquals(0, submitted, "정답 후 엔터가 낡은 입력을 다시 제출하면 안 된다")
-        assertEquals(1, advanced, "엔터는 CTA와 같이 다음 칸으로 넘긴다")
+    fun 정답_후에는_더_이상_텍스트를_입력받지_않는다() = runScreen(
+        active(inputText = "내가 쓴 답", feedback = SessionFeedback.Correct(listOf("개념"), "해설")),
+    ) {
+        onNode(hasSetTextAction()).assertDoesNotExist()
+    }
+
+    /** 정답을 맞히면 제출한 답이 success 톤의 확정 표시로 바뀐다(§5.2 파생, 시안 55-60행). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답을_맞히면_입력칸이_확정_표시로_바뀐다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+    ) {
+        onNodeWithContentDescription("제출한 답 $answer, 정답으로 확인됐어요").assertIsDisplayed()
+    }
+
+    /** ⭐️ 정답을 맞힌 뒤에는 힌트가 더 이상 의미가 없으므로 진입점을 감춘다(정보 위계 정돈). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답을_맞히면_힌트_진입점이_사라진다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설"))
+            .copy(problem = problem.copy(hintCount = 2)),
+    ) {
+        onNodeWithText("힌트 보기").assertDoesNotExist()
     }
 
     /** 아직 못 맞힌 상태에서는 엔터가 제출이다 — 위 라우팅이 제출 경로까지 죽이면 안 된다. */

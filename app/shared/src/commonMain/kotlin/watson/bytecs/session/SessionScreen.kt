@@ -1,5 +1,10 @@
 package watson.bytecs.session
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -42,6 +48,7 @@ import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.ConceptChips
+import watson.bytecs.ui.components.ConfirmedAnswerField
 import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
 import watson.bytecs.ui.components.EnrichmentBlock
@@ -60,6 +67,7 @@ import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.TypeAlongField
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
+import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
 import kotlin.coroutines.cancellation.CancellationException
@@ -315,16 +323,21 @@ private fun ActiveContent(
     Column(modifier = modifier) {
         Spacer(Modifier.height(BcsDimens.space2))
 
-        difficultyLabel(state.problem.difficulty)?.let { label ->
-            DifficultyIndicator(label)
-            Spacer(Modifier.height(BcsDimens.space2))
-        }
+        // ⭐️ 문제 영역의 감쇠(03 정답 상태 시안 43행) — 정답을 맞힌 뒤에는 문제가 더 이상 화면의 초점이
+        //    아니므로 시각적으로 한 발 물러난다. opacity만 낮출 뿐 트리에서 지우지 않으므로 스크린리더
+        //    낭독은 그대로 유지된다(§7).
+        Column(modifier = if (state.solved) Modifier.alpha(0.6f) else Modifier) {
+            difficultyLabel(state.problem.difficulty)?.let { label ->
+                DifficultyIndicator(label)
+                Spacer(Modifier.height(BcsDimens.space2))
+            }
 
-        Text(text = state.problem.question, style = BcsType.question, color = colors.textPrimary)
+            Text(text = state.problem.question, style = BcsType.question, color = colors.textPrimary)
 
-        state.problem.codeSnippet?.let { snippet ->
-            Spacer(Modifier.height(BcsDimens.space4))
-            CodeSnippetBlock(code = snippet)
+            state.problem.codeSnippet?.let { snippet ->
+                Spacer(Modifier.height(BcsDimens.space4))
+                CodeSnippetBlock(code = snippet)
+            }
         }
 
         // 콘텐츠 오류 신고(07) — 문제 표시 영역에 눈에 띄지 않는 보조 액션으로 둔다. 풀이 여부와 무관하게 늘 열어 둔다
@@ -343,34 +356,56 @@ private fun ActiveContent(
 
         val reveal = state.reveal
         if (reveal == null) {
-            AnswerTextField(
-                value = state.inputText,
-                onValueChange = onInputChange,
-                modifier = Modifier.focusRequester(focusRequester),
-                placeholder = "정답을 입력해 보세요",
-                onImeSubmit = onImeSubmit,
-            )
-
-            // 피드백(있을 때만). 세 상태 모두 비처벌.
-            state.feedback?.let { feedback ->
-                Spacer(Modifier.height(BcsDimens.space4))
-                FeedbackCard(feedback, problemId = state.problem.id)
-            }
-
-            // 힌트(pull) — 요청해야만 하나씩 열린다. hintCount 0이면 HintStepper가 진입점을 그리지 않는다.
-            if (state.problem.hintCount > 0) {
-                Spacer(Modifier.height(BcsDimens.space4))
-                HintStepper(
-                    hints = state.hintList(),
-                    revealedCount = state.revealedHintCount,
-                    onRevealNext = onRevealHint,
+            if (state.solved) {
+                // ⭐️ 정답 입력란의 확정 전환(시안 55-60행) — 더 이상 편집 대상이 아니므로 입력칸 대신
+                //    확정 표시로 바꾼다. 은은한 축하 연출(§2.2): 짧게 페이드·스케일 인 되고, 04 세션 완료의
+                //    컨페티보다 약하게 절제한다(위계: 문제 정답 < 세션 완료).
+                val celebrate = remember(state.problem.id) {
+                    MutableTransitionState(false).apply { targetState = true }
+                }
+                AnimatedVisibility(
+                    visibleState = celebrate,
+                    enter = fadeIn(tween(BcsMotion.durBase)) + scaleIn(tween(BcsMotion.durBase), initialScale = 0.97f),
+                ) {
+                    Column {
+                        ConfirmedAnswerField(value = state.inputText)
+                        state.feedback?.let { feedback ->
+                            Spacer(Modifier.height(BcsDimens.space4))
+                            FeedbackCard(feedback, problemId = state.problem.id)
+                        }
+                    }
+                }
+            } else {
+                AnswerTextField(
+                    value = state.inputText,
+                    onValueChange = onInputChange,
+                    modifier = Modifier.focusRequester(focusRequester),
+                    placeholder = "정답을 입력해 보세요",
+                    onImeSubmit = onImeSubmit,
                 )
-            }
 
-            // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
-            if (state.canReveal) {
-                Spacer(Modifier.height(BcsDimens.space4))
-                RevealAnswerButton(onClick = onReveal)
+                // 피드백(있을 때만). 불일치·근접 모두 비처벌.
+                state.feedback?.let { feedback ->
+                    Spacer(Modifier.height(BcsDimens.space4))
+                    FeedbackCard(feedback, problemId = state.problem.id)
+                }
+
+                // 힌트(pull) — 요청해야만 하나씩 열린다. 정답을 맞힌 뒤에는 더 볼 이유가 없어 감춘다
+                // (§9 정보 위계 정돈). hintCount 0이면 HintStepper가 진입점을 그리지 않는다.
+                if (state.problem.hintCount > 0) {
+                    Spacer(Modifier.height(BcsDimens.space4))
+                    HintStepper(
+                        hints = state.hintList(),
+                        revealedCount = state.revealedHintCount,
+                        onRevealNext = onRevealHint,
+                    )
+                }
+
+                // [정답 보기] — 최소 한 번 시도한 뒤에만(중립·secondary). 정답·공개 상태에선 숨김.
+                if (state.canReveal) {
+                    Spacer(Modifier.height(BcsDimens.space4))
+                    RevealAnswerButton(onClick = onReveal)
+                }
             }
         } else {
             // ⭐️ 공개 후에는 모범답안이 **입력칸 위**에 온다 — "위 정답을 따라 적어 보세요"가 성립하려면

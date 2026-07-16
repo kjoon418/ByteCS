@@ -2,16 +2,20 @@ package watson.bytecs.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +27,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
 
@@ -70,6 +76,61 @@ fun CorrectFeedback(
         explanation?.let {
             Text(text = it, style = MaterialTheme.typography.bodyMedium, color = colors.onSuccessContainer)
         }
+    }
+}
+
+/**
+ * §5.2 파생 — 정답 입력란의 **확정 전환**(03 정답 상태 시안 55-60행).
+ *
+ * [AnswerTextField]를 재사용하지 않고 별도 컴포넌트로 둔다: 시안도 이 상태를 `<input>`이 아니라
+ * `<div>`로 그린다 — 정답을 맞힌 뒤에는 더 이상 편집 대상이 아니라 **확정된 기록**이기 때문이다.
+ * 편집 불가능한 정적 표시로 바뀌므로, 죽은 입력칸에 엔터를 쳐서 낡은 값이 다시 제출되는 경로도
+ * 구조적으로 사라진다(칸이 없으니 누를 것도 없다).
+ */
+@Composable
+fun ConfirmedAnswerField(
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBcsColors.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = BcsDimens.inputHeight)
+            .clip(RoundedCornerShape(BcsDimens.radiusCard))
+            .background(colors.successContainer)
+            .border(BcsDimens.borderWidthStrong, colors.success, RoundedCornerShape(BcsDimens.radiusCard))
+            .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2)
+            .semantics { contentDescription = "제출한 답 $value, 정답으로 확인됐어요" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.onSuccessContainer,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(BcsDimens.space3))
+        SuccessCheckBadge()
+    }
+}
+
+/**
+ * [ConfirmedAnswerField]의 체크 배지 — success 원 배경 위 흰 체크(§6.2). 장식이므로 시맨틱을 비운다
+ * (의미는 위 [ConfirmedAnswerField]의 contentDescription이 이미 전달한다).
+ */
+@Composable
+private fun SuccessCheckBadge(modifier: Modifier = Modifier) {
+    val colors = LocalBcsColors.current
+    Box(
+        modifier = modifier
+            .size(BcsDimens.iconCheck + BcsDimens.space2)
+            .clip(CircleShape)
+            .background(colors.success)
+            .clearAndSetSemantics {},
+        contentAlignment = Alignment.Center,
+    ) {
+        CheckMark(color = colors.onSuccess)
     }
 }
 
