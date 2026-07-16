@@ -181,6 +181,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 onExtraPractice = { navigate(Screen.Problem) },
                 onOpenAccount = { navigate(Screen.Account) },
                 onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
+                onOpenScrapList = { navigate(Screen.ScrapList) },
             )
         }
 

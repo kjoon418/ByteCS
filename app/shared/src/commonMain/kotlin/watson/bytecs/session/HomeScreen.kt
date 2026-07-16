@@ -25,6 +25,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -39,7 +40,7 @@ import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.GhostButton
 import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
-import watson.bytecs.ui.components.StreakBadge
+import watson.bytecs.ui.components.streakTone
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
 
@@ -55,6 +56,7 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * @param onExtraPractice 오늘 완료 후 '조금 더 풀어보기' → 추가 연습(세션 밖).
  * @param onOpenAccount 계정·설정(06).
  * @param onUpgrade 게스트 가입 유도 → 05.
+ * @param onOpenScrapList 스크랩 목록 진입점(리뷰 반영, 2026-07-16 오너 결정) → 스크랩 목록.
  */
 @Composable
 fun HomeScreen(
@@ -63,6 +65,7 @@ fun HomeScreen(
     onExtraPractice: () -> Unit,
     onOpenAccount: () -> Unit,
     onUpgrade: () -> Unit,
+    onOpenScrapList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -78,6 +81,7 @@ fun HomeScreen(
         onExtraPractice = onExtraPractice,
         onOpenAccount = onOpenAccount,
         onUpgrade = onUpgrade,
+        onOpenScrapList = onOpenScrapList,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -94,6 +98,7 @@ internal fun HomeScreenContent(
     onExtraPractice: () -> Unit,
     onOpenAccount: () -> Unit,
     onUpgrade: () -> Unit,
+    onOpenScrapList: () -> Unit = {},
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -126,7 +131,11 @@ internal fun HomeScreenContent(
             when (state) {
                 HomeUiState.Loading -> HomeSkeleton()
                 HomeUiState.Error -> HomeError(onRetry = onRetry)
-                is HomeUiState.Ready -> HomeReady(state = state, onUpgrade = onUpgrade)
+                is HomeUiState.Ready -> HomeReady(
+                    state = state,
+                    onUpgrade = onUpgrade,
+                    onOpenScrapList = onOpenScrapList,
+                )
             }
         }
     }
@@ -214,6 +223,7 @@ private fun HomeCtaBar(content: @Composable () -> Unit) {
 private fun HomeReady(
     state: HomeUiState.Ready,
     onUpgrade: () -> Unit,
+    onOpenScrapList: () -> Unit,
 ) {
     val session = state.session
 
@@ -229,18 +239,18 @@ private fun HomeReady(
 
         Greeting()
 
-        // 스트릭 — §5.16 공용 배지. 끊겨도(0일) 죄책감·상실 공포 대신 "다시 시작해요" 톤이고,
-        // 색 규칙(danger 금지·끊김에 streak 톤 금지)은 streakTone에 못박혀 있다.
+        // 스트릭 — §5.16 승격(2026-07-16 오너 결정). 지속 동기의 핵심 장치라 독립 카드로 보여준다.
+        // 끊겨도(0일) 죄책감·상실 공포 대신 "다시 시작해요" 톤이고, 색 규칙은 streakTone에 못박혀 있다.
         session.streak?.let { streak ->
-            StreakBadge(days = streak.count)
+            StreakCard(days = streak.count)
         }
 
+        // 오늘 완료 상태는 별도 카드가 아니라 이 카드 자체의 시각 변화로 표현한다
+        // (2026-07-16 오너 결정 — 홈 복잡도 감소). 긍정 빈 상태(§5.10)는 카드 안에서 이어진다.
         TodayBiteCard(state = state)
 
-        // 오늘 완료 — 긍정 빈 상태(§5.10). 액션['조금 더 풀어보기']은 하단 CTA에 있다.
-        if (state.isCompleted) {
-            CompletedCard()
-        }
+        // 스크랩 목록 진입점(리뷰 반영) — 조용한 secondary 행. 히어로(오늘의 한입 CTA)를 방해하지 않는다.
+        ScrapEntryRow(onOpenScrapList = onOpenScrapList)
 
         // 게스트 가입 유도(은은·권유). 막지 않는다. 가입자에겐 아예 나오지 않는다(배타적).
         if (!state.isMember) {
@@ -270,13 +280,21 @@ private fun Greeting() {
 /**
  * 오늘의 한입 카드 — 배지 + 상태 제목 + 분량 진행(`2 / 10`).
  * ⭐️ 분량 기반이다. 카운트다운 타이머가 아니다(§5.4).
+ *
+ * 완료 시 별도 카드를 얹지 않고 **이 카드 자체가 시각적으로 변한다**(2026-07-16 오너 결정 — 홈 복잡도
+ * 감소). 배지가 완료 표식으로, 진행 막대가 success 색으로 바뀌고, 긍정 빈 상태 문구(§5.10)가 안에 붙는다.
+ * 추가 액션('조금 더 풀어보기')은 하단 CTA가 맡으므로 여기서는 안내 문구만 더한다.
  */
 @Composable
 private fun TodayBiteCard(state: HomeUiState.Ready) {
     val colors = LocalBcsColors.current
     val session = state.session
+    val completed = state.isCompleted
+    // success는 정답·완료에 쓰는 게 맞다(§6.2) — onSuccessContainer는 옅은 표면 위 판독성을 보장하도록
+    // 골라진 색이라, 카드 배경이 그보다 더 옅은 surface여도 대비가 그대로 유지된다.
+    val titleColor = if (completed) colors.onSuccessContainer else colors.textPrimary
     val title = when {
-        state.isCompleted -> "오늘 몫 완료"
+        completed -> "오늘 몫은 다 했어요!"
         state.isInProgress -> "이어서 풀기"
         else -> "지금 시작하기"
     }
@@ -288,11 +306,11 @@ private fun TodayBiteCard(state: HomeUiState.Ready) {
             verticalAlignment = Alignment.Bottom,
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space2)) {
-                TodayBiteBadge()
+                if (completed) CompletedBadge() else TodayBiteBadge()
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    color = colors.textPrimary,
+                    color = titleColor,
                 )
             }
             Row(verticalAlignment = Alignment.Bottom) {
@@ -308,7 +326,18 @@ private fun TodayBiteCard(state: HomeUiState.Ready) {
                 )
             }
         }
-        ProgressBar(solved = session.solvedCount, total = session.totalCount)
+        ProgressBar(
+            solved = session.solvedCount,
+            total = session.totalCount,
+            barColor = if (completed) colors.success else MaterialTheme.colorScheme.primary,
+        )
+        if (completed) {
+            Text(
+                text = "원한다면 조금 더 풀어볼 수도 있어요.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+            )
+        }
     }
 }
 
@@ -327,14 +356,32 @@ private fun TodayBiteBadge() {
     )
 }
 
+/** 완료 배지 — [TodayBiteBadge]의 success 변형. 체크 표식으로 '오늘의 한입'을 대신한다. */
+@Composable
+private fun CompletedBadge() {
+    val colors = LocalBcsColors.current
+    Text(
+        text = "✓ 완료",
+        style = MaterialTheme.typography.labelMedium,
+        color = colors.onSuccess,
+        modifier = Modifier
+            .clip(RoundedCornerShape(BcsDimens.radiusFull))
+            .background(colors.success)
+            .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1),
+    )
+}
+
 /**
  * 분량 진행 막대. 인접한 `N / M` 텍스트가 의미의 원천이므로 막대 자체는 장식이지만,
- * 스크린리더에는 진행을 한 줄로 실어 준다.
+ * 스크린리더에는 진행을 한 줄로 실어 준다. [barColor]는 완료 시 success로 바뀐다.
  */
 @Composable
-private fun ProgressBar(solved: Int, total: Int) {
+private fun ProgressBar(
+    solved: Int,
+    total: Int,
+    barColor: Color = MaterialTheme.colorScheme.primary,
+) {
     val colors = LocalBcsColors.current
-    val primary = MaterialTheme.colorScheme.primary
     val fraction = if (total > 0) solved.toFloat() / total else 0f
 
     Box(
@@ -350,33 +397,74 @@ private fun ProgressBar(solved: Int, total: Int) {
                 .fillMaxWidth(fraction)
                 .height(BcsDimens.space3)
                 .clip(RoundedCornerShape(BcsDimens.radiusFull))
-                .background(primary),
+                .background(barColor),
         )
     }
 }
 
-/** 오늘 몫 완료 — 긍정 빈 상태(§5.10). success 톤은 여기(완료)에 쓰는 게 맞다(§6.2). */
+/**
+ * 스트릭 카드 — §5.16 승격(2026-07-16 오너 결정). 지속 동기의 핵심 장치라 알약 배지 대신
+ * 독립 카드로 보여준다. 카드 표면은 중립([BcsCard])이고, 아이콘 타일 색만 [streakTone]을 따른다
+ * — 끊겨도 카드 전체가 물들지 않는다.
+ *
+ * ⚠️ 시안(02 html)의 "내일도 오시면 N일 연속이에요" 미래 문구는 뺐다 — 지키지 못하면(내일 못 오면)
+ * 실망을 예약하는 손실 프레임이라는 우려로, 오늘 성취를 말하는 한 줄만 남긴다(오너 결정).
+ * 끊김(0일)에는 불꽃 대신 중립 새싹 아이콘 — 상실 공포 연출 금지는 기존 StreakBadge 규칙 그대로다.
+ */
 @Composable
-private fun CompletedCard() {
+private fun StreakCard(days: Int) {
     val colors = LocalBcsColors.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(colors.successContainer)
-            .padding(BcsDimens.space5),
-        verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
-    ) {
-        Text(
-            text = "오늘 몫은 다 했어요!",
-            style = MaterialTheme.typography.titleMedium,
-            color = colors.onSuccessContainer,
-        )
-        Text(
-            text = "원한다면 조금 더 풀어볼 수도 있어요.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSuccessContainer,
-        )
+    val tone = streakTone(days, colors)
+    val icon = if (days > 0) "🔥" else "🌱"
+    val label = if (days > 0) "${days}일째 꾸준히 한입!" else "오늘 한입으로 연속 학습을 시작해요"
+
+    BcsCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(BcsDimens.space4),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(BcsDimens.minTouchTarget)
+                    .clip(RoundedCornerShape(BcsDimens.radiusCard))
+                    .background(tone.background),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = icon, style = MaterialTheme.typography.titleLarge, color = tone.accent)
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.textPrimary,
+            )
+        }
+    }
+}
+
+/**
+ * 스크랩 목록 진입점(리뷰 반영, 2026-07-16 오너 결정) — 조용한 secondary 행.
+ * 히어로인 [TodayBiteCard]/하단 CTA의 위계를 해치지 않도록 강조 없이, 04 완료 화면의 게스트 승계
+ * 행([SessionCompleteScreen])과 같은 관례(라벨 + `›`)를 따른다.
+ */
+@Composable
+private fun ScrapEntryRow(onOpenScrapList: () -> Unit) {
+    val colors = LocalBcsColors.current
+    BcsCard(onClick = onOpenScrapList) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+        ) {
+            Text(text = "🔖", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "스크랩한 문제",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            Text(text = "›", style = MaterialTheme.typography.titleMedium, color = colors.textTertiary)
+        }
     }
 }
 

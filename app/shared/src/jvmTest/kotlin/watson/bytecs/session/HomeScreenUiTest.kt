@@ -53,6 +53,7 @@ class HomeScreenUiTest {
         onExtraPractice: () -> Unit = {},
         onOpenAccount: () -> Unit = {},
         onUpgrade: () -> Unit = {},
+        onOpenScrapList: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) = setContent {
         BcsTheme(darkTheme = darkTheme) {
@@ -62,6 +63,7 @@ class HomeScreenUiTest {
                 onExtraPractice = onExtraPractice,
                 onOpenAccount = onOpenAccount,
                 onUpgrade = onUpgrade,
+                onOpenScrapList = onOpenScrapList,
                 onRetry = onRetry,
             )
         }
@@ -97,7 +99,11 @@ class HomeScreenUiTest {
         assertEquals(1, started)
     }
 
-    /** 완료는 **긍정 빈 상태**다(§5.10). 더 풀기는 권유일 뿐 압박이 아니다 — Primary가 아닌 Ghost. */
+    /**
+     * 완료는 **긍정 빈 상태**다(§5.10). 더 풀기는 권유일 뿐 압박이 아니다 — Primary가 아닌 Ghost.
+     * ⭐️ 별도 완료 카드 없이 오늘의 한입 카드 자체가 완료 표식(체크 배지)으로 바뀐다(2026-07-16 오너 결정
+     * — 홈 복잡도 감소). "오늘의 한입" 배지는 완료 시 사라지고 "✓ 완료"로 바뀐다.
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 오늘_몫을_마치면_긍정_빈_상태와_추가_연습_권유를_보여준다() = runComposeUiTest {
@@ -107,7 +113,10 @@ class HomeScreenUiTest {
             onExtraPractice = { extra++ },
         )
 
+        onNodeWithText("✓ 완료").assertIsDisplayed()
+        onNodeWithText("오늘의 한입").assertDoesNotExist()
         onNodeWithText("오늘 몫은 다 했어요!").assertIsDisplayed()
+        onNodeWithText("원한다면 조금 더 풀어볼 수도 있어요.").assertIsDisplayed()
         onNodeWithText("조금 더 풀어보기").assertIsDisplayed().performClick()
 
         assertEquals(1, extra)
@@ -147,12 +156,19 @@ class HomeScreenUiTest {
 
     // ── 스트릭 (긍정 동기 전용) ────────────────────────────────────────────────
 
+    /**
+     * ⭐️ 스트릭은 §5.16 승격(2026-07-16 오너 결정)으로 알약 배지가 아니라 독립 카드로 보여준다.
+     * 시안(02 html)의 "내일도 오시면 N일 연속이에요" 미래 문구는 손실 프레임 부담 우려로 뺐다 —
+     * 오늘 성취를 말하는 한 줄만 남는다.
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 스트릭이_이어지고_있으면_성취로_보여준다() = runComposeUiTest {
         setHome(ready(streak = Streak(count = 3, lastStudyDate = "2026-05-13")))
 
-        onNodeWithText("🔥 3일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("3일째 꾸준히 한입!").assertIsDisplayed()
+        onNodeWithText("🔥").assertIsDisplayed()
+        onNodeWithText("내일도 오시면", substring = true).assertDoesNotExist()
     }
 
     /**
@@ -242,7 +258,31 @@ class HomeScreenUiTest {
     fun 다크_테마에서도_홈이_렌더된다() = runComposeUiTest {
         setHome(ready(streak = Streak(count = 3, lastStudyDate = "2026-05-13")), darkTheme = true)
 
-        onNodeWithText("🔥 3일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("3일째 꾸준히 한입!").assertIsDisplayed()
         onNodeWithText("학습 이어서 하기").assertIsDisplayed()
+    }
+
+    // ── 스크랩 목록 진입점(리뷰 반영) ─────────────────────────────────────────
+
+    /** 스크랩 진입점은 회원 여부와 무관하게 항상 노출되고, 눌리면 콜백을 호출한다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 스크랩_목록_진입점을_누르면_콜백을_호출한다() = runComposeUiTest {
+        var opened = 0
+        setHome(ready(), onOpenScrapList = { opened++ })
+
+        onNodeWithText("스크랩한 문제").assertIsDisplayed().performClick()
+
+        assertEquals(1, opened)
+    }
+
+    /** ⭐️ 히어로는 오늘의 한입 CTA다 — 스크랩 진입점은 시작/이어서 CTA와 나란히 있어도 그 위계를 해치지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 스크랩_목록_진입점은_오늘의_한입_CTA와_함께_보여준다() = runComposeUiTest {
+        setHome(ready(solved = 0))
+
+        onNodeWithText("오늘의 한입 시작하기").assertIsDisplayed()
+        onNodeWithText("스크랩한 문제").assertIsDisplayed()
     }
 }
