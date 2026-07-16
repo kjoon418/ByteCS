@@ -456,8 +456,7 @@ private fun FeedbackCard(feedback: SessionFeedback) {
 /**
  * [HintStepper]에 넘길 [BcsHint] 목록. ⭐️ no-leak: 미공개 힌트 본문은 클라에 없으므로, 공개된 것만 실제 본문으로
  * 채우고 나머지는 **렌더되지 않는** 자리표시자로 채운다(HintStepper는 revealedCount 미만만 그린다). 목록 길이가
- * 전체 hintCount여야 '더 보기' 노출 판정(revealedCount < size)이 맞는다. [BcsHint.drilldownLabel]은 채우지 않는다
- * (항상 null — 디딤은 로드맵, 옵션 A).
+ * 전체 hintCount여야 '더 보기' 노출 판정(revealedCount < size)이 맞는다.
  */
 private fun SessionUiState.Active.hintList(): List<BcsHint> {
     val revealed = revealedHints.map { BcsHint(text = it.text, codeSnippet = it.codeSnippet) }

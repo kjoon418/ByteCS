@@ -36,14 +36,11 @@ import watson.bytecs.ui.theme.LocalBcsColors
  *
  * @param text 힌트 본문. 정답을 담지 않는다(콘텐츠 계약).
  * @param codeSnippet 코드 예시(있을 때만).
- * @param drilldownLabel 선행 개념 힌트일 때 디딤 문제 진입 버튼의 라벨. null이면 버튼을 두지 않는다.
- *   ⭐️ 서버가 채우지 않음 — 디딤 로드맵 승격 시 채움(작업 인수인계 §3.5, 옵션 A 채택). MVP에선 항상 null이다.
  */
 @Immutable
 data class BcsHint(
     val text: String,
     val codeSnippet: String? = null,
-    val drilldownLabel: String? = null,
 )
 
 /**
@@ -61,7 +58,9 @@ data class BcsHint(
  *
  * @param revealedCount 지금까지 공개된 힌트 수(0 = 아직 진입 전).
  * @param onRevealNext '힌트 보기'/'더 보기' — 다음 힌트 하나를 연다.
- * @param onDrilldown 선행 개념 힌트의 디딤 문제 진입. 인자는 힌트 인덱스.
+ *
+ * ⭐️ 디딤 문제 진입 버튼은 디딤이 로드맵으로 감에 따라 제거했다(2026-07-16 오너 결정). 디딤 도입 시
+ * HintCard에 진입 버튼과 라벨 필드를 되살린다.
  */
 @Composable
 fun HintStepper(
@@ -69,7 +68,6 @@ fun HintStepper(
     revealedCount: Int,
     onRevealNext: () -> Unit,
     modifier: Modifier = Modifier,
-    onDrilldown: (Int) -> Unit = {},
 ) {
     if (hints.isEmpty()) return
 
@@ -84,7 +82,6 @@ fun HintStepper(
             HintCard(
                 hint = hints[index],
                 tone = hintTone(index = index, total = hints.size, colors = colors),
-                onDrilldown = { onDrilldown(index) },
             )
         }
         if (revealed < hints.size) {
@@ -103,7 +100,6 @@ fun HintStepper(
 private fun HintCard(
     hint: BcsHint,
     tone: BcsTone,
-    onDrilldown: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -117,8 +113,6 @@ private fun HintCard(
     ) {
         Text(text = hint.text, style = MaterialTheme.typography.bodyLarge, color = tone.content)
         hint.codeSnippet?.let { CodeSnippetBlock(code = it) }
-        // 선행 개념 힌트에서만 디딤 문제로 내려간다(§5.5).
-        hint.drilldownLabel?.let { label -> GhostButton(text = label, onClick = onDrilldown) }
     }
 }
 

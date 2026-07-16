@@ -4,9 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -25,7 +23,7 @@ class HintStepperUiTest {
     private val hints = listOf(
         BcsHint(text = "버킷이 겹치는 상황을 떠올려 보세요"),
         BcsHint(text = "해시 함수는 서로 다른 입력을 같은 값으로 보낼 수 있어요"),
-        BcsHint(text = "이 현상을 다루는 방법에 체이닝·개방 주소법이 있어요", drilldownLabel = "더 쉬운 문제로 풀어보기"),
+        BcsHint(text = "이 현상을 다루는 방법에 체이닝·개방 주소법이 있어요"),
     )
 
     /** 진입 전에는 힌트 본문이 하나도 없고 진입점만 있다. */
@@ -137,42 +135,5 @@ class HintStepperUiTest {
         onNodeWithText(single[0].text).assertIsDisplayed()
         // 하나뿐이므로 더 열 것이 없다.
         onNodeWithText("더 보기").assertDoesNotExist()
-    }
-
-    /**
-     * 디딤 문제 진입점은 `drilldownLabel`이 있는 힌트에**만** 붙는다.
-     * 힌트 3개를 전부 연 상태에서 세 번째에만 버튼이 있으므로, 정확히 1개여야 한다
-     * (모든 힌트에 버튼을 달면 여기서 3이 나와 깨진다).
-     */
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 디딤_문제_진입점은_선행_개념_힌트에만_붙는다() = runComposeUiTest {
-        setContent {
-            BcsTheme(darkTheme = false) {
-                HintStepper(hints = hints, revealedCount = hints.size, onRevealNext = {})
-            }
-        }
-
-        onAllNodesWithText("더 쉬운 문제로 풀어보기").assertCountEquals(1)
-    }
-
-    /** 디딤 버튼을 누르면 해당 힌트의 인덱스가 올라온다. */
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 디딤_문제_버튼은_힌트_인덱스를_전달한다() = runComposeUiTest {
-        var drilledIndex = -1
-        setContent {
-            BcsTheme(darkTheme = false) {
-                HintStepper(
-                    hints = hints,
-                    revealedCount = 3,
-                    onRevealNext = {},
-                    onDrilldown = { drilledIndex = it },
-                )
-            }
-        }
-
-        onNodeWithText("더 쉬운 문제로 풀어보기").performClick()
-        assertEquals(2, drilledIndex)
     }
 }
