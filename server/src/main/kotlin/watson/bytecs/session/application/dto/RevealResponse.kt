@@ -1,5 +1,7 @@
 package watson.bytecs.session.application.dto
 
+import watson.bytecs.problem.application.dto.EnrichmentResponse
+
 /**
  * 정답 공개(안전판) 응답. 공개 후에도 직접 정답을 입력해야 다음으로 넘어간다.
  * representativeAnswer는 화면 표시용 대표 정답(그대로 따라 입력하면 통과 — 불변식 보장), concepts·explanation은 학습 맥락이다(concepts는 태깅 순).
@@ -8,6 +10,6 @@ package watson.bytecs.session.application.dto
 data class RevealResponse(
     val concepts: List<String>,
     val explanation: String?,
-    val enrichment: String?,
+    val enrichment: EnrichmentResponse?,
     val representativeAnswer: String,
 )

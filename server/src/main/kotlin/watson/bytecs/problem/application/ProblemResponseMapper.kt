@@ -2,6 +2,7 @@ package watson.bytecs.problem.application
 
 import org.springframework.stereotype.Component
 import watson.bytecs.problem.application.dto.AttemptResponse
+import watson.bytecs.problem.application.dto.EnrichmentResponse
 import watson.bytecs.problem.application.dto.NextProblemResponse
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
@@ -28,7 +29,7 @@ class ProblemResponseMapper {
             result = judgement.name,
             concepts = if (answerRevealed) problem.conceptNames() else null,
             explanation = if (answerRevealed) problem.explanation else null,
-            enrichment = if (answerRevealed) problem.enrichment else null,
+            enrichment = if (answerRevealed) problem.enrichment?.let(EnrichmentResponse::from) else null,
             representativeAnswer = if (answerRevealed) problem.representativeAnswer else null,
         )
     }

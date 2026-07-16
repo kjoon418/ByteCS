@@ -27,6 +27,8 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Enrichment
+import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
@@ -72,7 +74,11 @@ class SessionControllerIntegrationTest(
         const val STRONG_HINT = "강한 힌트예요"
         const val MISCONCEPTION_ANSWER = "흔한오답"
         const val MISCONCEPTION_MESSAGE = "그건 다른 개념이에요. 다시 도전해보세요!"
-        const val ENRICHMENT = "심화 정보예요"
+        const val ENRICHMENT_TITLE = "심화 제목이에요"
+        const val ENRICHMENT_BODY = "심화 본문이에요"
+        const val ENRICHMENT_ITEM_TITLE = "항목 제목이에요"
+        const val ENRICHMENT_ITEM_DESC = "항목 설명이에요"
+        const val ENRICHMENT_QUOTE = "인용 한 줄이에요"
     }
 
     @BeforeEach
@@ -169,7 +175,11 @@ class SessionControllerIntegrationTest(
         submit(token, "정답").andExpect {
             status { isOk() }
             jsonPath("$.result") { value("CORRECT") }
-            jsonPath("$.enrichment") { value(ENRICHMENT) }
+            jsonPath("$.enrichment.title") { value(ENRICHMENT_TITLE) }
+            jsonPath("$.enrichment.body") { value(ENRICHMENT_BODY) }
+            jsonPath("$.enrichment.items[0].title") { value(ENRICHMENT_ITEM_TITLE) }
+            jsonPath("$.enrichment.items[0].description") { value(ENRICHMENT_ITEM_DESC) }
+            jsonPath("$.enrichment.quote") { value(ENRICHMENT_QUOTE) }
         }
     }
 
@@ -719,7 +729,12 @@ class SessionControllerIntegrationTest(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "해설",
-                enrichment = ENRICHMENT,
+                enrichment = Enrichment(
+                    title = ENRICHMENT_TITLE,
+                    body = ENRICHMENT_BODY,
+                    items = listOf(EnrichmentItem(ENRICHMENT_ITEM_TITLE, ENRICHMENT_ITEM_DESC)),
+                    quote = ENRICHMENT_QUOTE,
+                ),
             ),
         )
     }

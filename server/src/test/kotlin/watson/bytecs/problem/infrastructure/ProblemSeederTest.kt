@@ -11,6 +11,7 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Concept
+import watson.bytecs.problem.domain.Enrichment
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
@@ -136,14 +137,27 @@ class ProblemSeederTest {
         fun 해시_충돌_문제는_심화_정보를_가진다() {
             val hashCollisionProblem = seededProblemOf(HASH_COLLISION)
 
-            assertThat(hashCollisionProblem.enrichment).isNotBlank()
+            assertThat(hashCollisionProblem.enrichment).isNotNull()
         }
 
         @Test
         fun 스레드_문제는_심화_정보를_가진다() {
             val threadProblem = seededProblemOf(PROCESS_AND_THREAD)
 
-            assertThat(threadProblem.enrichment).isNotBlank()
+            assertThat(threadProblem.enrichment).isNotNull()
+        }
+
+        @Test
+        fun 해시_충돌_심화_정보는_시안_구조를_순서대로_따른다() {
+            // 질문형 제목 + 리드 문단 + 해결책 항목(순서 보존) + 인용의 시안 원형(78~121행).
+            val enrichment = seededProblemOf(HASH_COLLISION).enrichment!!
+
+            assertThat(enrichment.title).isEqualTo("왜 충돌이 발생할까요?")
+            assertThat(enrichment.body).isNotBlank()
+            assertThat(enrichment.items.map { it.title })
+                .containsExactly("해결책 01. 체이닝", "해결책 02. 개방 주소법")
+            assertThat(enrichment.items.all { it.description.isNotBlank() }).isTrue()
+            assertThat(enrichment.quote).isNotBlank()
         }
 
         @Test
@@ -162,16 +176,30 @@ class ProblemSeederTest {
 
             problems.forEach { problem ->
                 val enrichment = problem.enrichment ?: return@forEach
-                val normalized = enrichment.lowercase()
+                // 구조 필드 전체(title·body·items의 제목/설명·quote)를 한 문자열로 훑는다.
+                val allText = enrichmentText(enrichment)
+                val normalized = allText.lowercase()
                 val otherAnswers = problems.filter { it !== problem }
                     .flatMap { it.acceptableAnswers.map { answer -> AnswerText(answer).value } }
                 otherAnswers.forEach { answer ->
                     assertThat(normalized)
-                        .`as`("심화 정보가 다른 문제의 정답 '%s'을(를) 노출하면 안 된다: %s", answer, enrichment)
+                        .`as`("심화 정보가 다른 문제의 정답 '%s'을(를) 노출하면 안 된다: %s", answer, allText)
                         .doesNotContain(answer)
                 }
             }
         }
+
+        /** 심화 정보의 모든 텍스트 필드를 한 문자열로 모은다(no-leak 스윕이 구조 전체를 훑도록). */
+        private fun enrichmentText(enrichment: Enrichment): String =
+            buildList {
+                add(enrichment.title)
+                add(enrichment.body)
+                enrichment.items.forEach {
+                    add(it.title)
+                    add(it.description)
+                }
+                enrichment.quote?.let { add(it) }
+            }.joinToString(" ")
     }
 
     @Nested

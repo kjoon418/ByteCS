@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Enrichment
+import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
@@ -62,9 +64,22 @@ class ProblemSeeder(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
-                // 심화 정보('더 알아보기'): 흥미·배경 톤, 정답 문자열은 새로 노출하지 않는다.
-                enrichment = "멀티스레드가 자원을 공유하는 만큼, 여러 스레드가 같은 데이터를 동시에 건드리면 경쟁 상태(race condition)가 생길 수 있다. " +
-                    "그래서 실무에서는 락(lock)·세마포어 같은 동기화 도구로 '한 번에 하나씩만' 접근하게 조율한다.",
+                // 심화 정보('더 알아보기'): 구조화(제목·리드·항목). 다른 문제의 정답 문자열은 새로 노출하지 않는다.
+                enrichment = Enrichment(
+                    title = "여러 흐름이 자원을 공유하면?",
+                    body = "한 프로세스 안의 여러 실행 흐름이 같은 데이터를 동시에 건드리면, " +
+                        "실행 순서에 따라 결과가 달라지는 경쟁 상태(race condition)가 생길 수 있다.",
+                    items = listOf(
+                        EnrichmentItem(
+                            title = "동기화 도구",
+                            description = "락(lock)·세마포어로 '한 번에 하나씩만' 접근하도록 조율해 경쟁 상태를 막는다.",
+                        ),
+                        EnrichmentItem(
+                            title = "문맥 교환(context switch)",
+                            description = "여러 흐름이 CPU를 번갈아 쓰도록 상태를 저장하고 복원하는 비용이 든다.",
+                        ),
+                    ),
+                ),
                 // 약→강. 정답 표기(스레드·쓰레드·thread)를 담지 않는다.
                 hints = listOf(
                     Hint("실행 중인 프로그램 전체가 아니라, 그 '안에서' 도는 더 작은 실행 단위를 떠올려 보세요."),
@@ -104,9 +119,23 @@ class ProblemSeeder(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = "체이닝, 개방 주소법 등으로 해소한다.",
-                // 심화 정보('더 알아보기'): 흥미·배경 톤, 정답 문자열은 새로 노출하지 않는다.
-                enrichment = "'생일 문제(birthday problem)'는 이 현상이 생각보다 훨씬 빨리 일어난다는 걸 보여준다. " +
-                    "함(bucket) 수가 충분히 많아도, 무작위로 몇 개만 채워 넣어도 둘이 같은 함에 들어갈 확률은 직관보다 훨씬 높게 올라간다.",
+                // 심화 정보('더 알아보기'): 시안 원형(질문형 제목·리드·해결책 항목·인용). 자기 문제의 개념은 언급해도 되나 다른 문제의 정답은 새로 노출하지 않는다.
+                enrichment = Enrichment(
+                    title = "왜 충돌이 발생할까요?",
+                    body = "해시 테이블은 무한한 데이터를 유한한 크기의 배열(버킷)에 매핑하기 때문에, " +
+                        "서로 다른 입력이 같은 자리를 가리키는 상황이 반드시 생긴다. 이를 비둘기집 원리라고도 부른다.",
+                    items = listOf(
+                        EnrichmentItem(
+                            title = "해결책 01. 체이닝",
+                            description = "같은 인덱스에 데이터를 연결 리스트로 줄줄이 매다는 방식이다. 구현이 간단하지만 메모리 사용량이 늘 수 있다.",
+                        ),
+                        EnrichmentItem(
+                            title = "해결책 02. 개방 주소법",
+                            description = "빈 칸을 찾아 옆으로 옮겨 담는 방식이다. 선형 탐사, 이차 탐사 등 다양한 기법이 있다.",
+                        ),
+                    ),
+                    quote = "좋은 해시 함수는 충돌을 최소화하여 검색 성능을 O(1)에 가깝게 유지한다.",
+                ),
                 // 약→강. 정답 표기(충돌·collision 등)를 담지 않는다.
                 hints = listOf(
                     Hint("서로 다른 두 입력이 해시 함수를 거쳐 같은 칸을 가리키면 어떤 일이 벌어질까요?"),
@@ -131,9 +160,22 @@ class ProblemSeeder(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "지역성(locality)을 활용해 평균 접근 시간을 줄인다.",
-                // 심화 정보('더 알아보기'): 흥미·배경 톤, 정답 문자열은 새로 노출하지 않는다.
-                enrichment = "CPU 안에도 이 원리가 여러 겹으로 쌓여 있다. L1이 가장 빠르고 작으며, L2·L3로 갈수록 느려지는 대신 커진다. " +
-                    "가까운 데이터일수록 빠른 곳에 두는 이 발상은 웹 브라우저·데이터베이스 등 어디서나 반복해서 등장한다.",
+                // 심화 정보('더 알아보기'): 구조화(제목·리드·항목). 다른 문제의 정답 문자열은 새로 노출하지 않는다.
+                enrichment = Enrichment(
+                    title = "가까울수록 빠릅니다",
+                    body = "자주 쓰는 데이터를 더 빠른 저장 공간에 미리 두면 평균 접근 시간이 줄어든다. " +
+                        "이 발상은 최근에 쓴 것이 곧 다시 쓰인다는 지역성(locality)을 활용한다.",
+                    items = listOf(
+                        EnrichmentItem(
+                            title = "CPU 계층",
+                            description = "L1이 가장 빠르고 작으며, L2·L3로 갈수록 느려지는 대신 커진다.",
+                        ),
+                        EnrichmentItem(
+                            title = "어디에나 등장",
+                            description = "웹 브라우저, 데이터베이스, CDN까지 '가까운 데이터를 빠른 곳에' 두는 원리가 반복된다.",
+                        ),
+                    ),
+                ),
             ),
             Problem(
                 questionText = "다음 코드의 시간 복잡도를 빅오 표기법으로 나타내면?",

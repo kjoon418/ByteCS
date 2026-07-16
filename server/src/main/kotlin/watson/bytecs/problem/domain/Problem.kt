@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.JoinTable
 import jakarta.persistence.ManyToMany
 import jakarta.persistence.OneToMany
+import jakarta.persistence.OneToOne
 import jakarta.persistence.OrderColumn
 import jakarta.persistence.Table
 
@@ -82,11 +83,12 @@ class Problem(
     val explanation: String? = null,
 
     /**
-     * 정답 처리 후에만 노출되는 심화 정보('더 알아보기', 명세 §1 173~181행). 없어도 되는 큐레이션 콘텐츠(공용 자산).
+     * 정답 처리 후에만 노출되는 구조화된 심화 정보('더 알아보기', 명세 §1 173~181행·시안 78~121행). 없어도 되는 큐레이션 콘텐츠(공용 자산).
      * 승인 게이트(명세 464행) 대상이나, 승인 파이프라인이 로드맵이라 MVP는 시딩된 콘텐츠를 승인 취급한다.
      */
-    @Column(name = "enrichment", columnDefinition = "text")
-    val enrichment: String? = null,
+    @OneToOne(cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinColumn(name = "enrichment_id")
+    val enrichment: Enrichment? = null,
 
     /**
      * 약→강 순서의 힌트(0~N개). 순서는 소유 리스트의 인덱스([OrderColumn])로 보장한다.

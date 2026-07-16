@@ -12,6 +12,8 @@ import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Enrichment
+import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
@@ -31,7 +33,11 @@ class ProblemControllerIntegrationTest(
         const val CONCEPT_NAME = "해시 충돌"
         const val REPRESENTATIVE_ANSWER = "해시 충돌"
         const val EXPLANATION = "체이닝, 개방 주소법 등으로 해소한다."
-        const val ENRICHMENT = "심화 정보예요"
+        const val ENRICHMENT_TITLE = "왜 충돌이 발생할까요?"
+        const val ENRICHMENT_BODY = "심화 정보 리드 문단이에요."
+        const val ENRICHMENT_ITEM_TITLE = "해결책 01"
+        const val ENRICHMENT_ITEM_DESC = "항목 설명이에요."
+        const val ENRICHMENT_QUOTE = "인용 한 줄이에요."
     }
 
     @BeforeEach
@@ -50,7 +56,12 @@ class ProblemControllerIntegrationTest(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = EXPLANATION,
-                enrichment = ENRICHMENT,
+                enrichment = Enrichment(
+                    title = ENRICHMENT_TITLE,
+                    body = ENRICHMENT_BODY,
+                    items = listOf(EnrichmentItem(ENRICHMENT_ITEM_TITLE, ENRICHMENT_ITEM_DESC)),
+                    quote = ENRICHMENT_QUOTE,
+                ),
             ),
         )
         problemId = problem.id
@@ -83,7 +94,11 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.result") { value("CORRECT") }
             jsonPath("$.concepts[0]") { value(CONCEPT_NAME) }
             jsonPath("$.explanation") { value(EXPLANATION) }
-            jsonPath("$.enrichment") { value(ENRICHMENT) }
+            jsonPath("$.enrichment.title") { value(ENRICHMENT_TITLE) }
+            jsonPath("$.enrichment.body") { value(ENRICHMENT_BODY) }
+            jsonPath("$.enrichment.items[0].title") { value(ENRICHMENT_ITEM_TITLE) }
+            jsonPath("$.enrichment.items[0].description") { value(ENRICHMENT_ITEM_DESC) }
+            jsonPath("$.enrichment.quote") { value(ENRICHMENT_QUOTE) }
             jsonPath("$.representativeAnswer") { value(REPRESENTATIVE_ANSWER) }
         }
     }

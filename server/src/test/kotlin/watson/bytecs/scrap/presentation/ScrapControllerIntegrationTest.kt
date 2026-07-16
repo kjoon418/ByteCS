@@ -22,6 +22,8 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
+import watson.bytecs.problem.domain.Enrichment
+import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
@@ -50,7 +52,19 @@ class ScrapControllerIntegrationTest(
     private var p2: Long = 0
 
     private companion object {
-        const val ENRICHMENT = "심화 정보예요"
+        const val ENRICHMENT_TITLE = "심화 제목이에요"
+        const val ENRICHMENT_BODY = "심화 본문이에요"
+        const val ENRICHMENT_ITEM_TITLE = "항목 제목이에요"
+        const val ENRICHMENT_ITEM_DESC = "항목 설명이에요"
+        const val ENRICHMENT_QUOTE = "인용 한 줄이에요"
+
+        fun sampleEnrichment(): Enrichment =
+            Enrichment(
+                title = ENRICHMENT_TITLE,
+                body = ENRICHMENT_BODY,
+                items = listOf(EnrichmentItem(ENRICHMENT_ITEM_TITLE, ENRICHMENT_ITEM_DESC)),
+                quote = ENRICHMENT_QUOTE,
+            )
     }
 
     @BeforeEach
@@ -62,7 +76,7 @@ class ScrapControllerIntegrationTest(
         clock.reset()
 
         // p1은 심화 정보가 있고, p2는 없다(graceful 분기 검증).
-        p1 = seedProblem("스택", "스택", ENRICHMENT)
+        p1 = seedProblem("스택", "스택", sampleEnrichment())
         p2 = seedProblem("큐", "큐")
 
         val user = userRepository.save(User.createGuest())
@@ -153,7 +167,11 @@ class ScrapControllerIntegrationTest(
             jsonPath("$.concepts[0]") { value("스택") }
             jsonPath("$.representativeAnswer") { value("스택") }
             jsonPath("$.explanation") { value("스택 해설") }
-            jsonPath("$.enrichment") { value(ENRICHMENT) }
+            jsonPath("$.enrichment.title") { value(ENRICHMENT_TITLE) }
+            jsonPath("$.enrichment.body") { value(ENRICHMENT_BODY) }
+            jsonPath("$.enrichment.items[0].title") { value(ENRICHMENT_ITEM_TITLE) }
+            jsonPath("$.enrichment.items[0].description") { value(ENRICHMENT_ITEM_DESC) }
+            jsonPath("$.enrichment.quote") { value(ENRICHMENT_QUOTE) }
             jsonPath("$.scrappedAt") { exists() }
         }
     }
@@ -294,7 +312,7 @@ class ScrapControllerIntegrationTest(
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
 
-    private fun seedProblem(conceptName: String, answer: String, enrichment: String? = null): Long {
+    private fun seedProblem(conceptName: String, answer: String, enrichment: Enrichment? = null): Long {
         val concept = conceptRepository.save(Concept(conceptName))
         return problemRepository.save(
             Problem(

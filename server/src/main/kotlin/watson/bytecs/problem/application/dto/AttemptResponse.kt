@@ -9,6 +9,6 @@ data class AttemptResponse(
     val result: String,
     val concepts: List<String>?,
     val explanation: String?,
-    val enrichment: String?,
+    val enrichment: EnrichmentResponse?,
     val representativeAnswer: String?,
 )

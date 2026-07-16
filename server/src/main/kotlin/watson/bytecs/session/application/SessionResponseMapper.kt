@@ -2,6 +2,7 @@ package watson.bytecs.session.application
 
 import org.springframework.stereotype.Component
 import watson.bytecs.account.domain.StudyStreak
+import watson.bytecs.problem.application.dto.EnrichmentResponse
 import watson.bytecs.problem.domain.AttemptOutcome
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.Judgement
@@ -73,7 +74,7 @@ class SessionResponseMapper {
             position = session.currentPosition,
             concepts = if (correct) attemptedProblem.conceptNames() else null,
             explanation = if (correct) attemptedProblem.explanation else null,
-            enrichment = if (correct) attemptedProblem.enrichment else null,
+            enrichment = if (correct) attemptedProblem.enrichment?.let(EnrichmentResponse::from) else null,
             representativeAnswer = if (correct) attemptedProblem.representativeAnswer else null,
             misconceptionHint = outcome.misconceptionHint,
             // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수로 복원한다(새 문제라면 0).
@@ -97,7 +98,7 @@ class SessionResponseMapper {
         RevealResponse(
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
-            enrichment = problem.enrichment,
+            enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
         )
 
@@ -114,7 +115,7 @@ class SessionResponseMapper {
             revealed = item.revealed,
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
-            enrichment = problem.enrichment,
+            enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
         )
 

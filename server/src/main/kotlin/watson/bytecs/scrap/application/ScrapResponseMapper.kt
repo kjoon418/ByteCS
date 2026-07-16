@@ -1,6 +1,7 @@
 package watson.bytecs.scrap.application
 
 import org.springframework.stereotype.Component
+import watson.bytecs.problem.application.dto.EnrichmentResponse
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.scrap.application.dto.ScrapDetailResponse
 import watson.bytecs.scrap.application.dto.ScrapSummaryResponse
@@ -29,7 +30,7 @@ class ScrapResponseMapper {
             difficulty = problem.difficulty?.name,
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
-            enrichment = problem.enrichment,
+            enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
             scrappedAt = scrap.createdAt,
         )

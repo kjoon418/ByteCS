@@ -1,5 +1,6 @@
 package watson.bytecs.scrap.application.dto
 
+import watson.bytecs.problem.application.dto.EnrichmentResponse
 import java.time.Instant
 
 /**
@@ -14,7 +15,7 @@ data class ScrapDetailResponse(
     val difficulty: String?,
     val concepts: List<String>,
     val explanation: String?,
-    val enrichment: String?,
+    val enrichment: EnrichmentResponse?,
     val representativeAnswer: String,
     val scrappedAt: Instant,
 )

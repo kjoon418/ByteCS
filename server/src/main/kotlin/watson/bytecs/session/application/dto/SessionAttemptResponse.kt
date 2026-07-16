@@ -1,5 +1,7 @@
 package watson.bytecs.session.application.dto
 
+import watson.bytecs.problem.application.dto.EnrichmentResponse
+
 /**
  * 세션 답 제출 결과 응답.
  *  - result: 판정(CORRECT/NEAR_MISS/MISMATCH). 비정답도 200으로 응답한다(무낙인).
@@ -18,7 +20,7 @@ data class SessionAttemptResponse(
     val position: Int,
     val concepts: List<String>?,
     val explanation: String?,
-    val enrichment: String?,
+    val enrichment: EnrichmentResponse?,
     val representativeAnswer: String?,
     val misconceptionHint: String?,
     val currentProblem: SessionProblemResponse?,
