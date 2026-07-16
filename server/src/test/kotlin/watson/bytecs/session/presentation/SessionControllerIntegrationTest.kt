@@ -34,6 +34,9 @@ import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
+import watson.bytecs.review.domain.ConceptMastery
+import watson.bytecs.review.domain.MasterySignal
+import watson.bytecs.review.infrastructure.ConceptMasteryRepository
 import watson.bytecs.session.infrastructure.SessionRepository
 import java.time.Clock
 import java.time.Instant
@@ -50,12 +53,14 @@ class SessionControllerIntegrationTest(
     @Autowired private val conceptRepository: ConceptRepository,
     @Autowired private val problemRepository: ProblemRepository,
     @Autowired private val sessionRepository: SessionRepository,
+    @Autowired private val conceptMasteryRepository: ConceptMasteryRepository,
     @Autowired private val jwtTokenProvider: JwtTokenProvider,
     @Autowired private val clock: MutableClock,
     @Autowired private val jdbcTemplate: JdbcTemplate,
 ) {
 
     private lateinit var token: String
+    private var userId: Long = 0
     private var p1: Long = 0
     private var p2: Long = 0
     private var p3: Long = 0
@@ -72,6 +77,7 @@ class SessionControllerIntegrationTest(
 
     @BeforeEach
     fun setUp() {
+        conceptMasteryRepository.deleteAll()
         sessionRepository.deleteAll()
         problemRepository.deleteAll()
         conceptRepository.deleteAll()
@@ -84,7 +90,9 @@ class SessionControllerIntegrationTest(
         p2 = seedProblem("개념2", "정답2", "해설2")
         p3 = seedProblem("개념3", "정답3", "해설3")
 
-        token = issueTokenForNewUser()
+        val user = userRepository.save(User.createGuest())
+        userId = user.id
+        token = jwtTokenProvider.issue(user.id, UserRole.GUEST)
     }
 
     @Test
@@ -457,6 +465,79 @@ class SessionControllerIntegrationTest(
     }
 
     @Test
+    fun `무도움으로 통과하면 그 문제의 모든 개념 숙련도가 생기고 복습이 3일 뒤가 된다`() {
+        reseedMultiConceptProblem()
+        getToday(token)
+
+        submit(token, "정답").andExpect { status { isOk() } }
+
+        // 힌트·정답 공개·교정 힌트 없이 맞힘 → 강한 정착(레벨 1, 사다리[1]=3일). 두 개념 모두에 적용된다.
+        listOf("대표개념", "보조개념").forEach { conceptName ->
+            val mastery = masteryOf(conceptName)
+            assertThat(mastery.level).isEqualTo(1)
+            assertThat(mastery.nextReviewDate).isEqualTo(DAY1.plusDays(3))
+        }
+    }
+
+    @Test
+    fun `힌트를 열고 맞히면 약한 정착으로 복습이 1일 뒤가 된다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+        revealHint(token, 0)
+
+        submit(token, "정답").andExpect { status { isOk() } }
+
+        // 도움받아 맞힘 → 레벨 유지(0), 사다리[0]=1일.
+        val mastery = masteryOf("힌트개념")
+        assertThat(mastery.level).isEqualTo(0)
+        assertThat(mastery.nextReviewDate).isEqualTo(DAY1.plusDays(1))
+    }
+
+    @Test
+    fun `정답 공개를 쓴 뒤 맞히면 숙련도가 내려가 복습이 1일 뒤가 된다`() {
+        reseedSingleHintedProblem()
+        getToday(token)
+        submit(token, "틀린 답")
+        reveal(token)
+
+        submit(token, "정답").andExpect { status { isOk() } }
+
+        // 정답 공개(포기) → 레벨 하락(0에서 바닥), 사다리[0]=1일.
+        val mastery = masteryOf("힌트개념")
+        assertThat(mastery.level).isEqualTo(0)
+        assertThat(mastery.nextReviewDate).isEqualTo(DAY1.plusDays(1))
+    }
+
+    @Test
+    fun `복습 시점이 도래한 개념의 문제가 다음 세션에 편입된다`() {
+        // 개념3을 5일 전에 무도움으로 통과한 것으로 두면 복습 시점(3일 뒤 = 2일 전)이 오늘 도래해 있다.
+        conceptMasteryRepository.save(
+            ConceptMastery.firstSolve(userId, conceptIdOf("개념3"), MasterySignal.UNAIDED, DAY1.minusDays(5), p3),
+        )
+
+        // 자연 배정이면 p1이 먼저지만, 도래 복습 p3가 우선 편입되어 현재 문제가 된다.
+        val result = getToday(token).andReturn()
+        val tree = objectMapper.readTree(result.response.contentAsByteArray)
+
+        assertThat(tree.get("currentProblem").get("id").asLong()).isEqualTo(p3)
+        assertThat(tree.get("totalCount").asInt()).isEqualTo(3)
+    }
+
+    @Test
+    fun `계정을 삭제하면 그 사용자의 개념 숙련도도 함께 삭제된다`() {
+        conceptMasteryRepository.save(
+            ConceptMastery.firstSolve(userId, conceptIdOf("개념1"), MasterySignal.UNAIDED, DAY1, p1),
+        )
+        assertThat(conceptMasteryRepository.count()).isEqualTo(1)
+
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect { status { isNoContent() } }
+
+        assertThat(conceptMasteryRepository.count()).isEqualTo(0)
+    }
+
+    @Test
     fun `계정을 삭제하면 그 사용자의 세션과 세션 항목도 함께 삭제된다`() {
         getToday(token)
         submit(token, "정답1")
@@ -489,6 +570,13 @@ class SessionControllerIntegrationTest(
 
     private fun sessionItemRowCount(): Long =
         jdbcTemplate.queryForObject("select count(*) from study_session_item", Long::class.java)!!
+
+    private fun conceptIdOf(conceptName: String): Long =
+        conceptRepository.findAll().first { it.name == conceptName }.id
+
+    private fun masteryOf(conceptName: String): ConceptMastery =
+        conceptMasteryRepository.findByUserIdAndConceptId(userId, conceptIdOf(conceptName))
+            ?: error("개념 '$conceptName'의 숙련도가 없습니다.")
 
     private fun completeAllThree(bearer: String): ResultActionsDsl {
         getToday(bearer)

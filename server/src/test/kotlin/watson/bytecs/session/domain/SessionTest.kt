@@ -95,6 +95,34 @@ class SessionTest {
             assertThatThrownBy { session.recordAttempt(Judgement.CORRECT, AnswerText("b")) }
                 .isInstanceOf(SessionAlreadyCompletedException::class.java)
         }
+
+        @Test
+        fun 교정_힌트가_실린_오답이면_칸에_마킹한다() {
+            // 숙련도 산정(기능 3)이 '오답 교정 힌트 없이 맞힘'을 판별할 근거를 남긴다.
+            val session = sessionOf(10L)
+
+            session.recordAttempt(Judgement.MISMATCH, AnswerText("흔한오답"), misconceptionShown = true)
+
+            assertThat(session.items[0].misconceptionHintSeen).isTrue()
+        }
+
+        @Test
+        fun 교정_힌트가_없는_오답은_마킹하지_않는다() {
+            val session = sessionOf(10L)
+
+            session.recordAttempt(Judgement.MISMATCH, AnswerText("그냥 오답"))
+
+            assertThat(session.items[0].misconceptionHintSeen).isFalse()
+        }
+
+        @Test
+        fun 정답_통과는_교정_힌트_마킹을_건드리지_않는다() {
+            val session = sessionOf(10L)
+
+            session.recordAttempt(Judgement.CORRECT, AnswerText("정답"))
+
+            assertThat(session.items[0].misconceptionHintSeen).isFalse()
+        }
     }
 
     @Nested

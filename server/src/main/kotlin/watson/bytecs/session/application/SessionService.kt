@@ -7,9 +7,12 @@ import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.AnswerText
+import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
+import watson.bytecs.review.application.ReviewService
+import watson.bytecs.review.domain.MasterySignal
 import watson.bytecs.session.application.dto.HintRevealResponse
 import watson.bytecs.session.application.dto.PastItemResponse
 import watson.bytecs.session.application.dto.RevealResponse
@@ -37,6 +40,7 @@ class SessionService(
     private val userRepository: UserRepository,
     private val responseMapper: SessionResponseMapper,
     private val sessionCreator: SessionCreator,
+    private val reviewService: ReviewService,
     private val clock: Clock,
 ) {
 
@@ -66,8 +70,21 @@ class SessionService(
         val problem = loadProblem(currentProblemId)
 
         // 판정과 오답 교정 힌트를 함께 산출한다(교정 힌트 매칭 시 MISMATCH 확정 — 근접보다 우선). 진행에는 확정된 판정을 쓴다.
+        // 정답으로 통과할 칸(= 진입 시점의 현재 칸)의 위치를 미리 잡아, 통과 직후 그 칸의 도움 신호를 읽는다.
+        val solvedPosition = session.currentPosition
         val outcome = problem.evaluate(answer)
-        session.recordAttempt(outcome.judgement, answer)
+        session.recordAttempt(outcome.judgement, answer, misconceptionShown = outcome.misconceptionHint != null)
+
+        // 정답이면 그 문제의 모든 개념 숙련도를 같은 트랜잭션에서 갱신한다(기능 3). 도움 신호는 방금 통과한 칸에서 파생한다.
+        if (outcome.judgement == Judgement.CORRECT) {
+            val solvedItem = session.items[solvedPosition]
+            val signal = MasterySignal.of(
+                revealed = solvedItem.revealed,
+                revealedHintCount = solvedItem.revealedHintCount,
+                misconceptionHintSeen = solvedItem.misconceptionHintSeen,
+            )
+            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id)
+        }
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
         val streak = if (session.isCompleted) {

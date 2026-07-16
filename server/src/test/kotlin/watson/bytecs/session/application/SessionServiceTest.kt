@@ -13,6 +13,7 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.infrastructure.ProblemRepository
+import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.application.dto.SessionStateResponse
 import watson.bytecs.session.application.dto.StreakResponse
 import watson.bytecs.session.domain.Session
@@ -33,6 +34,7 @@ class SessionServiceTest {
     private val userRepository: UserRepository = mock(UserRepository::class.java)
     private val responseMapper: SessionResponseMapper = mock(SessionResponseMapper::class.java)
     private val sessionCreator: SessionCreator = mock(SessionCreator::class.java)
+    private val reviewService: ReviewService = mock(ReviewService::class.java)
 
     private val zone: ZoneId = ZoneId.of("Asia/Seoul")
     private val today: LocalDate = LocalDate.of(2026, 7, 14)
@@ -44,6 +46,7 @@ class SessionServiceTest {
         userRepository,
         responseMapper,
         sessionCreator,
+        reviewService,
         clock,
     )
 

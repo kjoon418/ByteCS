@@ -46,6 +46,12 @@ class SessionItem(
     var revealedHintCount: Int = 0
         protected set
 
+    // 이 칸에서 오답 교정 힌트가 실린 오답을 낸 적이 있는지. 숙련도 산정(기능 3)에서
+    // 명세 §3 320행의 '오답 교정 힌트 없이 맞힘'(무도움)을 판별할 근거다 — 교정 힌트를 봤으면 '도움'으로 친다.
+    @Column(name = "misconception_hint_seen", nullable = false)
+    var misconceptionHintSeen: Boolean = false
+        protected set
+
     /** 정답으로 통과 처리한다. 입력한 정답 텍스트를 남겨 지난 문제 다시 보기에서 재현한다. */
     fun markSolved(submittedAnswer: String) {
         this.solved = true
@@ -55,6 +61,11 @@ class SessionItem(
     /** 비정답(불일치·근접) 제출을 기록한다. 진행은 전진하지 않고, 정답 공개 가능 여부만 갱신된다. */
     fun recordWrongAttempt() {
         this.wrongAttemptCount += 1
+    }
+
+    /** 오답 교정 힌트가 실린 오답을 냈음을 기록한다. 무낙인이라 벌점은 아니고, 숙련도 신호로만 쓴다(진행 불변). */
+    fun markMisconceptionHintSeen() {
+        this.misconceptionHintSeen = true
     }
 
     /** 정답 공개를 사용했음을 기록한다. 공개해도 직접 정답을 입력해야 넘어가므로 진행은 바뀌지 않는다. */
