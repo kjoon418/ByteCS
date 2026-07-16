@@ -40,9 +40,6 @@ bytecs.apiBaseUrl=http://192.168.0.10:8080
 
 ## 매번 실행할 때
 
-`adb`는 PATH에 없을 수 있다. 없으면 전체 경로를 쓴다:
-`C:\Users\<사용자>\AppData\Local\Android\Sdk\platform-tools\adb.exe`
-
 ### 1. 백엔드 띄우기
 
 ```powershell
@@ -56,7 +53,7 @@ bytecs.apiBaseUrl=http://192.168.0.10:8080
 ### 2. 폰 연결 확인
 
 ```powershell
-adb devices
+C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe devices
 ```
 
 폰의 시리얼이 `device` 상태로 보여야 한다. `unauthorized`면 폰 화면의 USB 디버깅 허용 팝업을 확인한다.
@@ -65,11 +62,14 @@ adb devices
 ### 3. 터널 놓기
 
 ```powershell
-adb reverse tcp:8080 tcp:8080
+C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe reverse tcp:8080 tcp:8080
+
+# 애뮬레이터가 같이 떠 있을 때
+C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe -s <시리얼> reverse tcp:8080 tcp:8080
 ```
 
 **폰을 다시 꽂을 때마다 실행해야 한다** (재부팅·케이블 분리 시 터널이 사라진다).
-`adb reverse --list`로 확인할 수 있다.
+`C:\Users\user\AppData\Local\Android\Sdk\platform-tools\adb.exe reverse --list`로 확인할 수 있다.
 
 ### 4. 설치 후 실행
 
