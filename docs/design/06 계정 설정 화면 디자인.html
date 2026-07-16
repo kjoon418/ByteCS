@@ -47,6 +47,34 @@
             </button>
         </section>
 
+        <!-- Study Settings Group -->
+        <section id="settings-study" class="space-y-3">
+            <h3 class="text-[13px] font-semibold text-[#888888] px-1 uppercase tracking-wider">학습 설정</h3>
+            <div class="bg-white rounded-2xl border border-[#F0F0F0] overflow-hidden">
+                <div class="px-5 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center text-[#2563EB]">
+                                <i class="fa-solid fa-layer-group"></i>
+                            </div>
+                            <span class="text-[15px] font-medium">세션 크기</span>
+                        </div>
+                        <!-- SessionSizeSetting: −/+ 스텝퍼(1~50), 값은 "N문제" -->
+                        <div class="flex items-center gap-3">
+                            <button class="w-8 h-8 rounded-full bg-[#F5F5F5] text-[#666666] font-bold flex items-center justify-center" aria-label="세션 크기 줄이기">−</button>
+                            <span class="text-[15px] font-bold text-[#1A1A1A] w-12 text-center">10문제</span>
+                            <button class="w-8 h-8 rounded-full bg-[#F5F5F5] text-[#666666] font-bold flex items-center justify-center" aria-label="세션 크기 늘리기">+</button>
+                        </div>
+                    </div>
+                    <p class="text-[12px] text-[#888888] mt-2 pl-11">하루 세션에서 풀 문제 수예요</p>
+                </div>
+                <!-- 값을 바꾼 뒤(dirty)에만 노출되는 저장 버튼 -->
+                <div id="session-size-save" class="hidden px-5 pb-4">
+                    <button class="w-full py-3 bg-[#2563EB] hover:bg-[#1D4ED8] transition-colors text-white text-[14px] font-bold rounded-xl">저장하기</button>
+                </div>
+            </div>
+        </section>
+
         <!-- General Settings Group -->
         <section id="settings-general" class="space-y-3">
             <h3 class="text-[13px] font-semibold text-[#888888] px-1 uppercase tracking-wider">앱 설정</h3>
