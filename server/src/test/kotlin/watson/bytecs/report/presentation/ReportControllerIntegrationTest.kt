@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.post
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserRole
@@ -165,5 +166,31 @@ class ReportControllerIntegrationTest(
         }
 
         assertThat(contentReportRepository.count()).isEqualTo(0)
+    }
+
+    // 계정 삭제 후에도 스테이트리스 JWT는 유효하다. 삭제된 사용자의 토큰으로 신고를 접수하면
+    // 201(고아 행 생성)이 아니라 404 UserNotFound여야 한다(2026-07-16 오너 결정 8).
+
+    @Test
+    fun `계정을 삭제한 뒤 그 토큰으로 신고하면 404이고 고아 행이 생기지 않는다`() {
+        deleteAccount(token)
+
+        mockMvc.post("/api/problems/$problemId/reports") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"category":"WRONG_ANSWER"}"""
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("USER_NOT_FOUND") }
+        }
+
+        // 사용자 존재 검사가 저장보다 먼저 실행돼, 삭제된 userId로 참조 무결성 없는 신고 테이블에 고아 행이 남지 않는지 확인한다.
+        assertThat(contentReportRepository.count()).isEqualTo(0)
+    }
+
+    private fun deleteAccount(bearer: String) {
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+        }.andExpect { status { isNoContent() } }
     }
 }

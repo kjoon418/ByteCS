@@ -2,6 +2,8 @@ package watson.bytecs.report.application
 
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import watson.bytecs.account.domain.UserNotFoundException
+import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.report.application.dto.ReportResponse
@@ -20,11 +22,18 @@ import java.time.Instant
 class ReportService(
     private val contentReportRepository: ContentReportRepository,
     private val problemRepository: ProblemRepository,
+    private val userRepository: UserRepository,
     private val clock: Clock,
 ) {
 
+    /**
+     * 콘텐츠 오류 신고를 접수한다.
+     * 스테이트리스 JWT는 계정 삭제 후에도 유효하므로, 삭제된 사용자의 토큰이 이 경로로 고아 신고 행을 만들지 않도록
+     * 저장 전에 사용자 존재를 확인한다(없으면 404 UserNotFound).
+     */
     @Transactional
     fun report(userId: Long, problemId: Long, category: ReportCategory, message: String?): ReportResponse {
+        requireUserExists(userId)
         if (!problemRepository.existsById(problemId)) {
             throw ProblemNotFoundException.byId(problemId)
         }
@@ -45,5 +54,11 @@ class ReportService(
             category = saved.category.name,
             createdAt = saved.createdAt,
         )
+    }
+
+    private fun requireUserExists(userId: Long) {
+        if (!userRepository.existsById(userId)) {
+            throw UserNotFoundException.byId(userId)
+        }
     }
 }
