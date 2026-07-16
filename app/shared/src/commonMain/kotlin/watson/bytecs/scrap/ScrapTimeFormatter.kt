@@ -32,11 +32,19 @@ fun formatScrappedAt(scrappedAt: Instant, now: Instant = Clock.System.now()): St
     }
 }
 
-/** 7일 이상 지났을 때의 표기 — 달력 날짜. 해가 다르면 연도를 함께 밝힌다. */
+/**
+ * 7일 이상 지났을 때의 표기 — 달력 날짜. 해가 다르면 연도를 함께 밝힌다.
+ *
+ * ⭐️ KST(UTC+9) 기준으로 날짜를 계산한다 — 사용자는 한국인이고, 서버 [Clock]도 관례상 Asia/Seoul
+ * 고정이다. UTC 그대로 계산하면 KST 자정~오전 9시에 스크랩한 건이 UTC로는 "전날"이라 하루 어긋난
+ * 날짜가 표시된다. KST는 DST가 없는 고정 오프셋이라 `epochSeconds + KST_OFFSET_SECONDS`만으로
+ * 안전하게 보정할 수 있다(scrappedAt·now 양쪽에 일관되게 적용해야 연도 비교도 어긋나지 않는다).
+ */
 @OptIn(ExperimentalTime::class)
 private fun formatCalendarDate(scrappedAt: Instant, now: Instant): String {
-    val (scrappedYear, scrappedMonth, scrappedDay) = civilFromEpochDay(scrappedAt.epochSeconds.floorDiv(SECONDS_PER_DAY))
-    val (nowYear, _, _) = civilFromEpochDay(now.epochSeconds.floorDiv(SECONDS_PER_DAY))
+    val (scrappedYear, scrappedMonth, scrappedDay) =
+        civilFromEpochDay((scrappedAt.epochSeconds + KST_OFFSET_SECONDS).floorDiv(SECONDS_PER_DAY))
+    val (nowYear, _, _) = civilFromEpochDay((now.epochSeconds + KST_OFFSET_SECONDS).floorDiv(SECONDS_PER_DAY))
     return if (scrappedYear != nowYear) {
         "${scrappedYear}년 ${scrappedMonth}월 ${scrappedDay}일"
     } else {
@@ -45,6 +53,9 @@ private fun formatCalendarDate(scrappedAt: Instant, now: Instant): String {
 }
 
 private const val SECONDS_PER_DAY = 86_400L
+
+/** KST(UTC+9)는 DST가 없어 연중 고정 오프셋 — 9시간을 초로 환산한 값. */
+private const val KST_OFFSET_SECONDS = 9 * 60 * 60L
 
 /**
  * 1970-01-01 기준 경과 일수를 (연, 월, 일)로 변환한다(UTC, 프로렙틱 그레고리력).
