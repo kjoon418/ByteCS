@@ -34,14 +34,16 @@ internal data class AttemptRequestDto(
 
 /**
  * `POST /api/problems/{id}/attempts` 응답.
- * concepts·explanation은 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출). concepts는 태깅 순서를
- * 보존한 목록(첫 번째가 대표 개념) — 문제가 개념 N—M으로 태깅될 수 있다.
+ * concepts·explanation·enrichment는 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출). concepts는 태깅 순서를
+ * 보존한 목록(첫 번째가 대표 개념) — 문제가 개념 N—M으로 태깅될 수 있다. enrichment는 '더 알아보기'(§5.7,
+ * 선택 콘텐츠 — 없어도 됨).
  */
 @Serializable
 internal data class AttemptResponseDto(
     val result: String,
     val concepts: List<String>? = null,
     val explanation: String? = null,
+    val enrichment: String? = null,
 ) {
     fun toDomain(): AttemptResult = AttemptResult(
         // 서버 enum명과 대소문자 무시 대조. 미지값은 명확한 예외로 올려(여전히 뷰모델이 catch)
@@ -50,5 +52,6 @@ internal data class AttemptResponseDto(
             ?: throw IllegalStateException("알 수 없는 판정 결과: $result"),
         concepts = concepts,
         explanation = explanation,
+        enrichment = enrichment,
     )
 }

@@ -618,4 +618,33 @@ class SessionScreenUiTest {
     ) {
         onNodeWithContentDescription("스크랩 해제").assertIsDisplayed()
     }
+
+    // ── '더 알아보기'(심화 정보, §5.7) ────────────────────────────────────────
+
+    /** 정답 피드백에 심화 정보가 있으면 '더 알아보기'가 뜨고, 탭하면 본문이 펼쳐진다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_피드백에_심화_정보가_있으면_더_알아보기가_뜨고_탭하면_본문이_보인다() = runScreen(
+        active(
+            inputText = answer,
+            feedback = SessionFeedback.Correct(listOf(answer), "해설", "해시 충돌은 생일 문제와 연결돼요."),
+        ),
+    ) {
+        onNodeWithText("맞았어요!").assertIsDisplayed()
+        onNodeWithText("더 알아보기").assertIsDisplayed()
+        onNodeWithText("해시 충돌은 생일 문제와 연결돼요.").assertDoesNotExist()
+
+        onNodeWithText("더 알아보기").performClick()
+        onNodeWithText("해시 충돌은 생일 문제와 연결돼요.").assertIsDisplayed()
+    }
+
+    /** 심화 정보가 없는 정답 피드백에는 '더 알아보기' 진입점 자체가 없다(빈 껍데기 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 심화_정보가_없는_정답_피드백에는_더_알아보기가_없다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+    ) {
+        onNodeWithText("맞았어요!").assertIsDisplayed()
+        onNodeWithText("더 알아보기").assertDoesNotExist()
+    }
 }

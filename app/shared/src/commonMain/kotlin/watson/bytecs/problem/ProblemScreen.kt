@@ -26,7 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -46,6 +48,7 @@ import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
+import watson.bytecs.ui.components.EnrichmentBlock
 import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
@@ -243,7 +246,7 @@ private fun ReadyContent(
         // 피드백(있을 때만). 세 상태 모두 비처벌.
         state.feedback?.let { feedback ->
             Spacer(Modifier.height(BcsDimens.space4))
-            FeedbackSection(feedback)
+            FeedbackSection(feedback, problemId = state.problem.id)
         }
 
         // ⭐️ 시스템 오류는 오답과 구분한다(§5.12). 전송 실패는 학습 기록 안전을 먼저 고지하고 재시도 경로를 준다.
@@ -289,7 +292,7 @@ private fun ErrorState(
 
 /** 세 피드백 상태. 나타날 때 또렷한 진입 모션을 준다(밋밋함 금지). */
 @Composable
-private fun FeedbackSection(feedback: Feedback) {
+private fun FeedbackSection(feedback: Feedback, problemId: Long) {
     // feedback 종류가 바뀔 때마다 다시 애니메이션되도록 종류로 키를 준다.
     val visibleState = remember(feedback::class) {
         MutableTransitionState(false).apply { targetState = true }
@@ -304,10 +307,19 @@ private fun FeedbackSection(feedback: Feedback) {
     ) {
         when (feedback) {
             // 개념 칩은 정답 이후에만 노출된다(§5.9, 정답 스포일 방지) — Correct에만 concepts가 실린다.
-            is Feedback.Correct -> CorrectFeedback(
-                concepts = feedback.concepts,
-                explanation = feedback.explanation,
-            )
+            is Feedback.Correct -> Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
+                CorrectFeedback(
+                    concepts = feedback.concepts,
+                    explanation = feedback.explanation,
+                )
+                // '더 알아보기'(§5.7) — 문제가 바뀌면 접힘으로 초기화.
+                var expanded by remember(problemId) { mutableStateOf(false) }
+                EnrichmentBlock(
+                    content = feedback.enrichment,
+                    expanded = expanded,
+                    onToggle = { expanded = !expanded },
+                )
+            }
             Feedback.Mismatch -> RetryNudge()
             Feedback.NearMiss -> NearMissNudge()
         }

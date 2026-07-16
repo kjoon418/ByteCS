@@ -18,6 +18,7 @@ data class ScrapListItem(
  * 스크랩한 문제의 읽기 전용 재열람 내용. 이미 정답에 접근 가능한 맥락이므로 모범답안·해설을 공개해도 된다
  * (명세 [결정]: "문제·모범답안 등"). 여러 표현이 정답일 수 있어 [acceptableAnswers]는 목록이다.
  * [concepts]는 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+ * [enrichment]는 '더 알아보기'(§5.7) — 정답 접근이 이미 허용된 맥락이라 포함된다(없어도 되는 선택 콘텐츠).
  */
 data class ScrapDetail(
     val problemId: Long,
@@ -26,4 +27,5 @@ data class ScrapDetail(
     val concepts: List<String>,
     val explanation: String?,
     val acceptableAnswers: List<String>,
+    val enrichment: String? = null,
 )

@@ -120,6 +120,7 @@ class FakeSessionRepository(
             total: Int = 3,
             completed: Boolean = false,
             streak: Streak? = null,
+            enrichment: String? = null,
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
             status = if (completed) SessionStatus.COMPLETED else SessionStatus.IN_PROGRESS,
@@ -130,6 +131,7 @@ class FakeSessionRepository(
             explanation = "해설",
             currentProblem = next,
             streak = streak,
+            enrichment = enrichment,
         )
 
         fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(
@@ -147,7 +149,7 @@ class FakeSessionRepository(
 
         fun nearMissOutcome(total: Int = 3) = mismatchOutcome(total).copy(result = JudgeResult.NEAR_MISS)
 
-        fun pastItem(position: Int) = PastItem(
+        fun pastItem(position: Int, enrichment: String? = null) = PastItem(
             position = position,
             problemId = 10L + position,
             question = "지난 Q$position",
@@ -159,6 +161,7 @@ class FakeSessionRepository(
             concepts = listOf("개념$position"),
             explanation = "해설$position",
             acceptableAnswers = listOf("정답$position"),
+            enrichment = enrichment,
         )
     }
 }

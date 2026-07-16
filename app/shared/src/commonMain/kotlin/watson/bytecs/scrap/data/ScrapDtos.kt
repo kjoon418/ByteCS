@@ -33,6 +33,7 @@ internal data class ScrapDetailDto(
     val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
+    val enrichment: String? = null,
 ) {
     fun toDomain(): ScrapDetail = ScrapDetail(
         problemId = problemId,
@@ -41,5 +42,6 @@ internal data class ScrapDetailDto(
         concepts = concepts,
         explanation = explanation,
         acceptableAnswers = acceptableAnswers,
+        enrichment = enrichment,
     )
 }

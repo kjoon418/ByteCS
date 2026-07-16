@@ -85,7 +85,7 @@ class KtorSessionRepositoryTest {
             respond(
                 content = """
                     {"result":"CORRECT","status":"IN_PROGRESS","solvedCount":1,"totalCount":3,"position":1,
-                     "concepts":["스택"],"explanation":"LIFO",
+                     "concepts":["스택"],"explanation":"LIFO","enrichment":"스택은 함수 호출 스택에도 쓰여요.",
                      "currentProblem":{"id":2,"question":"다음","difficulty":null,"codeSnippet":null},"streak":null}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
@@ -98,6 +98,8 @@ class KtorSessionRepositoryTest {
         assertEquals(listOf("스택"), outcome.concepts)
         assertEquals(2L, outcome.currentProblem?.id)
         assertFalse(outcome.isCompleted)
+        // '더 알아보기'(§5.7) 필드가 서버 응답에서 그대로 매핑된다.
+        assertEquals("스택은 함수 호출 스택에도 쓰여요.", outcome.enrichment)
     }
 
     @Test
@@ -114,6 +116,8 @@ class KtorSessionRepositoryTest {
         assertTrue(outcome.isCompleted)
         assertEquals(7, outcome.streak?.count)
         assertNull(outcome.currentProblem)
+        // enrichment가 응답에 없으면 그레이스풀하게 null.
+        assertNull(outcome.enrichment)
     }
 
     @Test
@@ -135,7 +139,10 @@ class KtorSessionRepositoryTest {
             assertEquals(HttpMethod.Post, request.method)
             assertEquals("http://test/api/sessions/today/reveal", request.url.toString())
             respond(
-                content = """{"concepts":["스택","자료구조"],"explanation":"LIFO","acceptableAnswers":["스택","stack"]}""",
+                content = """
+                    {"concepts":["스택","자료구조"],"explanation":"LIFO","acceptableAnswers":["스택","stack"],
+                     "enrichment":"스택은 함수 호출 스택에도 쓰여요."}
+                """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -145,6 +152,8 @@ class KtorSessionRepositoryTest {
         // 태깅 순서 보존 확인(첫 번째 = 대표 개념) + 복수 개념 매핑.
         assertEquals(listOf("스택", "자료구조"), reveal.concepts)
         assertEquals(listOf("스택", "stack"), reveal.acceptableAnswers)
+        // 정답 공개도 정답 접근 허용 맥락이라 '더 알아보기'가 포함된다.
+        assertEquals("스택은 함수 호출 스택에도 쓰여요.", reveal.enrichment)
     }
 
     @Test
@@ -198,7 +207,7 @@ class KtorSessionRepositoryTest {
                 content = """
                     {"position":2,"problemId":12,"question":"지난문제","codeSnippet":null,"difficulty":"EASY",
                      "submittedAnswer":"스택","result":"CORRECT","revealed":false,"concepts":["스택"],"explanation":"LIFO",
-                     "acceptableAnswers":["스택"]}
+                     "acceptableAnswers":["스택"],"enrichment":"스택은 함수 호출 스택에도 쓰여요."}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
@@ -210,6 +219,8 @@ class KtorSessionRepositoryTest {
         assertEquals("스택", item.submittedAnswer)
         assertEquals(JudgeResult.CORRECT, item.result)
         assertEquals(listOf("스택"), item.acceptableAnswers)
+        // 지난 문제 다시 보기도 정답 접근 허용 맥락이라 '더 알아보기'가 포함된다.
+        assertEquals("스택은 함수 호출 스택에도 쓰여요.", item.enrichment)
     }
 
     @Test

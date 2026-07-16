@@ -96,6 +96,7 @@ internal data class SessionAttemptResponseDto(
     val currentProblem: SessionProblemDto? = null,
     val streak: StreakDto? = null,
     val misconceptionHint: String? = null,
+    val enrichment: String? = null,
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -108,6 +109,7 @@ internal data class SessionAttemptResponseDto(
         currentProblem = currentProblem?.toDomain(),
         streak = streak?.toDomain(),
         misconceptionHint = misconceptionHint,
+        enrichment = enrichment,
     )
 }
 
@@ -133,8 +135,9 @@ internal data class RevealResponseDto(
     val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
+    val enrichment: String? = null,
 ) {
-    fun toDomain(): Reveal = Reveal(concepts, explanation, acceptableAnswers)
+    fun toDomain(): Reveal = Reveal(concepts, explanation, acceptableAnswers, enrichment)
 }
 
 /**
@@ -169,6 +172,7 @@ internal data class PastItemResponseDto(
     val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
+    val enrichment: String? = null,
 ) {
     fun toDomain(): PastItem = PastItem(
         position = position,
@@ -182,5 +186,6 @@ internal data class PastItemResponseDto(
         concepts = concepts,
         explanation = explanation,
         acceptableAnswers = acceptableAnswers,
+        enrichment = enrichment,
     )
 }

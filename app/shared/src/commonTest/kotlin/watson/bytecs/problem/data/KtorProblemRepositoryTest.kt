@@ -56,7 +56,10 @@ class KtorProblemRepositoryTest {
             assertTrue(body.contains("\"answer\""), "본문에 answer 필드가 있어야 한다")
             assertTrue(body.contains("스택"), "제출한 답이 본문에 실려야 한다")
             respond(
-                content = """{"result":"CORRECT","concepts":["스택"],"explanation":"LIFO 구조"}""",
+                content = """
+                    {"result":"CORRECT","concepts":["스택"],"explanation":"LIFO 구조",
+                     "enrichment":"스택은 함수 호출 스택에도 쓰여요."}
+                """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -68,6 +71,8 @@ class KtorProblemRepositoryTest {
         assertEquals(JudgeResult.CORRECT, result.result)
         assertEquals(listOf("스택"), result.concepts)
         assertEquals("LIFO 구조", result.explanation)
+        // '더 알아보기'(§5.7) 필드가 서버 응답에서 그대로 매핑된다.
+        assertEquals("스택은 함수 호출 스택에도 쓰여요.", result.enrichment)
     }
 
     @Test
@@ -86,6 +91,8 @@ class KtorProblemRepositoryTest {
         assertEquals(JudgeResult.MISMATCH, result.result)
         assertNull(result.concepts)
         assertNull(result.explanation)
+        // no-leak: 비정답에는 '더 알아보기'도 실리지 않는다.
+        assertNull(result.enrichment)
     }
 
     @Test

@@ -102,7 +102,11 @@ class ProblemViewModel(
     }
 
     private fun AttemptResult.toFeedback(): Feedback = when (result) {
-        JudgeResult.CORRECT -> Feedback.Correct(concepts = concepts, explanation = explanation)
+        JudgeResult.CORRECT -> Feedback.Correct(
+            concepts = concepts,
+            explanation = explanation,
+            enrichment = enrichment,
+        )
         JudgeResult.NEAR_MISS -> Feedback.NearMiss
         JudgeResult.MISMATCH -> Feedback.Mismatch
     }
@@ -131,8 +135,15 @@ sealed interface ProblemUiState {
  *  - [NearMiss]: 오탈자 안내(info). 정답·개념 비노출.
  */
 sealed interface Feedback {
-    /** [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념). */
-    data class Correct(val concepts: List<String>?, val explanation: String?) : Feedback
+    /**
+     * [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+     * [enrichment]: '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠.
+     */
+    data class Correct(
+        val concepts: List<String>?,
+        val explanation: String?,
+        val enrichment: String? = null,
+    ) : Feedback
     data object Mismatch : Feedback
     data object NearMiss : Feedback
 }
