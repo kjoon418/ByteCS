@@ -106,6 +106,7 @@ class ProblemViewModel(
             concepts = concepts,
             explanation = explanation,
             enrichment = enrichment,
+            representativeAnswer = representativeAnswer,
         )
         JudgeResult.NEAR_MISS -> Feedback.NearMiss
         JudgeResult.MISMATCH -> Feedback.Mismatch
@@ -138,11 +139,13 @@ sealed interface Feedback {
     /**
      * [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
      * [enrichment]: '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠.
+     * [representativeAnswer]: 화면 표시용 대표 정답([2026-07-16] 오너 결정).
      */
     data class Correct(
         val concepts: List<String>?,
         val explanation: String?,
         val enrichment: String? = null,
+        val representativeAnswer: String? = null,
     ) : Feedback
     data object Mismatch : Feedback
     data object NearMiss : Feedback

@@ -32,7 +32,8 @@ internal data class ScrapDetailDto(
     val codeSnippet: String? = null,
     val concepts: List<String>,
     val explanation: String? = null,
-    val acceptableAnswers: List<String>,
+    // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
+    val representativeAnswer: String,
     val enrichment: String? = null,
 ) {
     fun toDomain(): ScrapDetail = ScrapDetail(
@@ -41,7 +42,7 @@ internal data class ScrapDetailDto(
         codeSnippet = codeSnippet,
         concepts = concepts,
         explanation = explanation,
-        acceptableAnswers = acceptableAnswers,
+        representativeAnswer = representativeAnswer,
         enrichment = enrichment,
     )
 }

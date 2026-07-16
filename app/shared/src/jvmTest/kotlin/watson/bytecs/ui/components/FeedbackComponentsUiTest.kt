@@ -91,20 +91,24 @@ class FeedbackComponentsUiTest {
         assertEquals(1, revealed)
     }
 
+    /**
+     * [2026-07-16] 허용답을 나열하지 않는다 — 화면 표시용 대표 정답 하나만 보여준다(오너 결정).
+     * 병기 표기("인덱스 (index)" 형식) 예시로 대표 정답이 그대로 한 문자열로 뜨는지 확인한다.
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 모범답안_블록은_여러_정답과_해설을_보여준다() = runComposeUiTest {
+    fun 모범답안_블록은_대표_정답과_해설을_보여준다() = runComposeUiTest {
         setContent {
             BcsTheme(darkTheme = false) {
                 ModelAnswerBlock(
-                    answers = listOf("해시 충돌", "충돌"),
+                    representativeAnswer = "해시 충돌 (collision)",
                     explanation = "같은 버킷에 매핑되는 현상이에요.",
                 )
             }
         }
 
         onNodeWithText("모범답안").assertIsDisplayed()
-        onNodeWithText("해시 충돌  ·  충돌").assertIsDisplayed()
+        onNodeWithText("해시 충돌 (collision)").assertIsDisplayed()
         onNodeWithText("같은 버킷에 매핑되는 현상이에요.").assertIsDisplayed()
     }
 

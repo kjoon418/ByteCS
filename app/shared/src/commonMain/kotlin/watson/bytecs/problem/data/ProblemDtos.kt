@@ -44,6 +44,8 @@ internal data class AttemptResponseDto(
     val concepts: List<String>? = null,
     val explanation: String? = null,
     val enrichment: String? = null,
+    // 화면 표시용 대표 정답. 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출 연장).
+    val representativeAnswer: String? = null,
 ) {
     fun toDomain(): AttemptResult = AttemptResult(
         // 서버 enum명과 대소문자 무시 대조. 미지값은 명확한 예외로 올려(여전히 뷰모델이 catch)
@@ -53,5 +55,6 @@ internal data class AttemptResponseDto(
         concepts = concepts,
         explanation = explanation,
         enrichment = enrichment,
+        representativeAnswer = representativeAnswer,
     )
 }

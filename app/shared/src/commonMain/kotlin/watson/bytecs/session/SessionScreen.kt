@@ -384,7 +384,10 @@ private fun ActiveContent(
                     enter = fadeIn(tween(BcsMotion.durBase)) + scaleIn(tween(BcsMotion.durBase), initialScale = 0.97f),
                 ) {
                     Column {
-                        ConfirmedAnswerField(value = state.inputText)
+                        // 확정 입력란은 제출 텍스트가 아니라 대표 정답을 보여준다([2026-07-16] 오너 결정).
+                        val representativeAnswer =
+                            (state.feedback as? SessionFeedback.Correct)?.representativeAnswer ?: state.inputText
+                        ConfirmedAnswerField(representativeAnswer = representativeAnswer)
                         state.feedback?.let { feedback ->
                             Spacer(Modifier.height(BcsDimens.space4))
                             FeedbackCard(feedback, problemId = state.problem.id)
@@ -427,7 +430,7 @@ private fun ActiveContent(
             // ⭐️ 공개 후에는 모범답안이 **입력칸 위**에 온다 — "위 정답을 따라 적어 보세요"가 성립하려면
             //    답이 먼저 보여야 하고, 따라 입력은 그걸 보고 하는 행동이기 때문이다(시안 F-2 순서).
             ModelAnswerBlock(
-                answers = reveal.acceptableAnswers,
+                representativeAnswer = reveal.representativeAnswer,
                 explanation = reveal.explanation,
             )
             // 개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9). 여러 개면 칩이 늘어난다(태깅 순).
@@ -561,7 +564,7 @@ private fun PastItemView(
                 Text(item.question, style = BcsType.question, color = colors.textPrimary)
                 item.codeSnippet?.let { CodeSnippetBlock(code = it) }
                 LabeledBlock("내가 쓴 답", item.submittedAnswer ?: "—")
-                LabeledBlock("모범답안", item.acceptableAnswers.joinToString("  ·  "))
+                LabeledBlock("모범답안", item.representativeAnswer)
                 ConceptChips(item.concepts)
                 item.explanation?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)

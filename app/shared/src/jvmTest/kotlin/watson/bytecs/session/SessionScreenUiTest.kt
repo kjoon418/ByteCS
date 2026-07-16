@@ -54,10 +54,13 @@ class SessionScreenUiTest {
         pendingCompletion = pendingCompletion,
     )
 
+    /** 대표 정답은 병기 표기("인덱스 (index)" 형식)를 써서 개념 칩("해시 충돌")과 텍스트가 겹치지 않게 한다. */
+    private val representativeAnswer = "해시 충돌 (collision)"
+
     private fun revealOf() = Reveal(
         concepts = listOf(answer),
         explanation = "해시 함수는 서로 다른 입력을 같은 값으로 보낼 수 있어요.",
-        acceptableAnswers = listOf(answer, "충돌"),
+        representativeAnswer = representativeAnswer,
     )
 
     @OptIn(ExperimentalTestApi::class)
@@ -188,7 +191,8 @@ class SessionScreenUiTest {
     @Test
     fun 공개_후에는_모범답안과_따라_입력_안내가_함께_나온다() = runScreen(active(reveal = revealOf())) {
         onNodeWithText("모범답안").assertIsDisplayed()
-        onNodeWithText("해시 충돌  ·  충돌").assertIsDisplayed()
+        // [2026-07-16] 허용답 나열이 아니라 화면 표시용 대표 정답 하나만 보인다.
+        onNodeWithText(representativeAnswer).assertIsDisplayed()
         // 따라 입력(공용 TypeAlongField)의 학습 톤 문구.
         onNodeWithText("정답을 따라 적어 볼까요?").assertIsDisplayed()
         onNodeWithText("위 정답을 따라 적어 보세요").assertIsDisplayed()
@@ -238,7 +242,7 @@ class SessionScreenUiTest {
             reveal = Reveal(
                 concepts = listOf(answer, "해시 함수"),
                 explanation = "해시 함수는 서로 다른 입력을 같은 값으로 보낼 수 있어요.",
-                acceptableAnswers = listOf(answer, "충돌"),
+                representativeAnswer = representativeAnswer,
             ),
         ),
     ) {
@@ -397,13 +401,33 @@ class SessionScreenUiTest {
         onNode(hasSetTextAction()).assertDoesNotExist()
     }
 
-    /** 정답을 맞히면 제출한 답이 success 톤의 확정 표시로 바뀐다(§5.2 파생, 시안 55-60행). */
+    /** 정답을 맞히면 확정 입력란이 success 톤의 확정 표시로 바뀐다(§5.2 파생, 시안 55-60행). */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 정답을_맞히면_입력칸이_확정_표시로_바뀐다() = runScreen(
-        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+        active(
+            inputText = "trd",
+            feedback = SessionFeedback.Correct(listOf(answer), "해설", representativeAnswer = representativeAnswer),
+        ),
     ) {
-        onNodeWithContentDescription("제출한 답 $answer, 정답으로 확인됐어요").assertIsDisplayed()
+        onNodeWithContentDescription("$representativeAnswer, 정답으로 확인됐어요").assertIsDisplayed()
+    }
+
+    /**
+     * ⭐️ [2026-07-16] 확정 입력란은 **제출 텍스트가 아니라 대표 정답**을 보여준다(오너 결정).
+     * 사용자가 실제로 친 문자열("trd")과 화면 표시용 대표 정답("해시 충돌 (collision)")을 다르게 둬서
+     * 화면에 뜬 값이 제출값의 우연한 일치가 아니라 대표 정답 그 자체임을 못박는다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 확정_입력란은_제출_텍스트가_아니라_대표_정답을_보여준다() = runScreen(
+        active(
+            inputText = "trd",
+            feedback = SessionFeedback.Correct(listOf(answer), "해설", representativeAnswer = representativeAnswer),
+        ),
+    ) {
+        onNodeWithText(representativeAnswer).assertIsDisplayed()
+        onNodeWithText("trd").assertDoesNotExist()
     }
 
     /** ⭐️ 정답을 맞힌 뒤에는 힌트가 더 이상 의미가 없으므로 진입점을 감춘다(정보 위계 정돈). */
@@ -475,7 +499,7 @@ class SessionScreenUiTest {
                     revealed = false,
                     concepts = listOf("자료구조"),
                     explanation = "스택은 나중에 넣은 것이 먼저 나옵니다.",
-                    acceptableAnswers = listOf("LIFO와 FIFO"),
+                    representativeAnswer = "LIFO와 FIFO",
                 ),
             ),
         ),
@@ -636,7 +660,7 @@ class SessionScreenUiTest {
                     revealed = false,
                     concepts = listOf("자료구조"),
                     explanation = null,
-                    acceptableAnswers = listOf("LIFO와 FIFO"),
+                    representativeAnswer = "LIFO와 FIFO",
                 ),
             ),
         ),

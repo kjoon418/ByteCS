@@ -147,7 +147,7 @@ private fun ReadyContent(
 
         // 모범답안 + 해설.
         ModelAnswerBlock(
-            answers = detail.acceptableAnswers,
+            representativeAnswer = detail.representativeAnswer,
             explanation = detail.explanation,
         )
 

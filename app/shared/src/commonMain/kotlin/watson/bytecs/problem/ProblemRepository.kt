@@ -27,7 +27,8 @@ class FakeProblemRepository(
 
     /**
      * 시드 문제. [acceptableAnswers]는 판정에만 쓰고 [ProblemView]로는 노출하지 않는다
-     * (정답 비노출).
+     * (정답 비노출). [representativeAnswer]는 화면 표시용 대표 정답 하나 — 정규화 기준으로
+     * [acceptableAnswers]에 포함돼야 한다(따라 입력 시 반드시 통과).
      */
     data class Seed(
         val id: Long,
@@ -37,6 +38,7 @@ class FakeProblemRepository(
         val difficulty: String? = null,
         val codeSnippet: String? = null,
         val explanation: String? = null,
+        val representativeAnswer: String? = null,
     )
 
     private var cursor = 0
@@ -61,6 +63,7 @@ class FakeProblemRepository(
                 result = JudgeResult.CORRECT,
                 concepts = seed.concepts,
                 explanation = seed.explanation,
+                representativeAnswer = seed.representativeAnswer,
             )
             // ⭐️ 불일치·근접에는 개념·해설을 노출하지 않는다.
             JudgeResult.NEAR_MISS -> AttemptResult(JudgeResult.NEAR_MISS)
@@ -130,6 +133,7 @@ class FakeProblemRepository(
                 concepts = listOf("프로세스와 스레드"),
                 difficulty = "EASY",
                 explanation = "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
+                representativeAnswer = "스레드 (thread)",
             ),
             Seed(
                 id = 2L,
@@ -145,6 +149,7 @@ class FakeProblemRepository(
                     }
                 """.trimIndent(),
                 explanation = "이중 반복문이 각각 n번 돌아 n×n = n² 번 수행된다.",
+                representativeAnswer = "O(n²)",
             ),
         )
     }

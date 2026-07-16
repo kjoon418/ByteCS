@@ -77,9 +77,10 @@ data class DailySession(
 
 /**
  * 답 제출 결과.
- *  - [concepts]·[explanation]·[enrichment]: 정답(CORRECT)일 때만 채워진다(비정답은 no-leak으로 null). 태깅 순서를
- *    보존한 개념 목록 — 첫 번째가 대표 개념이다(문제가 개념 N—M으로 태깅될 수 있다). [enrichment]는
- *    '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠다.
+ *  - [concepts]·[explanation]·[enrichment]·[representativeAnswer]: 정답(CORRECT)일 때만 채워진다(비정답은
+ *    no-leak으로 null). 태깅 순서를 보존한 개념 목록 — 첫 번째가 대표 개념이다(문제가 개념 N—M으로 태깅될 수
+ *    있다). [enrichment]는 '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠다. [representativeAnswer]는 화면
+ *    표시용 대표 정답 — 허용답을 나열하지 않고 이 값 하나만 확정 입력란에 보여준다([2026-07-16] 오너 결정).
  *  - [currentProblem]: 정답으로 전진한 뒤 지금 풀 무낙인 문제. 완료됐으면 null.
  *  - [streak]: 이 제출로 세션이 완료됐을 때만 채워진다(04 완료 화면이 쓴다).
  *  - [misconceptionHint]: 비정답이고 제출이 예상 오답(큐레이션됨)과 일치할 때만 채워진다(push·자동, 기능 2.5).
@@ -98,25 +99,29 @@ data class AttemptOutcome(
     val streak: Streak?,
     val misconceptionHint: String? = null,
     val enrichment: String? = null,
+    val representativeAnswer: String? = null,
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }
 
 /**
- * 정답 공개(안전판) 결과. 공개 후에도 모범답안 중 하나를 **직접 따라 입력**해야 다음으로 넘어간다.
+ * 정답 공개(안전판) 결과. 공개 후에도 [representativeAnswer]를 **직접 따라 입력**해야 다음으로 넘어간다.
  *  - [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+ *  - [representativeAnswer]: 화면 표시용 대표 정답 하나 — 허용답 나열은 화면에서 하지 않는다([2026-07-16] 오너
+ *    결정). 도메인 불변식: `normalize(representativeAnswer)`가 허용답 집합에 포함된다(따라 입력 시 반드시 통과).
  *  - [enrichment]: '더 알아보기'(§5.7) — 정답 공개로 학습한 뒤도 정답 접근이 허용된 맥락이라 포함된다.
  */
 data class Reveal(
     val concepts: List<String>,
     val explanation: String?,
-    val acceptableAnswers: List<String>,
+    val representativeAnswer: String,
     val enrichment: String? = null,
 )
 
 /**
  * 지난 문제 다시 보기(읽기 전용). 이미 통과한 칸이므로 개념·모범답안을 공개해도 학습을 해치지 않는다.
  *  - [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+ *  - [representativeAnswer]: 화면 표시용 대표 정답 하나 — 허용답 나열은 화면에서 하지 않는다([2026-07-16] 오너 결정).
  *  - [enrichment]: '더 알아보기'(§5.7) — 정답 접근이 이미 허용된 맥락이라 포함된다.
  */
 data class PastItem(
@@ -130,7 +135,7 @@ data class PastItem(
     val revealed: Boolean,
     val concepts: List<String>,
     val explanation: String?,
-    val acceptableAnswers: List<String>,
+    val representativeAnswer: String,
     val enrichment: String? = null,
 )
 

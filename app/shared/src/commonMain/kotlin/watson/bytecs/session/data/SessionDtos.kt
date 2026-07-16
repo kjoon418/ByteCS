@@ -97,6 +97,8 @@ internal data class SessionAttemptResponseDto(
     val streak: StreakDto? = null,
     val misconceptionHint: String? = null,
     val enrichment: String? = null,
+    // 화면 표시용 대표 정답. 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출 연장).
+    val representativeAnswer: String? = null,
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -110,6 +112,7 @@ internal data class SessionAttemptResponseDto(
         streak = streak?.toDomain(),
         misconceptionHint = misconceptionHint,
         enrichment = enrichment,
+        representativeAnswer = representativeAnswer,
     )
 }
 
@@ -134,10 +137,11 @@ internal data class ErrorBodyDto(
 internal data class RevealResponseDto(
     val concepts: List<String>,
     val explanation: String? = null,
-    val acceptableAnswers: List<String>,
+    // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
+    val representativeAnswer: String,
     val enrichment: String? = null,
 ) {
-    fun toDomain(): Reveal = Reveal(concepts, explanation, acceptableAnswers, enrichment)
+    fun toDomain(): Reveal = Reveal(concepts, explanation, representativeAnswer, enrichment)
 }
 
 /**
@@ -171,7 +175,8 @@ internal data class PastItemResponseDto(
     val revealed: Boolean,
     val concepts: List<String>,
     val explanation: String? = null,
-    val acceptableAnswers: List<String>,
+    // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
+    val representativeAnswer: String,
     val enrichment: String? = null,
 ) {
     fun toDomain(): PastItem = PastItem(
@@ -185,7 +190,7 @@ internal data class PastItemResponseDto(
         revealed = revealed,
         concepts = concepts,
         explanation = explanation,
-        acceptableAnswers = acceptableAnswers,
+        representativeAnswer = representativeAnswer,
         enrichment = enrichment,
     )
 }

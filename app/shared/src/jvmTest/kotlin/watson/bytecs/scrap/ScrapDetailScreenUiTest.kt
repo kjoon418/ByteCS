@@ -25,7 +25,7 @@ class ScrapDetailScreenUiTest {
             codeSnippet = null,
             concepts = listOf("해시 충돌"),
             explanation = "서로 다른 키가 같은 버킷으로 간다.",
-            acceptableAnswers = listOf("충돌", "해시 충돌", "collision"),
+            representativeAnswer = "해시 충돌 (collision)",
         ),
         scrapped = true,
     )
@@ -56,6 +56,19 @@ class ScrapDetailScreenUiTest {
         onNodeWithText("서로 다른 키가 같은 버킷으로 매핑되는 현상을 부르는 용어는?").assertIsDisplayed()
         onNodeWithText("모범답안").assertIsDisplayed()
         onNodeWithText("해시 충돌").assertIsDisplayed()
+    }
+
+    /**
+     * [2026-07-16] 허용답 나열이 아니라 화면 표시용 대표 정답 하나만 보인다.
+     * 병기 표기("해시 충돌 (collision)")가 그대로 하나의 문자열로 뜨는지 확인한다.
+     */
+    @Test
+    fun 재열람은_허용답_나열_대신_대표_정답_하나를_보여준다() = runComposeUiTest {
+        setScreen(ready)
+
+        onNodeWithText("해시 충돌 (collision)").assertIsDisplayed()
+        // 예전 나열 구분자(가운뎃점)로 이어붙인 문자열은 더 이상 없다.
+        onNodeWithText("·", substring = true).assertDoesNotExist()
     }
 
     /** 문제가 여러 개념에 태깅됐으면(N—M) 재열람 화면에도 칩이 모두 보인다. */

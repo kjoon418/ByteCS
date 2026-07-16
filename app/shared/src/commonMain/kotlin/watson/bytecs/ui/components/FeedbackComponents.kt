@@ -89,7 +89,7 @@ fun CorrectFeedback(
  */
 @Composable
 fun ConfirmedAnswerField(
-    value: String,
+    representativeAnswer: String,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -101,11 +101,11 @@ fun ConfirmedAnswerField(
             .background(colors.successContainer)
             .border(BcsDimens.borderWidthStrong, colors.success, RoundedCornerShape(BcsDimens.radiusCard))
             .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2)
-            .semantics { contentDescription = "제출한 답 $value, 정답으로 확인됐어요" },
+            .semantics { contentDescription = "$representativeAnswer, 정답으로 확인됐어요" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = value,
+            text = representativeAnswer,
             style = MaterialTheme.typography.titleSmall,
             color = colors.onSuccessContainer,
             modifier = Modifier.weight(1f),
@@ -203,11 +203,12 @@ fun RevealAnswerButton(
  * §5.7 ModelAnswerBlock — 모범답안 + 짧은 해설.
  *
  * ⭐️ 벌점처럼 보이게 하지 않는다: info/정보 톤이며 "정답을 봤다"는 낙인 문구·색을 쓰지 않는다.
- * 여러 표현이 정답일 수 있으므로 [answers]는 목록으로 받는다.
+ * ⭐️ [2026-07-16] 허용답을 나열하지 않는다 — 화면 표시용 [representativeAnswer] 하나만 보여준다
+ * (오너 결정: 허용답 집합은 판정용이고, 화면엔 대표 표기 하나가 정직하다).
  */
 @Composable
 fun ModelAnswerBlock(
-    answers: List<String>,
+    representativeAnswer: String,
     modifier: Modifier = Modifier,
     explanation: String? = null,
     codeSnippet: String? = null,
@@ -220,7 +221,7 @@ fun ModelAnswerBlock(
             color = colors.onInfoContainer,
         )
         Text(
-            text = answers.joinToString("  ·  "),
+            text = representativeAnswer,
             style = MaterialTheme.typography.bodyLarge,
             color = colors.onInfoContainer,
         )

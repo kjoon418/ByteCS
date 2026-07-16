@@ -17,7 +17,7 @@ class FakeSessionRepository(
     var revealHintError: Throwable? = null
 
     var revealResult: Reveal =
-        Reveal(concepts = listOf("스택"), explanation = "LIFO 구조", acceptableAnswers = listOf("스택", "stack"))
+        Reveal(concepts = listOf("스택"), explanation = "LIFO 구조", representativeAnswer = "스택 (stack)")
     var pastResult: PastItem = pastItem(position = 0)
 
     /** 힌트 열기 결과 공급자. 인자는 클라가 보낸 현재 공개 수. 기본은 +1(약→강 스크립트). */
@@ -121,6 +121,7 @@ class FakeSessionRepository(
             completed: Boolean = false,
             streak: Streak? = null,
             enrichment: String? = null,
+            representativeAnswer: String? = "대표정답",
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
             status = if (completed) SessionStatus.COMPLETED else SessionStatus.IN_PROGRESS,
@@ -132,6 +133,7 @@ class FakeSessionRepository(
             currentProblem = next,
             streak = streak,
             enrichment = enrichment,
+            representativeAnswer = representativeAnswer,
         )
 
         fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(
@@ -160,7 +162,7 @@ class FakeSessionRepository(
             revealed = false,
             concepts = listOf("개념$position"),
             explanation = "해설$position",
-            acceptableAnswers = listOf("정답$position"),
+            representativeAnswer = "정답$position",
             enrichment = enrichment,
         )
     }

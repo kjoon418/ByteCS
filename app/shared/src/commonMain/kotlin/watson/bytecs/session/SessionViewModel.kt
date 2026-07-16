@@ -95,7 +95,12 @@ class SessionViewModel(
                     if (state !is SessionUiState.Active) return@update state
                     when (outcome.result) {
                         JudgeResult.CORRECT -> state.copy(
-                            feedback = SessionFeedback.Correct(outcome.concepts, outcome.explanation, outcome.enrichment),
+                            feedback = SessionFeedback.Correct(
+                                concepts = outcome.concepts,
+                                explanation = outcome.explanation,
+                                enrichment = outcome.enrichment,
+                                representativeAnswer = outcome.representativeAnswer,
+                            ),
                             // 다음 칸은 [advance]에서 실제로 이동한다(정답 후 [다음 문제] CTA).
                             // 완료된 경우 서버가 currentProblem을 null로 주므로 pendingNext는 자연히 비고,
                             // [advance]는 no-op이 된다 — CTA가 [finishSession]으로 갈라지는 이유다.
@@ -348,11 +353,14 @@ sealed interface SessionFeedback {
     /**
      * [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념). 문제가 개념 여러 개에 태깅될 수 있다.
      * [enrichment]: '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠.
+     * [representativeAnswer]: 화면 표시용 대표 정답 — 확정 입력란은 제출 텍스트가 아니라 이 값을 보여준다
+     * ([2026-07-16] 오너 결정).
      */
     data class Correct(
         val concepts: List<String>?,
         val explanation: String?,
         val enrichment: String? = null,
+        val representativeAnswer: String? = null,
     ) : SessionFeedback
 
     /**

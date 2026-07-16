@@ -37,7 +37,7 @@ class ScrapViewModelTest {
         codeSnippet = null,
         concepts = listOf("개념 $id"),
         explanation = "해설 $id",
-        acceptableAnswers = listOf("답$id"),
+        representativeAnswer = "답$id",
     )
 
     // ── 목록 ───────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ class ScrapViewModelTest {
 
         val state = viewModel.uiState.value as ScrapDetailUiState.Ready
         assertEquals("문제 7", state.detail.question)
-        assertEquals(listOf("답7"), state.detail.acceptableAnswers)
+        assertEquals("답7", state.detail.representativeAnswer)
         assertTrue(state.scrapped, "재열람은 스크랩된 상태에서 열린다")
     }
 

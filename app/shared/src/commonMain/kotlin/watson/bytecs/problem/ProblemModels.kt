@@ -29,14 +29,16 @@ enum class JudgeResult {
 }
 
 /**
- * 답 제출 결과. 개념·해설·심화 정보는 **정답(CORRECT)일 때만** 채워지고, 불일치·근접에는 null이다
+ * 답 제출 결과. 개념·해설·심화 정보·대표 정답은 **정답(CORRECT)일 때만** 채워지고, 불일치·근접에는 null이다
  * (무낙인·정답 비노출 원칙). [concepts]는 태깅 순서를 보존한 목록(첫 번째가 대표 개념).
  * [enrichment]는 '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠다.
- * `POST /api/problems/{id}/attempts {answer}` → {result, concepts?, explanation?, enrichment?}
+ * [representativeAnswer]는 화면 표시용 대표 정답 하나([2026-07-16] 오너 결정).
+ * `POST /api/problems/{id}/attempts {answer}` → {result, concepts?, explanation?, enrichment?, representativeAnswer?}
  */
 data class AttemptResult(
     val result: JudgeResult,
     val concepts: List<String>? = null,
     val explanation: String? = null,
     val enrichment: String? = null,
+    val representativeAnswer: String? = null,
 )
