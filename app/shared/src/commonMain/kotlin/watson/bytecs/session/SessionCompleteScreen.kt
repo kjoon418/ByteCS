@@ -39,7 +39,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
-import watson.bytecs.ui.components.BcsCard
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
@@ -56,24 +55,23 @@ import kotlin.random.Random
  * 04 세션 완료. 오늘의 한입을 다 마쳤을 때의 완결 화면.
  *
  * ⭐️ 성취 연출을 아끼지 않되(축하 모션·햅틱) 긍정 톤 — 다음 방문은 초대이지 강요가 아니다.
- * ⭐️ 스트릭은 긍정 동기(끊김 죄책감·상실 공포 연출 금지). 게스트 승계는 축하 맥락의 자연스러운 권유.
+ * ⭐️ 스트릭은 긍정 동기(끊김 죄책감·상실 공포 연출 금지).
  *
  * ⚠️ **소요 시간을 표시하지 않는다.** 도메인(기능 1.5)은 세션을 시간이 아니라 **분량**으로 정의하고,
  * §9는 카운트다운·시간 압박을 금지한다. 요약은 '얼마나 걸렸나'가 아니라 '무엇을 해냈나'다.
  *
+ * ⭐️ 가입 유도는 이 화면에 두지 않는다(2026-07-16 오너 결정) — 홈의 가입 유도(GuestUpgradeBanner)로
+ * 접점을 일원화해, 완료의 순간은 성취에만 집중한다.
+ *
  * @param summary 완료 요약(푼 문제 수·스트릭). 세션 완료 이벤트로 전달된다.
- * @param isGuest 게스트면 승계 유도를 은은하게 노출.
  * @param onDone [오늘은 여기까지] → 02 홈.
  * @param onMore [조금 더 풀기] → 추가 연습.
- * @param onUpgrade 게스트 승계 → 05.
  */
 @Composable
 fun SessionCompleteScreen(
     summary: CompletionSummary,
-    isGuest: Boolean,
     onDone: () -> Unit,
     onMore: () -> Unit,
-    onUpgrade: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -155,30 +153,6 @@ fun SessionCompleteScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.textPrimary,
                 )
-            }
-
-            // 게스트 승계 유도 — 축하 맥락의 자연스러운 권유. 안심 프레이밍이지 명령이 아니고,
-            // 은은한 표면이라 Primary CTA와 강조를 다투지 않는다(가입 강제 금지).
-            if (isGuest) {
-                BcsCard(onClick = onUpgrade) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
-                    ) {
-                        Text(
-                            text = "가입하면 이 기록이 사라지지 않아요.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.textSecondary,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "›",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = colors.textTertiary,
-                        )
-                    }
-                }
             }
         }
     }

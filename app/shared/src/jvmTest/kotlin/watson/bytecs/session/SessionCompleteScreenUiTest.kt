@@ -8,14 +8,15 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
  * 04 세션 완료 화면 — 확정 시안(`docs/design/04 세션 완료 화면 디자인.html`)·명세 대조.
  *
  * 렌더링·카피뿐 아니라 **도메인 가드레일**을 못박는다: 소요 시간 비표시(세션은 분량 기반),
- * 복습 시점 비단정(개념별 간격 반복), 스트릭 긍정 톤, 가입 비강제.
+ * 복습 시점 비단정(개념별 간격 반복), 스트릭 긍정 톤.
+ *
+ * ⭐️ 가입 유도는 이 화면에 없다(2026-07-16 오너 결정 — 홈 가입 유도로 일원화).
  */
 class SessionCompleteScreenUiTest {
 
@@ -35,19 +36,15 @@ class SessionCompleteScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     private fun androidx.compose.ui.test.ComposeUiTest.showScreen(
         summary: CompletionSummary = this@SessionCompleteScreenUiTest.summary,
-        isGuest: Boolean = false,
         onDone: () -> Unit = {},
         onMore: () -> Unit = {},
-        onUpgrade: () -> Unit = {},
     ) {
         setContent {
             BcsTheme(darkTheme = false) {
                 SessionCompleteScreen(
                     summary = summary,
-                    isGuest = isGuest,
                     onDone = onDone,
                     onMore = onMore,
-                    onUpgrade = onUpgrade,
                 )
             }
         }
@@ -202,45 +199,15 @@ class SessionCompleteScreenUiTest {
         assertEquals(0, onAllNodesWithText("조금 더 공부하기", substring = true).fetchSemanticsNodes().size)
     }
 
-    // ── 게스트 승계(권유·강요 X) ──────────────────────────────────────────────
-
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 게스트에게는_안심_프레이밍으로_가입을_권유한다() = runComposeUiTest {
-        var upgrade = 0
-        showScreen(isGuest = true, onUpgrade = { upgrade++ })
-
-        onNodeWithText("가입하면 이 기록이 사라지지 않아요.").assertIsDisplayed().performClick()
-
-        assertEquals(1, upgrade)
-    }
-
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 회원에게는_가입_권유를_보여주지_않는다() = runComposeUiTest {
-        showScreen(isGuest = false)
-
-        assertEquals(0, onAllNodesWithText("가입", substring = true).fetchSemanticsNodes().size)
-    }
-
     /**
-     * ⚠️ 가드레일: 가입은 '권유'다. 게스트도 [오늘은 여기까지]로 그냥 나갈 수 있어야 하고,
-     * 카피는 명령형("저장하세요")이 아니어야 한다.
+     * ⚠️ 가드레일(2026-07-16 오너 결정): 가입 유도가 이 화면에 다시 기어들어오면 실패한다.
+     * 유일한 가입 접점은 홈의 GuestUpgradeBanner다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 게스트도_가입하지_않고_화면을_나갈_수_있다() = runComposeUiTest {
-        var done = 0
-        showScreen(isGuest = true, onDone = { done++ })
+    fun 완료_화면은_가입을_권유하지_않는다() = runComposeUiTest {
+        showScreen()
 
-        onNodeWithText("오늘은 여기까지").performClick()
-
-        assertEquals(1, done, "게스트에게 가입을 강제하면 안 된다")
-        listOf("저장하세요", "가입하세요", "지금 가입", "필수").forEach { forbidden ->
-            assertTrue(
-                onAllNodesWithText(forbidden, substring = true).fetchSemanticsNodes().isEmpty(),
-                "가입 권유에 명령·강요 카피('$forbidden')가 있으면 안 된다",
-            )
-        }
+        assertEquals(0, onAllNodesWithText("가입", substring = true).fetchSemanticsNodes().size)
     }
 }

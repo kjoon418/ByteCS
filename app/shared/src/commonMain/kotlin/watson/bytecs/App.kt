@@ -202,10 +202,8 @@ private fun AppNavHost(dependencies: AppDependencies) {
         is Screen.SessionComplete -> {
             SessionCompleteScreen(
                 summary = screen.summary,
-                isGuest = authState is AuthState.Guest,
                 onDone = { back() },
                 onMore = { navigate(Screen.Problem) },
-                onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
             )
         }
 
