@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -252,6 +253,9 @@ fun TextLink(
  * §5.2 파생 — 라벨·마스킹·키패드를 지정할 수 있는 범용 단답 입력. 05 로그인·가입 폼이 쓴다.
  * [AnswerTextField]와 시각 골격(높이·라운드·포커스 테두리)을 공유하되, 라벨/이메일 키패드/비밀번호 마스킹을
  * 지원한다. ⭐️ 검증 실패에도 테두리를 danger로 바꾸지 않는다(무낙인) — 안내는 인접 텍스트가 담당한다.
+ *
+ * @param trailing 입력칸 안 우측 슬롯(검증 체크 아이콘·비밀번호 표시 토글 등). 없으면 슬롯 자체를 그리지
+ * 않아 기존 사용처(trailing 없이 부르는 곳)는 레이아웃 변화가 없다.
  */
 @Composable
 fun BcsTextField(
@@ -265,6 +269,7 @@ fun BcsTextField(
     masked: Boolean = false,
     enabled: Boolean = true,
     onImeAction: () -> Unit = {},
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = LocalBcsColors.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -302,7 +307,7 @@ fun BcsTextField(
             ),
             interactionSource = interactionSource,
             decorationBox = { innerTextField ->
-                Box(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = BcsDimens.inputHeight)
@@ -310,16 +315,22 @@ fun BcsTextField(
                         .background(colors.surfaceSubtle)
                         .border(BcsDimens.borderWidth, borderColor, RoundedCornerShape(BcsDimens.radiusCard))
                         .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2),
-                    contentAlignment = Alignment.CenterStart,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (value.isEmpty()) {
-                        Text(
-                            text = placeholder,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.textTertiary,
-                        )
+                    Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colors.textTertiary,
+                            )
+                        }
+                        innerTextField()
                     }
-                    innerTextField()
+                    if (trailing != null) {
+                        Spacer(Modifier.width(BcsDimens.space2))
+                        trailing()
+                    }
                 }
             },
         )

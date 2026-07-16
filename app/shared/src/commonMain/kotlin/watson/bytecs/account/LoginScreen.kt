@@ -1,6 +1,7 @@
 package watson.bytecs.account
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -16,11 +19,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -210,6 +220,9 @@ internal fun LoginScreenContent(
                     placeholder = "example@email.com",
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
+                    // 시안(05 55-57행) — 입력칸 안 우측 체크. 아래 텍스트 헬퍼가 의미를 이미 전달하므로
+                    // 아이콘은 장식(중복 안내로 스크린리더를 두 번 말하게 하지 않는다).
+                    trailing = if (state.isEmailValid) { { EmailValidCheck() } } else null,
                 )
                 // ⭐️ 인라인 검증은 '통과'만 말한다(§2.2 success 허용 사례). 미통과는 침묵 — 입력 도중의
                 // 미완성 상태를 실패로 낙인찍지 않는다. 하단 CTA 비활성이 이미 "아직 못 낸다"를 말해 준다.
@@ -222,16 +235,24 @@ internal fun LoginScreenContent(
                 }
             }
 
-            // 비밀번호 — 마스킹.
+            // 비밀번호 — 기본 마스킹 + 시안(66-68행)의 표시 토글. 토글은 이 화면의 표현 상태일 뿐이라
+            // AuthUiState에 두지 않는다(뷰모델 재사용에도 화면을 새로 그릴 때마다 마스킹으로 되돌아간다).
+            var passwordVisible by remember { mutableStateOf(false) }
             BcsTextField(
                 value = state.password,
                 onValueChange = onPasswordChange,
                 label = "비밀번호",
                 placeholder = "8자 이상 입력해주세요",
                 keyboardType = KeyboardType.Password,
-                masked = true,
+                masked = !passwordVisible,
                 imeAction = ImeAction.Done,
                 onImeAction = onSubmit,
+                trailing = {
+                    PasswordVisibilityToggle(
+                        visible = passwordVisible,
+                        onToggle = { passwordVisible = !passwordVisible },
+                    )
+                },
             )
 
             // 실패 안내 — 비처벌. 공용 ErrorBanner가 "학습 기록은 안전해요"를 먼저 고지하고 재시도 경로를
@@ -310,5 +331,48 @@ private fun UpgradeBanner() {
             color = colors.onInfoContainer,
         )
     }
+}
+
+/**
+ * 이메일 검증 통과 체크(시안 05 55-57행) — success 색 체크 글리프.
+ *
+ * ⭐️ 장식이다: "이메일 형식이 맞아요." 텍스트 헬퍼가 이미 같은 의미를 스크린리더에 전달하므로,
+ * 아이콘까지 시맨틱을 열면 같은 말을 두 번 읽는다(clearAndSetSemantics로 비운다). 대신 [testTag]로
+ * 노출 여부를 테스트에서 확인할 수 있게 한다.
+ */
+@Composable
+private fun EmailValidCheck() {
+    val colors = LocalBcsColors.current
+    Text(
+        text = "✓",
+        style = MaterialTheme.typography.titleMedium,
+        color = colors.success,
+        modifier = Modifier.clearAndSetSemantics { testTag = "email-valid-check" },
+    )
+}
+
+/**
+ * 비밀번호 표시 토글(시안 05 66-68행) — 눈 아이콘. [ScrapToggle]과 같은 아이콘 버튼 관례를 따른다:
+ * 프로젝트가 아이콘 폰트에 기대지 않으므로 이모지 글리프 + 최소 터치 타깃(48dp) + contentDescription.
+ *
+ * ⭐️ [visible]은 호출자([LoginScreenContent])가 들고 있는 화면 로컬 상태다 — 마스킹 여부는 입력값이
+ * 아니라 순수 표현이라 [AuthUiState]에 두지 않는다. 토글은 [masked]만 바꿀 뿐 입력 텍스트·커서는
+ * [BcsTextField]의 동일 [BasicTextField] 인스턴스가 그대로 들고 있어 건드리지 않는다.
+ */
+@Composable
+private fun PasswordVisibilityToggle(visible: Boolean, onToggle: () -> Unit) {
+    val colors = LocalBcsColors.current
+    val label = if (visible) "비밀번호 숨기기" else "비밀번호 표시"
+    Text(
+        text = if (visible) "🙈" else "👁",
+        style = MaterialTheme.typography.titleMedium,
+        color = colors.textTertiary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(BcsDimens.radiusFull))
+            .clickable(onClick = onToggle)
+            .sizeIn(minWidth = BcsDimens.minTouchTarget, minHeight = BcsDimens.minTouchTarget)
+            .wrapContentSize(Alignment.Center)
+            .semantics { contentDescription = label },
+    )
 }
 

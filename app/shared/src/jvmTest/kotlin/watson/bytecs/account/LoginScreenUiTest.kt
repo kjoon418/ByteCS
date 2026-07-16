@@ -7,6 +7,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -391,6 +393,86 @@ class LoginScreenUiTest {
         }
     }
 
+    // ── 이메일 검증 체크 아이콘(시안 05 55-57행) ────────────────────────────
+
+    /**
+     * ⭐️ 체크는 장식([EmailValidCheck]가 clearAndSetSemantics로 시맨틱을 비운다 — 의미는 인접한
+     * "이메일 형식이 맞아요." 텍스트가 전달)이라 텍스트가 아니라 testTag로 노출을 확인한다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 이메일_검증을_통과하면_체크_아이콘이_뜬다() = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) {
+                Screen(AuthUiState(mode = AuthMode.Register, email = "hanip@example.com"))
+            }
+        }
+
+        // useUnmergedTree: BcsTextField의 라벨+입력 래퍼가 mergeDescendants=true라, testTag는
+        // 병합 트리로 올라오지 않는다(TestTag의 병합 정책은 자식 값을 취하지 않는다).
+        onNodeWithTag("email-valid-check", useUnmergedTree = true).assertExists()
+    }
+
+    /** 미통과 입력 도중에는 텍스트 헬퍼처럼 체크 아이콘도 침묵한다(낙인 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 이메일이_유효하지_않으면_체크_아이콘도_없다() = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) { Screen(AuthUiState(mode = AuthMode.Register, email = "hanip")) }
+        }
+
+        onNodeWithTag("email-valid-check", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // ── 비밀번호 표시 토글(시안 05 66-68행) ──────────────────────────────────
+
+    /** 토글을 누르면 접근성 라벨이 "표시"→"숨기기"로 뒤집힌다(마스킹 해제). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 비밀번호_토글을_누르면_숨기기_라벨로_전환된다() = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) { Screen(AuthUiState(mode = AuthMode.Login, password = "password1")) }
+        }
+
+        onNodeWithContentDescription("비밀번호 표시").assertIsDisplayed().performClick()
+
+        onNodeWithContentDescription("비밀번호 숨기기").assertIsDisplayed()
+        onNodeWithContentDescription("비밀번호 표시").assertDoesNotExist()
+    }
+
+    /** 다시 누르면 마스킹으로 되돌아간다 — 토글이 상호 가역적이다(재적용). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 비밀번호_토글을_두_번_누르면_다시_마스킹으로_돌아온다() = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) { Screen(AuthUiState(mode = AuthMode.Login, password = "password1")) }
+        }
+
+        onNodeWithContentDescription("비밀번호 표시").performClick()
+        onNodeWithContentDescription("비밀번호 숨기기").performClick()
+
+        onNodeWithContentDescription("비밀번호 표시").assertIsDisplayed()
+    }
+
+    /** ⭐️ 토글은 순수 표현 상태다 — 입력값 변경 콜백을 건드리지 않아야 입력 내용·커서가 그대로 유지된다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 비밀번호_토글은_입력값_변경_콜백을_트리거하지_않는다() = runComposeUiTest {
+        var changed = 0
+        setContent {
+            BcsTheme(darkTheme = false) {
+                Screen(
+                    AuthUiState(mode = AuthMode.Login, password = "password1"),
+                    onPasswordChange = { changed++ },
+                )
+            }
+        }
+
+        onNodeWithContentDescription("비밀번호 표시").performClick()
+
+        assertEquals(0, changed, "토글이 비밀번호 입력값 콜백을 호출하면 안 된다 — 표현만 바뀐다")
+    }
+
     // ── CTA: 동사형 ─────────────────────────────────────────────────────────
 
     /** §3.5 Primary CTA는 동사형이고 모드에 따라 달라진다. */
@@ -438,11 +520,12 @@ private fun Screen(
     onSubmit: () -> Unit = {},
     onBack: () -> Unit = {},
     onToggleMode: () -> Unit = {},
+    onPasswordChange: (String) -> Unit = {},
 ) {
     LoginScreenContent(
         state = state,
         onEmailChange = {},
-        onPasswordChange = {},
+        onPasswordChange = onPasswordChange,
         onToggleMode = onToggleMode,
         onSubmit = onSubmit,
         onBack = onBack,
