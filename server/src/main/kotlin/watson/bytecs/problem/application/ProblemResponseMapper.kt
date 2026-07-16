@@ -8,7 +8,7 @@ import watson.bytecs.problem.domain.Problem
 
 /**
  * 도메인 엔티티를 응답 DTO로 변환한다.
- * 정답이 아닐 때 개념·심화 정보가 새어 나가지 않도록 노출 규칙을 이 한곳에 응집한다.
+ * 정답이 아닐 때 개념·해설·심화 정보가 새어 나가지 않도록 노출 규칙을 이 한곳에 응집한다.
  */
 @Component
 class ProblemResponseMapper {
@@ -28,6 +28,7 @@ class ProblemResponseMapper {
             result = judgement.name,
             concepts = if (answerRevealed) problem.conceptNames() else null,
             explanation = if (answerRevealed) problem.explanation else null,
+            enrichment = if (answerRevealed) problem.enrichment else null,
         )
     }
 }

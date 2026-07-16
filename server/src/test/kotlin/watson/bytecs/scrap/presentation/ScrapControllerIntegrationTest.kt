@@ -1,6 +1,7 @@
 package watson.bytecs.scrap.presentation
 
 import org.assertj.core.api.Assertions.assertThat
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -48,6 +49,10 @@ class ScrapControllerIntegrationTest(
     private var p1: Long = 0
     private var p2: Long = 0
 
+    private companion object {
+        const val ENRICHMENT = "심화 정보예요"
+    }
+
     @BeforeEach
     fun setUp() {
         scrapRepository.deleteAll()
@@ -56,7 +61,8 @@ class ScrapControllerIntegrationTest(
         userRepository.deleteAll()
         clock.reset()
 
-        p1 = seedProblem("스택", "스택")
+        // p1은 심화 정보가 있고, p2는 없다(graceful 분기 검증).
+        p1 = seedProblem("스택", "스택", ENRICHMENT)
         p2 = seedProblem("큐", "큐")
 
         val user = userRepository.save(User.createGuest())
@@ -135,7 +141,7 @@ class ScrapControllerIntegrationTest(
     }
 
     @Test
-    fun `스크랩한 문제 상세는 개념과 모범답안과 해설을 준다`() {
+    fun `스크랩한 문제 상세는 개념과 모범답안과 해설과 심화 정보를 준다`() {
         scrap(token, p1)
 
         mockMvc.get("/api/scraps/$p1") {
@@ -147,7 +153,20 @@ class ScrapControllerIntegrationTest(
             jsonPath("$.concepts[0]") { value("스택") }
             jsonPath("$.acceptableAnswers[0]") { value("스택") }
             jsonPath("$.explanation") { value("스택 해설") }
+            jsonPath("$.enrichment") { value(ENRICHMENT) }
             jsonPath("$.scrappedAt") { exists() }
+        }
+    }
+
+    @Test
+    fun `심화 정보가 없는 문제의 스크랩 상세는 심화 정보가 null이다`() {
+        scrap(token, p2)
+
+        mockMvc.get("/api/scraps/$p2") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
     }
 
@@ -217,7 +236,7 @@ class ScrapControllerIntegrationTest(
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
 
-    private fun seedProblem(conceptName: String, answer: String): Long {
+    private fun seedProblem(conceptName: String, answer: String, enrichment: String? = null): Long {
         val concept = conceptRepository.save(Concept(conceptName))
         return problemRepository.save(
             Problem(
@@ -226,6 +245,7 @@ class ScrapControllerIntegrationTest(
                 acceptableAnswers = setOf(answer),
                 difficulty = Difficulty.EASY,
                 explanation = "$conceptName 해설",
+                enrichment = enrichment,
             ),
         ).id
     }

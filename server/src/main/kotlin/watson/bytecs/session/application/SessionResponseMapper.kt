@@ -52,7 +52,7 @@ class SessionResponseMapper {
 
     /**
      * 답 제출 결과를 변환한다.
-     * 개념·해설은 정답일 때만 방금 통과한 문제([attemptedProblem])에서 채우고, currentProblem은 전진 후의 무낙인 문제다.
+     * 개념·해설·심화 정보는 정답일 때만 방금 통과한 문제([attemptedProblem])에서 채우고, currentProblem은 전진 후의 무낙인 문제다.
      * 오답 교정 힌트는 [outcome]에 실려 온 것을 그대로 싣는다(비정답·예상 오답 매칭 시에만 non-null).
      * streak는 이 제출로 세션이 완료됐을 때만 전달된다.
      */
@@ -73,6 +73,7 @@ class SessionResponseMapper {
             position = session.currentPosition,
             concepts = if (correct) attemptedProblem.conceptNames() else null,
             explanation = if (correct) attemptedProblem.explanation else null,
+            enrichment = if (correct) attemptedProblem.enrichment else null,
             misconceptionHint = outcome.misconceptionHint,
             // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수로 복원한다(새 문제라면 0).
             currentProblem = nextProblem?.let { toProblemResponse(it, session.currentRevealedHintCount()) },
@@ -95,6 +96,7 @@ class SessionResponseMapper {
         RevealResponse(
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
+            enrichment = problem.enrichment,
             acceptableAnswers = acceptableAnswers(problem),
         )
 
@@ -111,6 +113,7 @@ class SessionResponseMapper {
             revealed = item.revealed,
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
+            enrichment = problem.enrichment,
             acceptableAnswers = acceptableAnswers(problem),
         )
 

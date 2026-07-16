@@ -30,6 +30,7 @@ class ProblemControllerIntegrationTest(
     private companion object {
         const val CONCEPT_NAME = "해시 충돌"
         const val EXPLANATION = "체이닝, 개방 주소법 등으로 해소한다."
+        const val ENRICHMENT = "심화 정보예요"
     }
 
     @BeforeEach
@@ -47,6 +48,7 @@ class ProblemControllerIntegrationTest(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = EXPLANATION,
+                enrichment = ENRICHMENT,
             ),
         )
         problemId = problem.id
@@ -64,11 +66,12 @@ class ProblemControllerIntegrationTest(
                 jsonPath("$.concepts") { doesNotExist() }
                 jsonPath("$.acceptableAnswers") { doesNotExist() }
                 jsonPath("$.explanation") { doesNotExist() }
+                jsonPath("$.enrichment") { doesNotExist() }
             }
     }
 
     @Test
-    fun `정답을 제출하면 CORRECT와 함께 개념을 공개한다`() {
+    fun `정답을 제출하면 CORRECT와 함께 개념과 심화 정보를 공개한다`() {
         mockMvc.post("/api/problems/$problemId/attempts") {
             contentType = MediaType.APPLICATION_JSON
             content = """{"answer":"collision"}"""
@@ -77,11 +80,12 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.result") { value("CORRECT") }
             jsonPath("$.concepts[0]") { value(CONCEPT_NAME) }
             jsonPath("$.explanation") { value(EXPLANATION) }
+            jsonPath("$.enrichment") { value(ENRICHMENT) }
         }
     }
 
     @Test
-    fun `오답을 제출하면 MISMATCH이며 개념을 노출하지 않는다`() {
+    fun `오답을 제출하면 MISMATCH이며 개념과 심화 정보를 노출하지 않는다`() {
         mockMvc.post("/api/problems/$problemId/attempts") {
             contentType = MediaType.APPLICATION_JSON
             content = """{"answer":"자바"}"""
@@ -90,11 +94,12 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.result") { value("MISMATCH") }
             jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
     }
 
     @Test
-    fun `오탈자_수준의_답을_제출하면_NEAR_MISS이며_개념을_노출하지_않는다`() {
+    fun `오탈자_수준의_답을_제출하면_NEAR_MISS이며_개념과_심화_정보를_노출하지_않는다`() {
         mockMvc.post("/api/problems/$problemId/attempts") {
             contentType = MediaType.APPLICATION_JSON
             // "collision"에서 i 하나가 빠진 오타.
@@ -104,6 +109,7 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.result") { value("NEAR_MISS") }
             jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
     }
 

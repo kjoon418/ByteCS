@@ -3,6 +3,7 @@ package watson.bytecs.session.application.dto
 /**
  * 지난 문제 다시 보기(읽기 전용) 응답. 이미 통과한 칸이므로 개념·모범답안을 공개해도 학습 효과를 해치지 않는다.
  * result는 통과 판정(항상 CORRECT), submittedAnswer는 내가 입력한 정답, revealed는 그때 정답 공개를 썼는지다.
+ * enrichment(심화 정보·'더 알아보기')도 정답 접근이 이미 허용된 맥락이라 함께 공개한다 — 문제에 없으면 null(graceful).
  */
 data class PastItemResponse(
     val position: Int,
@@ -15,5 +16,6 @@ data class PastItemResponse(
     val revealed: Boolean,
     val concepts: List<String>,
     val explanation: String?,
+    val enrichment: String?,
     val acceptableAnswers: List<String>,
 )

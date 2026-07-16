@@ -62,7 +62,7 @@ class ProblemServiceTest {
     inner class 답을_제출한다 {
 
         @Test
-        fun 정답이면_CORRECT와_함께_개념과_심화_정보를_공개한다() {
+        fun 정답이면_CORRECT와_함께_개념과_해설을_공개한다() {
             // given
             given(problemRepository.findById(PROBLEM_ID)).willReturn(Optional.of(defaultProblem()))
 
@@ -76,7 +76,7 @@ class ProblemServiceTest {
         }
 
         @Test
-        fun 오답이면_MISMATCH이고_개념과_심화_정보를_노출하지_않는다() {
+        fun 오답이면_MISMATCH이고_개념과_해설을_노출하지_않는다() {
             // given
             given(problemRepository.findById(PROBLEM_ID)).willReturn(Optional.of(defaultProblem()))
 
@@ -90,7 +90,7 @@ class ProblemServiceTest {
         }
 
         @Test
-        fun 오탈자_수준의_답이면_NEAR_MISS이고_개념과_심화_정보를_노출하지_않는다() {
+        fun 오탈자_수준의_답이면_NEAR_MISS이고_개념과_해설을_노출하지_않는다() {
             // given
             given(problemRepository.findById(PROBLEM_ID)).willReturn(Optional.of(defaultProblem()))
 

@@ -73,6 +73,7 @@ class SessionControllerIntegrationTest(
         const val STRONG_HINT = "강한 힌트예요"
         const val MISCONCEPTION_ANSWER = "흔한오답"
         const val MISCONCEPTION_MESSAGE = "그건 다른 개념이에요. 다시 도전해보세요!"
+        const val ENRICHMENT = "심화 정보예요"
     }
 
     @BeforeEach
@@ -109,6 +110,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.currentProblem.concepts") { doesNotExist() }
             jsonPath("$.currentProblem.acceptableAnswers") { doesNotExist() }
             jsonPath("$.currentProblem.explanation") { doesNotExist() }
+            jsonPath("$.currentProblem.enrichment") { doesNotExist() }
         }
     }
 
@@ -147,8 +149,35 @@ class SessionControllerIntegrationTest(
             jsonPath("$.position") { value(1) }
             jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
+            // 심화 정보가 없는 문제는 정답이어도 null이다(graceful).
+            jsonPath("$.enrichment") { value(nullValue()) }
             jsonPath("$.currentProblem.id") { value(p2) }
             jsonPath("$.currentProblem.concepts") { doesNotExist() }
+            jsonPath("$.currentProblem.enrichment") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `심화 정보가 있는 문제를 정답 처리하면 함께 공개된다`() {
+        reseedEnrichedProblem()
+        getToday(token)
+
+        submit(token, "정답").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("CORRECT") }
+            jsonPath("$.enrichment") { value(ENRICHMENT) }
+        }
+    }
+
+    @Test
+    fun `오답이면 심화 정보가 있는 문제라도 노출되지 않는다`() {
+        reseedEnrichedProblem()
+        getToday(token)
+
+        submit(token, "완전히 다른 답").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("MISMATCH") }
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
     }
 
@@ -184,6 +213,8 @@ class SessionControllerIntegrationTest(
             jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
             jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
+            // 심화 정보가 없는 문제는 정답 공개에서도 null이다(graceful).
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
 
         // 공개 후에도 직접 정답을 입력해야 전진한다.
@@ -244,6 +275,8 @@ class SessionControllerIntegrationTest(
             jsonPath("$.submittedAnswer") { value("정답1") }
             jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
+            // 심화 정보가 없는 문제는 지난 문제 다시 보기에서도 null이다(graceful).
+            jsonPath("$.enrichment") { value(nullValue()) }
         }
 
         // 아직 도달하지 않은 현재 위치 1은 노출하지 않는다(no-leak).
@@ -657,6 +690,29 @@ class SessionControllerIntegrationTest(
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "해설",
+            ),
+        )
+    }
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 심화 정보를 가진 문제 하나만 남긴다.
+     * 정답 처리 후에만 심화 정보가 노출되는지 검증하는 데 쓴다.
+     */
+    private fun reseedEnrichedProblem() {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val concept = conceptRepository.save(Concept("심화개념"))
+        problemRepository.save(
+            Problem(
+                questionText = "심화 정보 문제",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("정답"),
+                type = ProblemType.DEFINITION_RECALL,
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
+                enrichment = ENRICHMENT,
             ),
         )
     }

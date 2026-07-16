@@ -29,6 +29,7 @@ class ScrapResponseMapper {
             difficulty = problem.difficulty?.name,
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
+            enrichment = problem.enrichment,
             acceptableAnswers = acceptableAnswers(problem),
             scrappedAt = scrap.createdAt,
         )

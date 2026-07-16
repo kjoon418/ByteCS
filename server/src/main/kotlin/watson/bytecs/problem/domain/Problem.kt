@@ -72,6 +72,13 @@ class Problem(
     val explanation: String? = null,
 
     /**
+     * 정답 처리 후에만 노출되는 심화 정보('더 알아보기', 명세 §1 173~181행). 없어도 되는 큐레이션 콘텐츠(공용 자산).
+     * 승인 게이트(명세 464행) 대상이나, 승인 파이프라인이 로드맵이라 MVP는 시딩된 콘텐츠를 승인 취급한다.
+     */
+    @Column(name = "enrichment", columnDefinition = "text")
+    val enrichment: String? = null,
+
+    /**
      * 약→강 순서의 힌트(0~N개). 순서는 소유 리스트의 인덱스([OrderColumn])로 보장한다.
      * 미공개 힌트 본문이 새어 나가지 않도록, 응답에는 [revealedHints]로 공개분만 잘라 싣는다(no-leak).
      */

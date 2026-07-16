@@ -130,6 +130,51 @@ class ProblemSeederTest {
     }
 
     @Nested
+    inner class 심화_정보를_시딩한다 {
+
+        @Test
+        fun 해시_충돌_문제는_심화_정보를_가진다() {
+            val hashCollisionProblem = seededProblemOf(HASH_COLLISION)
+
+            assertThat(hashCollisionProblem.enrichment).isNotBlank()
+        }
+
+        @Test
+        fun 스레드_문제는_심화_정보를_가진다() {
+            val threadProblem = seededProblemOf(PROCESS_AND_THREAD)
+
+            assertThat(threadProblem.enrichment).isNotBlank()
+        }
+
+        @Test
+        fun 심화_정보가_없는_문제를_최소_하나_남긴다() {
+            // graceful 분기(없으면 그냥 다음으로)가 시드로도 실행되게 하려면 심화 정보 없는 문제가 반드시 있어야 한다.
+            val problems = allSeededProblems()
+
+            assertThat(problems.any { it.enrichment == null }).isTrue()
+        }
+
+        @Test
+        fun 어떤_심화_정보도_다른_문제의_정답을_새로_노출하지_않는다() {
+            // 콘텐츠 신뢰성 가드레일: 심화 정보는 자기 문제의 정답(이미 맞힌 것)은 언급해도 되지만,
+            // 아직 안 풀었을 수 있는 '다른' 문제의 허용답 문자열을 새로 흘리면 안 된다.
+            val problems = allSeededProblems()
+
+            problems.forEach { problem ->
+                val enrichment = problem.enrichment ?: return@forEach
+                val normalized = enrichment.lowercase()
+                val otherAnswers = problems.filter { it !== problem }
+                    .flatMap { it.acceptableAnswers.map { answer -> AnswerText(answer).value } }
+                otherAnswers.forEach { answer ->
+                    assertThat(normalized)
+                        .`as`("심화 정보가 다른 문제의 정답 '%s'을(를) 노출하면 안 된다: %s", answer, enrichment)
+                        .doesNotContain(answer)
+                }
+            }
+        }
+    }
+
+    @Nested
     inner class 오답_교정_힌트를_시딩한다 {
 
         @Test
