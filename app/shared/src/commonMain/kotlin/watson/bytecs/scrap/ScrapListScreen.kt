@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalTime::class)
+
 package watson.bytecs.scrap
 
 import androidx.compose.foundation.layout.Arrangement
@@ -26,6 +28,8 @@ import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * 스크랩 목록 화면(기능 5). 전용 시안이 없어 DESIGN_SYSTEM.md와 기존 화면 관례를 따른다.
@@ -121,7 +125,7 @@ internal fun ScrapListScreenContent(
                                         color = colors.textPrimary,
                                     )
                                     Text(
-                                        text = "${item.scrappedAt} 스크랩",
+                                        text = "${formatScrappedAt(Instant.parse(item.scrappedAt))} 스크랩",
                                         style = MaterialTheme.typography.labelMedium,
                                         color = colors.textTertiary,
                                     )
@@ -151,7 +155,7 @@ private fun WithdrawnScrapCard(scrappedAt: String) {
             color = colors.textSecondary,
         )
         Text(
-            text = "이 문제는 더 이상 제공되지 않아요. ${scrappedAt} 스크랩",
+            text = "이 문제는 더 이상 제공되지 않아요. ${formatScrappedAt(Instant.parse(scrappedAt))} 스크랩",
             style = MaterialTheme.typography.labelMedium,
             color = colors.textTertiary,
         )

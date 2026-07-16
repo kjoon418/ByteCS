@@ -48,7 +48,7 @@ class ScrapListScreenUiTest {
     fun 항목을_누르면_해당_문제_재열람으로_진입한다() = runComposeUiTest {
         var opened = -1L
         setScreen(
-            ScrapListUiState.Ready(items = listOf(ScrapListItem(7L, "해시 충돌이란?", "2026-07-15"))),
+            ScrapListUiState.Ready(items = listOf(ScrapListItem(7L, "해시 충돌이란?", "2026-07-15T09:00:00Z"))),
             onOpenScrap = { opened = it },
         )
 
@@ -68,8 +68,8 @@ class ScrapListScreenUiTest {
         setScreen(
             ScrapListUiState.Ready(
                 items = listOf(
-                    ScrapListItem(7L, question = null, scrappedAt = "2026-07-15"),
-                    ScrapListItem(8L, question = "정상 문제", scrappedAt = "2026-07-15"),
+                    ScrapListItem(7L, question = null, scrappedAt = "2026-07-15T09:00:00Z"),
+                    ScrapListItem(8L, question = "정상 문제", scrappedAt = "2026-07-15T09:00:00Z"),
                 ),
             ),
             onOpenScrap = { opened += it },

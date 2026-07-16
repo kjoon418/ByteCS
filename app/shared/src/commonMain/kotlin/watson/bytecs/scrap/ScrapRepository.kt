@@ -27,7 +27,8 @@ interface ScrapRepository {
  */
 class FakeScrapRepository(
     seeds: List<ScrapDetail> = emptyList(),
-    private val scrappedAt: String = "2026-07-15",
+    // ⭐️ 서버 계약(Instant 직렬화)과 형태를 맞춘 값 — 화면이 formatScrappedAt으로 파싱·표기한다.
+    private val scrappedAt: String = "2026-07-15T09:00:00Z",
     private val listFailWith: Throwable? = null,
     private val toggleFailWith: Throwable? = null,
 ) : ScrapRepository {
