@@ -71,7 +71,7 @@ class ProblemServiceTest {
 
             // then
             assertThat(response.result).isEqualTo("CORRECT")
-            assertThat(response.concept).isEqualTo(CONCEPT_NAME)
+            assertThat(response.concepts).containsExactly(CONCEPT_NAME)
             assertThat(response.explanation).isEqualTo(EXPLANATION)
         }
 
@@ -85,7 +85,7 @@ class ProblemServiceTest {
 
             // then
             assertThat(response.result).isEqualTo("MISMATCH")
-            assertThat(response.concept).isNull()
+            assertThat(response.concepts).isNull()
             assertThat(response.explanation).isNull()
         }
 
@@ -99,7 +99,7 @@ class ProblemServiceTest {
 
             // then
             assertThat(response.result).isEqualTo("NEAR_MISS")
-            assertThat(response.concept).isNull()
+            assertThat(response.concepts).isNull()
             assertThat(response.explanation).isNull()
         }
 
@@ -117,7 +117,7 @@ class ProblemServiceTest {
     private fun defaultProblem(): Problem =
         Problem(
             questionText = "질문",
-            concept = Concept(CONCEPT_NAME),
+            concepts = listOf(Concept(CONCEPT_NAME)),
             acceptableAnswers = setOf("해시 충돌", "충돌", "collision"),
             // 개념 이름을 묻는 문제라 근접 판정 대상이다. (유형이 없으면 근접이 꺼져 NEAR_MISS 자체가 나오지 않는다)
             type = ProblemType.DEFINITION_RECALL,

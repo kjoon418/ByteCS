@@ -117,7 +117,7 @@ class ProblemEvaluateTest {
     ): Problem =
         Problem(
             questionText = "질문",
-            concept = Concept("개념"),
+            concepts = listOf(Concept("개념")),
             acceptableAnswers = acceptableAnswers,
             type = type,
             difficulty = Difficulty.EASY,

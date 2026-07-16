@@ -41,7 +41,7 @@ class ProblemControllerIntegrationTest(
         val problem = problemRepository.save(
             Problem(
                 questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
-                concept = concept,
+                concepts = listOf(concept),
                 acceptableAnswers = setOf("해시 충돌", "충돌", "collision"),
                 // 개념 이름을 묻는 문제라 근접 판정 대상이다. (유형이 없으면 근접이 꺼져 NEAR_MISS 자체가 나오지 않는다)
                 type = ProblemType.DEFINITION_RECALL,
@@ -61,7 +61,7 @@ class ProblemControllerIntegrationTest(
                 jsonPath("$.question") { exists() }
                 jsonPath("$.difficulty") { value("MEDIUM") }
                 // 정답을 유추할 수 있는 필드는 응답에 존재하지 않아야 한다.
-                jsonPath("$.concept") { doesNotExist() }
+                jsonPath("$.concepts") { doesNotExist() }
                 jsonPath("$.acceptableAnswers") { doesNotExist() }
                 jsonPath("$.explanation") { doesNotExist() }
             }
@@ -75,7 +75,7 @@ class ProblemControllerIntegrationTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.result") { value("CORRECT") }
-            jsonPath("$.concept") { value(CONCEPT_NAME) }
+            jsonPath("$.concepts[0]") { value(CONCEPT_NAME) }
             jsonPath("$.explanation") { value(EXPLANATION) }
         }
     }
@@ -88,7 +88,7 @@ class ProblemControllerIntegrationTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.result") { value("MISMATCH") }
-            jsonPath("$.concept") { value(nullValue()) }
+            jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
         }
     }
@@ -102,7 +102,7 @@ class ProblemControllerIntegrationTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.result") { value("NEAR_MISS") }
-            jsonPath("$.concept") { value(nullValue()) }
+            jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
         }
     }

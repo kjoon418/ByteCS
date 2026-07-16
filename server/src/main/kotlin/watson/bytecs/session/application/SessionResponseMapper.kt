@@ -71,7 +71,7 @@ class SessionResponseMapper {
             solvedCount = session.solvedCount,
             totalCount = session.totalCount,
             position = session.currentPosition,
-            concept = if (correct) attemptedProblem.concept.name else null,
+            concepts = if (correct) attemptedProblem.conceptNames() else null,
             explanation = if (correct) attemptedProblem.explanation else null,
             misconceptionHint = outcome.misconceptionHint,
             // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수로 복원한다(새 문제라면 0).
@@ -93,7 +93,7 @@ class SessionResponseMapper {
 
     fun toRevealResponse(problem: Problem): RevealResponse =
         RevealResponse(
-            concept = problem.concept.name,
+            concepts = problem.conceptNames(),
             explanation = problem.explanation,
             acceptableAnswers = acceptableAnswers(problem),
         )
@@ -109,7 +109,7 @@ class SessionResponseMapper {
             // 지난 문제는 정답으로 통과한 칸만 열리므로 판정은 항상 CORRECT다.
             result = Judgement.CORRECT.name,
             revealed = item.revealed,
-            concept = problem.concept.name,
+            concepts = problem.conceptNames(),
             explanation = problem.explanation,
             acceptableAnswers = acceptableAnswers(problem),
         )

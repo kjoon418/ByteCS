@@ -12,7 +12,8 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
-import jakarta.persistence.ManyToOne
+import jakarta.persistence.JoinTable
+import jakarta.persistence.ManyToMany
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OrderColumn
 import jakarta.persistence.Table
@@ -27,9 +28,18 @@ class Problem(
     @Column(name = "question_text", nullable = false, columnDefinition = "text")
     val questionText: String,
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "concept_id", nullable = false)
-    val concept: Concept,
+    /**
+     * 이 문제가 다루는 개념들(하나 이상). 문제 N — M 개념 연결이며, 힌트 분기·복습의 근거가 된다.
+     * [OrderColumn]으로 태깅 순서를 보존해, 첫 번째를 대표 개념으로 삼고 노출 순서를 결정적으로 고정한다.
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "problem_concept",
+        joinColumns = [JoinColumn(name = "problem_id")],
+        inverseJoinColumns = [JoinColumn(name = "concept_id")],
+    )
+    @OrderColumn(name = "concept_index")
+    val concepts: List<Concept>,
 
     @ElementCollection
     @CollectionTable(
@@ -80,6 +90,7 @@ class Problem(
 ) {
     init {
         require(questionText.isNotBlank()) { "문제 지문은 비어 있을 수 없습니다." }
+        require(concepts.isNotEmpty()) { "문제는 하나 이상의 개념에 연결되어야 합니다." }
         require(acceptableAnswers.isNotEmpty()) { "허용답 집합은 비어 있을 수 없습니다." }
         require(acceptableAnswers.none { it.isBlank() }) { "허용답은 비어 있을 수 없습니다." }
     }
@@ -88,6 +99,12 @@ class Problem(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long = 0
         protected set
+
+    /** 개념 이름을 태깅 순서(대표 개념이 먼저)로 돌려준다. 정답 처리 후 개념 노출에 쓴다. */
+    fun conceptNames(): List<String> = concepts.map { it.name }
+
+    /** 개념 식별자를 태깅 순서로 돌려준다. 숙련도 갱신(기능 3)이 이 문제의 모든 개념에 적용될 때 쓴다. */
+    fun conceptIds(): List<Long> = concepts.map { it.id }
 
     /**
      * 제출한 답을 결정적으로 판정한다.

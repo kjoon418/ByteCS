@@ -144,7 +144,7 @@ class ScrapControllerIntegrationTest(
             status { isOk() }
             jsonPath("$.problemId") { value(p1) }
             jsonPath("$.question") { value("스택 질문") }
-            jsonPath("$.concept") { value("스택") }
+            jsonPath("$.concepts[0]") { value("스택") }
             jsonPath("$.acceptableAnswers[0]") { value("스택") }
             jsonPath("$.explanation") { value("스택 해설") }
             jsonPath("$.scrappedAt") { exists() }
@@ -222,7 +222,7 @@ class ScrapControllerIntegrationTest(
         return problemRepository.save(
             Problem(
                 questionText = "$conceptName 질문",
-                concept = concept,
+                concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
                 difficulty = Difficulty.EASY,
                 explanation = "$conceptName 해설",

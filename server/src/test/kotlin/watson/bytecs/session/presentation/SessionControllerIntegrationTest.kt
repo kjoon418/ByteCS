@@ -98,7 +98,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.currentProblem.id") { value(p1) }
             jsonPath("$.currentProblem.question") { exists() }
             // 정답을 유추할 수 있는 정보는 새어 나가지 않아야 한다.
-            jsonPath("$.currentProblem.concept") { doesNotExist() }
+            jsonPath("$.currentProblem.concepts") { doesNotExist() }
             jsonPath("$.currentProblem.acceptableAnswers") { doesNotExist() }
             jsonPath("$.currentProblem.explanation") { doesNotExist() }
         }
@@ -122,7 +122,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.result") { value("MISMATCH") }
             jsonPath("$.position") { value(0) }
             jsonPath("$.solvedCount") { value(0) }
-            jsonPath("$.concept") { value(nullValue()) }
+            jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
             jsonPath("$.currentProblem.id") { value(p1) }
         }
@@ -137,10 +137,25 @@ class SessionControllerIntegrationTest(
             jsonPath("$.result") { value("CORRECT") }
             jsonPath("$.solvedCount") { value(1) }
             jsonPath("$.position") { value(1) }
-            jsonPath("$.concept") { value("개념1") }
+            jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
             jsonPath("$.currentProblem.id") { value(p2) }
-            jsonPath("$.currentProblem.concept") { doesNotExist() }
+            jsonPath("$.currentProblem.concepts") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `복수 개념 문제를 정답 처리하면 개념을 태깅 순서대로 배열로 공개한다`() {
+        reseedMultiConceptProblem()
+        getToday(token)
+
+        submit(token, "정답").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("CORRECT") }
+            // 대표 개념이 먼저, 그다음 태깅 순서. 단수 문자열이 아니라 배열로 내려간다.
+            jsonPath("$.concepts.length()") { value(2) }
+            jsonPath("$.concepts[0]") { value("대표개념") }
+            jsonPath("$.concepts[1]") { value("보조개념") }
         }
     }
 
@@ -158,7 +173,7 @@ class SessionControllerIntegrationTest(
 
         reveal(token).andExpect {
             status { isOk() }
-            jsonPath("$.concept") { value("개념1") }
+            jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
             jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
         }
@@ -219,7 +234,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.problemId") { value(p1) }
             jsonPath("$.result") { value("CORRECT") }
             jsonPath("$.submittedAnswer") { value("정답1") }
-            jsonPath("$.concept") { value("개념1") }
+            jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
         }
 
@@ -404,7 +419,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.misconceptionHint") { value(MISCONCEPTION_MESSAGE) }
             // 무낙인: 전진하지 않고 정답·개념을 노출하지 않는다.
             jsonPath("$.position") { value(0) }
-            jsonPath("$.concept") { value(nullValue()) }
+            jsonPath("$.concepts") { value(nullValue()) }
         }
     }
 
@@ -522,7 +537,7 @@ class SessionControllerIntegrationTest(
         problemRepository.save(
             Problem(
                 questionText = "힌트 문제",
-                concept = concept,
+                concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
@@ -535,6 +550,29 @@ class SessionControllerIntegrationTest(
         )
     }
 
+    /**
+     * 기존 시드(p1~p3)를 지우고, 두 개념(대표·보조 순)을 태깅한 문제 하나만 남긴다.
+     * 개념 노출 응답이 단수 문자열이 아니라 태깅 순 배열로 내려가는지 검증하는 데 쓴다.
+     */
+    private fun reseedMultiConceptProblem() {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val primary = conceptRepository.save(Concept("대표개념"))
+        val secondary = conceptRepository.save(Concept("보조개념"))
+        problemRepository.save(
+            Problem(
+                questionText = "복수 개념 문제",
+                concepts = listOf(primary, secondary),
+                acceptableAnswers = setOf("정답"),
+                type = ProblemType.DEFINITION_RECALL,
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
+            ),
+        )
+    }
+
     private fun sessionId(result: MvcResult): Long =
         objectMapper.readTree(result.response.contentAsByteArray).get("sessionId").asLong()
 
@@ -543,7 +581,7 @@ class SessionControllerIntegrationTest(
         val problem = problemRepository.save(
             Problem(
                 questionText = "$conceptName 질문",
-                concept = concept,
+                concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
                 difficulty = Difficulty.EASY,
                 explanation = explanation,

@@ -11,7 +11,7 @@ data class ScrapDetailResponse(
     val question: String,
     val codeSnippet: String?,
     val difficulty: String?,
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String?,
     val acceptableAnswers: List<String>,
     val scrappedAt: Instant,

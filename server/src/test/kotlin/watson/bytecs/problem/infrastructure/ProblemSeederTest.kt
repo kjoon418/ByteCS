@@ -29,6 +29,7 @@ class ProblemSeederTest {
         const val TIME_COMPLEXITY = "시간 복잡도"
         const val HASH_COLLISION = "해시 충돌"
         const val QUEUE = "큐"
+        const val STACK = "스택"
         const val PROCESS_AND_THREAD = "프로세스와 스레드"
     }
 
@@ -142,6 +143,26 @@ class ProblemSeederTest {
         }
     }
 
+    @Nested
+    inner class 복수_개념을_태깅한다 {
+
+        @Test
+        fun 최소_한_문제는_복수_개념으로_태깅된다() {
+            // 문제 N—M 개념 경로가 시드로도 실행되게 하려면 복수 개념 문제가 반드시 있어야 한다.
+            val problems = allSeededProblems()
+
+            assertThat(problems.any { it.conceptNames().size >= 2 }).isTrue()
+        }
+
+        @Test
+        fun 스레드_문제는_대표_개념을_앞에_둔_복수_개념을_가진다() {
+            // 태깅 순서는 대표 개념(프로세스와 스레드)이 먼저, 그다음 각자 갖는 자원인 스택.
+            val threadProblem = seededProblemOf(PROCESS_AND_THREAD)
+
+            assertThat(threadProblem.conceptNames()).containsExactly(PROCESS_AND_THREAD, STACK)
+        }
+    }
+
     @Test
     fun 이미_문제가_있으면_시딩하지_않는다() {
         // given
@@ -181,6 +202,6 @@ class ProblemSeederTest {
         val savedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
         verify(problemRepository).saveAll(savedProblems.capture())
 
-        return savedProblems.value.single { it.concept.name == conceptName }
+        return savedProblems.value.single { it.conceptNames().contains(conceptName) }
     }
 }

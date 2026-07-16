@@ -26,7 +26,7 @@ class ProblemResponseMapper {
 
         return AttemptResponse(
             result = judgement.name,
-            concept = if (answerRevealed) problem.concept.name else null,
+            concepts = if (answerRevealed) problem.conceptNames() else null,
             explanation = if (answerRevealed) problem.explanation else null,
         )
     }

@@ -13,7 +13,7 @@ data class PastItemResponse(
     val submittedAnswer: String?,
     val result: String,
     val revealed: Boolean,
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String?,
     val acceptableAnswers: List<String>,
 )

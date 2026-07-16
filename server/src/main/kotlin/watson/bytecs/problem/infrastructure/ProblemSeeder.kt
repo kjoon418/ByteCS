@@ -53,7 +53,8 @@ class ProblemSeeder(
         val problems = listOf(
             Problem(
                 questionText = "한 프로세스 안에서 스택 등 일부를 제외한 자원을 공유하며 실행되는 흐름의 단위는?",
-                concept = process,
+                // 복수 개념 태깅: 대표는 '프로세스와 스레드'지만, 스레드가 각자 갖는 '스택'도 이 문제가 짚는 개념이다.
+                concepts = listOf(process, stack),
                 acceptableAnswers = setOf("스레드", "쓰레드", "thread"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
@@ -73,7 +74,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "가장 나중에 넣은 데이터가 가장 먼저 나오는 후입선출(LIFO) 자료구조는?",
-                concept = stack,
+                concepts = listOf(stack),
                 acceptableAnswers = setOf("스택", "stack"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
@@ -81,7 +82,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "먼저 넣은 데이터가 먼저 나오는 선입선출(FIFO) 자료구조는?",
-                concept = queue,
+                concepts = listOf(queue),
                 acceptableAnswers = setOf("큐", "queue"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
@@ -89,7 +90,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "서로 다른 키가 해시 함수를 통해 동일한 인덱스로 매핑되는 현상을 무엇이라 하는가?",
-                concept = hashCollision,
+                concepts = listOf(hashCollision),
                 acceptableAnswers = setOf("해시 충돌", "해시충돌", "충돌", "collision", "hash collision"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
@@ -102,7 +103,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "3-way handshake로 연결을 수립하고 데이터 전달의 신뢰성을 보장하는 전송 계층 프로토콜은?",
-                concept = tcp,
+                concepts = listOf(tcp),
                 acceptableAnswers = setOf("tcp", "티씨피"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
@@ -110,7 +111,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "자주 사용하는 데이터를 더 빠른 저장 공간에 미리 저장해 접근 속도를 높이는 기법은?",
-                concept = cache,
+                concepts = listOf(cache),
                 acceptableAnswers = setOf("캐시", "캐싱", "cache", "caching"),
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
@@ -118,7 +119,7 @@ class ProblemSeeder(
             ),
             Problem(
                 questionText = "다음 코드의 시간 복잡도를 빅오 표기법으로 나타내면?",
-                concept = timeComplexity,
+                concepts = listOf(timeComplexity),
                 // 유도형은 근접 판정이 없으니, 같은 답의 다른 표기는 오직 여기 등재로만 인정된다.
                 // 지수(^2·²·*n·제곱)와 빅오 괄호 유무를 조합한 표기를 모두 채운다.
                 // ([AnswerText]가 대소문자·공백만 정규화하고 구두점은 접지 않으므로, 표기마다 별도 등재가 필요하다)
