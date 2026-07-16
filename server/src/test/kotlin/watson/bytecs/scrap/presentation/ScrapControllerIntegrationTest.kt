@@ -226,6 +226,64 @@ class ScrapControllerIntegrationTest(
         assertThat(scrapRepository.count()).isEqualTo(0)
     }
 
+    // 계정 삭제 후에도 스테이트리스 JWT는 유효하다. 삭제된 사용자의 토큰으로 스크랩 4개 엔드포인트를 부르면
+    // 200/204(빈 응답이나 no-op)가 아니라 404 UserNotFound여야 한다(2026-07-16 오너 결정 8).
+
+    @Test
+    fun `계정을 삭제한 뒤 그 토큰으로 스크랩 목록을 조회하면 200 빈 배열이 아니라 404를 반환한다`() {
+        scrap(token, p1)
+        deleteAccount(token)
+
+        mockMvc.get("/api/scraps") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("USER_NOT_FOUND") }
+        }
+    }
+
+    @Test
+    fun `계정을 삭제한 뒤 그 토큰으로 스크랩 상세를 조회하면 404를 반환한다`() {
+        scrap(token, p1)
+        deleteAccount(token)
+
+        mockMvc.get("/api/scraps/$p1") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("USER_NOT_FOUND") }
+        }
+    }
+
+    @Test
+    fun `계정을 삭제한 뒤 그 토큰으로 스크랩을 시도하면 404이고 고아 행이 생기지 않는다`() {
+        deleteAccount(token)
+
+        scrap(token, p1).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("USER_NOT_FOUND") }
+        }
+
+        // 사용자 존재 검사가 저장보다 먼저 실행돼, 삭제된 userId로 참조 무결성 없는 스크랩 테이블에 고아 행이 남지 않는지 확인한다.
+        assertThat(scrapRepository.count()).isEqualTo(0)
+    }
+
+    @Test
+    fun `계정을 삭제한 뒤 그 토큰으로 스크랩 해제를 시도하면 404를 반환한다`() {
+        deleteAccount(token)
+
+        unscrap(token, p1).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("USER_NOT_FOUND") }
+        }
+    }
+
+    private fun deleteAccount(bearer: String) {
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+        }.andExpect { status { isNoContent() } }
+    }
+
     private fun scrap(bearer: String, problemId: Long) =
         mockMvc.post("/api/problems/$problemId/scraps") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
