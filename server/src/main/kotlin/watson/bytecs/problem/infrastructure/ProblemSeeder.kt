@@ -55,7 +55,10 @@ class ProblemSeeder(
                 questionText = "한 프로세스 안에서 스택 등 일부를 제외한 자원을 공유하며 실행되는 흐름의 단위는?",
                 // 복수 개념 태깅: 대표는 '프로세스와 스레드'지만, 스레드가 각자 갖는 '스택'도 이 문제가 짚는 개념이다.
                 concepts = listOf(process, stack),
-                acceptableAnswers = setOf("스레드", "쓰레드", "thread"),
+                // 대표 표기 "스레드 (thread)"를 화면에서 그대로 따라 입력해도 통과하도록, 병기 문자열 자체를 허용답에 등재한다
+                // (AnswerText는 구두점을 접지 않으므로 병기 표기는 별도 등재가 필요하다 — 대표 정답 불변식).
+                acceptableAnswers = setOf("스레드", "쓰레드", "thread", "스레드 (thread)"),
+                representativeAnswer = "스레드 (thread)",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
@@ -78,7 +81,8 @@ class ProblemSeeder(
             Problem(
                 questionText = "가장 나중에 넣은 데이터가 가장 먼저 나오는 후입선출(LIFO) 자료구조는?",
                 concepts = listOf(stack),
-                acceptableAnswers = setOf("스택", "stack"),
+                acceptableAnswers = setOf("스택", "stack", "스택 (stack)"),
+                representativeAnswer = "스택 (stack)",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "함수 호출 스택, 되돌리기(undo) 등에 쓰인다.",
@@ -86,7 +90,8 @@ class ProblemSeeder(
             Problem(
                 questionText = "먼저 넣은 데이터가 먼저 나오는 선입선출(FIFO) 자료구조는?",
                 concepts = listOf(queue),
-                acceptableAnswers = setOf("큐", "queue"),
+                acceptableAnswers = setOf("큐", "queue", "큐 (queue)"),
+                representativeAnswer = "큐 (queue)",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "BFS 탐색, 작업 대기열 등에 쓰인다.",
@@ -94,7 +99,8 @@ class ProblemSeeder(
             Problem(
                 questionText = "서로 다른 키가 해시 함수를 통해 동일한 인덱스로 매핑되는 현상을 무엇이라 하는가?",
                 concepts = listOf(hashCollision),
-                acceptableAnswers = setOf("해시 충돌", "해시충돌", "충돌", "collision", "hash collision"),
+                acceptableAnswers = setOf("해시 충돌", "해시충돌", "충돌", "collision", "hash collision", "해시 충돌 (hash collision)"),
+                representativeAnswer = "해시 충돌 (hash collision)",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = "체이닝, 개방 주소법 등으로 해소한다.",
@@ -110,7 +116,9 @@ class ProblemSeeder(
             Problem(
                 questionText = "3-way handshake로 연결을 수립하고 데이터 전달의 신뢰성을 보장하는 전송 계층 프로토콜은?",
                 concepts = listOf(tcp),
+                // 대표 표기 "TCP"는 정규화(소문자화) 뒤 "tcp"로 이미 허용답에 있으므로 병기 등재가 필요 없다.
                 acceptableAnswers = setOf("tcp", "티씨피"),
+                representativeAnswer = "TCP",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
                 explanation = "UDP와 달리 연결 지향적이며 순서·재전송을 보장한다.",
@@ -118,7 +126,8 @@ class ProblemSeeder(
             Problem(
                 questionText = "자주 사용하는 데이터를 더 빠른 저장 공간에 미리 저장해 접근 속도를 높이는 기법은?",
                 concepts = listOf(cache),
-                acceptableAnswers = setOf("캐시", "캐싱", "cache", "caching"),
+                acceptableAnswers = setOf("캐시", "캐싱", "cache", "caching", "캐시 (cache)"),
+                representativeAnswer = "캐시 (cache)",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "지역성(locality)을 활용해 평균 접근 시간을 줄인다.",
@@ -137,6 +146,8 @@ class ProblemSeeder(
                     "n^2", "n²", "n*n", "n제곱",
                     "오엔제곱",
                 ),
+                // 대표 표기 "O(n²)"는 정규화(소문자화) 뒤 "o(n²)"로 이미 허용답에 있다. 유도형이라 한/영 병기 대신 표준 수식 표기를 대표로 둔다.
+                representativeAnswer = "O(n²)",
                 type = ProblemType.DERIVATION,
                 difficulty = Difficulty.MEDIUM,
                 codeSnippet = """

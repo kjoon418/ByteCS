@@ -119,6 +119,8 @@ class ProblemEvaluateTest {
             questionText = "질문",
             concepts = listOf(Concept("개념")),
             acceptableAnswers = acceptableAnswers,
+            // 평가 테스트는 대표 정답을 관찰하지 않으므로, 불변식을 만족하도록 첫 허용답으로 채운다.
+            representativeAnswer = acceptableAnswers.first(),
             type = type,
             difficulty = Difficulty.EASY,
             misconceptionHints = misconceptions,

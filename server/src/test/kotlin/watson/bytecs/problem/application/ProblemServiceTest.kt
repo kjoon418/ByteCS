@@ -73,6 +73,7 @@ class ProblemServiceTest {
             assertThat(response.result).isEqualTo("CORRECT")
             assertThat(response.concepts).containsExactly(CONCEPT_NAME)
             assertThat(response.explanation).isEqualTo(EXPLANATION)
+            assertThat(response.representativeAnswer).isEqualTo("해시 충돌")
         }
 
         @Test
@@ -87,6 +88,7 @@ class ProblemServiceTest {
             assertThat(response.result).isEqualTo("MISMATCH")
             assertThat(response.concepts).isNull()
             assertThat(response.explanation).isNull()
+            assertThat(response.representativeAnswer).isNull()
         }
 
         @Test
@@ -101,6 +103,7 @@ class ProblemServiceTest {
             assertThat(response.result).isEqualTo("NEAR_MISS")
             assertThat(response.concepts).isNull()
             assertThat(response.explanation).isNull()
+            assertThat(response.representativeAnswer).isNull()
         }
 
         @Test
@@ -119,6 +122,7 @@ class ProblemServiceTest {
             questionText = "질문",
             concepts = listOf(Concept(CONCEPT_NAME)),
             acceptableAnswers = setOf("해시 충돌", "충돌", "collision"),
+            representativeAnswer = "해시 충돌",
             // 개념 이름을 묻는 문제라 근접 판정 대상이다. (유형이 없으면 근접이 꺼져 NEAR_MISS 자체가 나오지 않는다)
             type = ProblemType.DEFINITION_RECALL,
             difficulty = Difficulty.MEDIUM,

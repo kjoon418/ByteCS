@@ -29,6 +29,7 @@ class ProblemResponseMapper {
             concepts = if (answerRevealed) problem.conceptNames() else null,
             explanation = if (answerRevealed) problem.explanation else null,
             enrichment = if (answerRevealed) problem.enrichment else null,
+            representativeAnswer = if (answerRevealed) problem.representativeAnswer else null,
         )
     }
 }

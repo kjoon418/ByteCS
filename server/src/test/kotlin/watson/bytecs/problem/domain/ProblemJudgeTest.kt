@@ -212,6 +212,9 @@ class ProblemJudgeTest {
             questionText = "질문",
             concepts = listOf(Concept("개념")),
             acceptableAnswers = acceptableAnswers.toSet(),
+            // 판정 테스트는 대표 정답을 관찰하지 않으므로, 불변식을 만족하도록 첫 허용답으로 채운다.
+            // 허용답이 비어 있는 검증 케이스는 빈 문자열로 둬, 허용답 집합 require가 먼저 발화하게 한다.
+            representativeAnswer = acceptableAnswers.firstOrNull().orEmpty(),
             type = type,
             difficulty = Difficulty.EASY,
         )

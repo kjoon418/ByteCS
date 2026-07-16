@@ -151,7 +151,7 @@ class ScrapControllerIntegrationTest(
             jsonPath("$.problemId") { value(p1) }
             jsonPath("$.question") { value("스택 질문") }
             jsonPath("$.concepts[0]") { value("스택") }
-            jsonPath("$.acceptableAnswers[0]") { value("스택") }
+            jsonPath("$.representativeAnswer") { value("스택") }
             jsonPath("$.explanation") { value("스택 해설") }
             jsonPath("$.enrichment") { value(ENRICHMENT) }
             jsonPath("$.scrappedAt") { exists() }
@@ -301,6 +301,7 @@ class ScrapControllerIntegrationTest(
                 questionText = "$conceptName 질문",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
+                representativeAnswer = answer,
                 difficulty = Difficulty.EASY,
                 explanation = "$conceptName 해설",
                 enrichment = enrichment,

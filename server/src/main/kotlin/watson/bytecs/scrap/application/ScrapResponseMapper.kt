@@ -30,11 +30,7 @@ class ScrapResponseMapper {
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
             enrichment = problem.enrichment,
-            acceptableAnswers = acceptableAnswers(problem),
+            representativeAnswer = problem.representativeAnswer,
             scrappedAt = scrap.createdAt,
         )
-
-    /** 모범답안 목록을 결정적 순서로 돌려준다(가장 짧은 표기 먼저, 동률이면 사전순). */
-    private fun acceptableAnswers(problem: Problem): List<String> =
-        problem.acceptableAnswers.sortedWith(compareBy({ it.length }, { it }))
 }

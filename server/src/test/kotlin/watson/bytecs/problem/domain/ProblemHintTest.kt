@@ -77,6 +77,7 @@ class ProblemHintTest {
             questionText = "질문",
             concepts = listOf(Concept("개념")),
             acceptableAnswers = setOf("정답"),
+            representativeAnswer = "정답",
             type = ProblemType.DEFINITION_RECALL,
             difficulty = Difficulty.EASY,
             hints = hints.toList(),

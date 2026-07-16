@@ -74,6 +74,7 @@ class SessionResponseMapper {
             concepts = if (correct) attemptedProblem.conceptNames() else null,
             explanation = if (correct) attemptedProblem.explanation else null,
             enrichment = if (correct) attemptedProblem.enrichment else null,
+            representativeAnswer = if (correct) attemptedProblem.representativeAnswer else null,
             misconceptionHint = outcome.misconceptionHint,
             // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수로 복원한다(새 문제라면 0).
             currentProblem = nextProblem?.let { toProblemResponse(it, session.currentRevealedHintCount()) },
@@ -97,7 +98,7 @@ class SessionResponseMapper {
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
             enrichment = problem.enrichment,
-            acceptableAnswers = acceptableAnswers(problem),
+            representativeAnswer = problem.representativeAnswer,
         )
 
     fun toPastItemResponse(item: SessionItem, problem: Problem): PastItemResponse =
@@ -114,15 +115,8 @@ class SessionResponseMapper {
             concepts = problem.conceptNames(),
             explanation = problem.explanation,
             enrichment = problem.enrichment,
-            acceptableAnswers = acceptableAnswers(problem),
+            representativeAnswer = problem.representativeAnswer,
         )
-
-    /**
-     * 모범답안 목록을 결정적 순서로 돌려준다.
-     * 허용답 집합은 순서가 없으므로, 가장 짧은 표기를 앞에 두고 동률이면 사전순으로 고정해 같은 문제엔 항상 같은 순서를 준다.
-     */
-    private fun acceptableAnswers(problem: Problem): List<String> =
-        problem.acceptableAnswers.sortedWith(compareBy({ it.length }, { it }))
 
     /** 이미 공개한 힌트만 약→강 순으로 응답 형태로 바꾼다(도메인이 [revealedHintCount]로 절단해 no-leak을 보장한다). */
     private fun toRevealedHints(problem: Problem, revealedHintCount: Int): List<RevealedHintResponse> =

@@ -29,6 +29,7 @@ class ProblemControllerIntegrationTest(
 
     private companion object {
         const val CONCEPT_NAME = "해시 충돌"
+        const val REPRESENTATIVE_ANSWER = "해시 충돌"
         const val EXPLANATION = "체이닝, 개방 주소법 등으로 해소한다."
         const val ENRICHMENT = "심화 정보예요"
     }
@@ -44,6 +45,7 @@ class ProblemControllerIntegrationTest(
                 questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("해시 충돌", "충돌", "collision"),
+                representativeAnswer = REPRESENTATIVE_ANSWER,
                 // 개념 이름을 묻는 문제라 근접 판정 대상이다. (유형이 없으면 근접이 꺼져 NEAR_MISS 자체가 나오지 않는다)
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.MEDIUM,
@@ -65,6 +67,7 @@ class ProblemControllerIntegrationTest(
                 // 정답을 유추할 수 있는 필드는 응답에 존재하지 않아야 한다.
                 jsonPath("$.concepts") { doesNotExist() }
                 jsonPath("$.acceptableAnswers") { doesNotExist() }
+                jsonPath("$.representativeAnswer") { doesNotExist() }
                 jsonPath("$.explanation") { doesNotExist() }
                 jsonPath("$.enrichment") { doesNotExist() }
             }
@@ -81,6 +84,7 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.concepts[0]") { value(CONCEPT_NAME) }
             jsonPath("$.explanation") { value(EXPLANATION) }
             jsonPath("$.enrichment") { value(ENRICHMENT) }
+            jsonPath("$.representativeAnswer") { value(REPRESENTATIVE_ANSWER) }
         }
     }
 
@@ -95,6 +99,7 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
             jsonPath("$.enrichment") { value(nullValue()) }
+            jsonPath("$.representativeAnswer") { value(nullValue()) }
         }
     }
 
@@ -110,6 +115,7 @@ class ProblemControllerIntegrationTest(
             jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
             jsonPath("$.enrichment") { value(nullValue()) }
+            jsonPath("$.representativeAnswer") { value(nullValue()) }
         }
     }
 

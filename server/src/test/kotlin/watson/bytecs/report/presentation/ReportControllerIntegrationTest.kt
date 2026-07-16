@@ -51,6 +51,7 @@ class ReportControllerIntegrationTest(
                 questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("해시 충돌"),
+                representativeAnswer = "해시 충돌",
                 difficulty = Difficulty.MEDIUM,
             ),
         ).id

@@ -2,7 +2,6 @@ package watson.bytecs.session.presentation
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.assertj.core.api.Assertions.assertThat
-import org.hamcrest.Matchers.hasItem
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -109,6 +108,7 @@ class SessionControllerIntegrationTest(
             // 정답을 유추할 수 있는 정보는 새어 나가지 않아야 한다.
             jsonPath("$.currentProblem.concepts") { doesNotExist() }
             jsonPath("$.currentProblem.acceptableAnswers") { doesNotExist() }
+            jsonPath("$.currentProblem.representativeAnswer") { doesNotExist() }
             jsonPath("$.currentProblem.explanation") { doesNotExist() }
             jsonPath("$.currentProblem.enrichment") { doesNotExist() }
         }
@@ -134,6 +134,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.solvedCount") { value(0) }
             jsonPath("$.concepts") { value(nullValue()) }
             jsonPath("$.explanation") { value(nullValue()) }
+            jsonPath("$.representativeAnswer") { value(nullValue()) }
             jsonPath("$.currentProblem.id") { value(p1) }
         }
     }
@@ -149,10 +150,13 @@ class SessionControllerIntegrationTest(
             jsonPath("$.position") { value(1) }
             jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
+            // 정답이므로 대표 정답이 실린다(seedProblem은 대표 정답을 정답 문자열로 둔다).
+            jsonPath("$.representativeAnswer") { value("정답1") }
             // 심화 정보가 없는 문제는 정답이어도 null이다(graceful).
             jsonPath("$.enrichment") { value(nullValue()) }
             jsonPath("$.currentProblem.id") { value(p2) }
             jsonPath("$.currentProblem.concepts") { doesNotExist() }
+            jsonPath("$.currentProblem.representativeAnswer") { doesNotExist() }
             jsonPath("$.currentProblem.enrichment") { doesNotExist() }
         }
     }
@@ -212,7 +216,7 @@ class SessionControllerIntegrationTest(
             status { isOk() }
             jsonPath("$.concepts[0]") { value("개념1") }
             jsonPath("$.explanation") { value("해설1") }
-            jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
+            jsonPath("$.representativeAnswer") { value("정답1") }
             // 심화 정보가 없는 문제는 정답 공개에서도 null이다(graceful).
             jsonPath("$.enrichment") { value(nullValue()) }
         }
@@ -274,7 +278,7 @@ class SessionControllerIntegrationTest(
             jsonPath("$.result") { value("CORRECT") }
             jsonPath("$.submittedAnswer") { value("정답1") }
             jsonPath("$.concepts[0]") { value("개념1") }
-            jsonPath("$.acceptableAnswers") { value(hasItem("정답1")) }
+            jsonPath("$.representativeAnswer") { value("정답1") }
             // 심화 정보가 없는 문제는 지난 문제 다시 보기에서도 null이다(graceful).
             jsonPath("$.enrichment") { value(nullValue()) }
         }
@@ -660,6 +664,7 @@ class SessionControllerIntegrationTest(
                 questionText = "힌트 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "해설",
@@ -687,6 +692,7 @@ class SessionControllerIntegrationTest(
                 questionText = "복수 개념 문제",
                 concepts = listOf(primary, secondary),
                 acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "해설",
@@ -709,6 +715,7 @@ class SessionControllerIntegrationTest(
                 questionText = "심화 정보 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
                 type = ProblemType.DEFINITION_RECALL,
                 difficulty = Difficulty.EASY,
                 explanation = "해설",
@@ -727,6 +734,7 @@ class SessionControllerIntegrationTest(
                 questionText = "$conceptName 질문",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
+                representativeAnswer = answer,
                 difficulty = Difficulty.EASY,
                 explanation = explanation,
             ),

@@ -50,6 +50,16 @@ class Problem(
     val acceptableAnswers: Set<String>,
 
     /**
+     * 화면 표시용 대표 정답. 정답 공개·지난 문제·스크랩 상세에서 허용 표기를 나열하는 대신 이 하나만 보여준다(오너 결정 2026-07-16).
+     *
+     * 불변식: 정규화([AnswerText]) 기준으로 [acceptableAnswers]에 포함되어야 한다(init require).
+     * 근거: 정답 공개 후 '따라 입력'에서 사용자가 화면의 대표 정답을 그대로 치면 반드시 통과해야 한다.
+     * [AnswerText]는 구두점을 접지 않으므로, "스레드 (thread)"처럼 병기한 표기는 그 문자열 자체가 [acceptableAnswers]에도 등재돼 있어야 성립한다.
+     */
+    @Column(name = "representative_answer", nullable = false)
+    val representativeAnswer: String,
+
+    /**
      * 문제 유형. 근접(오탈자) 판정을 켤지 여부를 가른다.
      *
      * null(유형 미상)을 허용하는 이유:
@@ -100,6 +110,11 @@ class Problem(
         require(concepts.isNotEmpty()) { "문제는 하나 이상의 개념에 연결되어야 합니다." }
         require(acceptableAnswers.isNotEmpty()) { "허용답 집합은 비어 있을 수 없습니다." }
         require(acceptableAnswers.none { it.isBlank() }) { "허용답은 비어 있을 수 없습니다." }
+        require(representativeAnswer.isNotBlank()) { "대표 정답은 비어 있을 수 없습니다." }
+        // 대표 정답을 화면에서 그대로 따라 입력하면 통과해야 하므로, 정규화 기준으로 허용답 집합에 있어야 한다.
+        require(AnswerText(representativeAnswer).value in acceptableAnswers.map { AnswerText(it).value }) {
+            "대표 정답은 정규화 기준으로 허용답 집합에 포함되어야 합니다."
+        }
     }
 
     @Id

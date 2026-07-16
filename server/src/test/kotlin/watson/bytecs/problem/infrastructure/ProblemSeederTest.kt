@@ -175,6 +175,38 @@ class ProblemSeederTest {
     }
 
     @Nested
+    inner class 대표_정답을_시딩한다 {
+
+        @Test
+        fun 모든_문제가_대표_정답_불변식을_만족한다() {
+            // 화면의 대표 정답을 그대로 따라 입력하면 통과해야 하므로, 정규화 기준으로 허용답에 있어야 한다.
+            val problems = allSeededProblems()
+
+            problems.forEach { problem ->
+                assertThat(problem.representativeAnswer).isNotBlank()
+                val normalizedAnswers = problem.acceptableAnswers.map { AnswerText(it).value }
+                assertThat(AnswerText(problem.representativeAnswer).value)
+                    .`as`("대표 정답 '%s'은(는) 정규화 기준으로 허용답에 있어야 한다", problem.representativeAnswer)
+                    .isIn(normalizedAnswers)
+            }
+        }
+
+        @Test
+        fun 한영_병기가_자연스러운_문제는_병기_표기를_대표로_둔다() {
+            val threadProblem = seededProblemOf(PROCESS_AND_THREAD)
+
+            assertThat(threadProblem.representativeAnswer).isEqualTo("스레드 (thread)")
+        }
+
+        @Test
+        fun 유도형은_표준_수식_표기를_대표로_둔다() {
+            val timeComplexityProblem = seededProblemOf(TIME_COMPLEXITY)
+
+            assertThat(timeComplexityProblem.representativeAnswer).isEqualTo("O(n²)")
+        }
+    }
+
+    @Nested
     inner class 오답_교정_힌트를_시딩한다 {
 
         @Test

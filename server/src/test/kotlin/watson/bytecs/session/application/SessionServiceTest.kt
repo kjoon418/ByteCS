@@ -53,7 +53,7 @@ class SessionServiceTest {
     @Test
     fun `생성 경합에서 진 요청은 500 없이 이미 만들어진 세션을 돌려준다`() {
         val winner = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
-        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"))
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
         val user = User.createGuest()
         val expected = stateResponse()
 
