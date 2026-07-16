@@ -15,16 +15,21 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -715,6 +720,11 @@ fun StreakBadge(
  * §7 BcsScaffold — 상단 바 + 중앙 제한 콘텐츠(max 600dp) + 하단 고정 CTA를 한 곳에서 그린다.
  * 배경은 background로 채우고, 콘텐츠는 화면이 넓어도 [BcsDimens.contentMax]로 중앙 제한한다.
  * [content]는 남은 세로 공간을 받아 자체적으로 스크롤한다.
+ *
+ * 시스템 바·디스플레이 컷아웃·키보드(IME)는 [WindowInsets.Companion.safeDrawing]로 여기 한 곳에서만 소비한다
+ * (개별 화면은 인셋을 신경 쓰지 않는다). 좌우는 바깥 Column에서 전 슬롯 공통으로 소비하고, 상하는
+ * topBar/bottomBar가 있으면 그 슬롯이, 없으면 콘텐츠 영역이 대신 소비한다 — 이중 소비 금지.
+ * bottomBar의 하단 인셋에는 IME가 포함돼 키보드가 뜨면 CTA가 자동으로 그 위로 올라간다.
  */
 @Composable
 fun BcsScaffold(
@@ -733,11 +743,46 @@ fun BcsScaffold(
             modifier = Modifier
                 .fillMaxHeight()
                 .widthIn(max = BcsDimens.contentMax)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
         ) {
-            topBar?.invoke()
-            content()
-            bottomBar?.invoke()
+            Box(
+                modifier = if (topBar != null) {
+                    Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                } else {
+                    Modifier
+                },
+            ) {
+                topBar?.invoke()
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (topBar == null) {
+                            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .then(
+                        if (bottomBar == null) {
+                            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                        } else {
+                            Modifier
+                        },
+                    ),
+                content = content,
+            )
+            Box(
+                modifier = if (bottomBar != null) {
+                    Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                } else {
+                    Modifier
+                },
+            ) {
+                bottomBar?.invoke()
+            }
         }
     }
 }

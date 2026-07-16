@@ -10,12 +10,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -462,6 +467,9 @@ private fun DeleteConfirmDialog(
                 .widthIn(max = BcsDimens.contentMax)
                 .clip(RoundedCornerShape(topStart = BcsDimens.radiusSheet, topEnd = BcsDimens.radiusSheet))
                 .background(colorScheme.surface)
+                // BcsScaffold 바깥의 형제 오버레이라 인셋을 스스로 소비해야 한다 — 내비게이션 바에
+                // [삭제]/[취소] 버튼이 잘리지 않도록 시트 하단에만 적용(스크림은 전체 화면을 덮어야 하니 제외).
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
                 .padding(BcsDimens.space6)
                 // 열리는 순간 스크린리더가 무엇이 사라지는지 읽어 주도록 라이브 리전으로 둔다.
                 .semantics { liveRegion = LiveRegionMode.Polite },
