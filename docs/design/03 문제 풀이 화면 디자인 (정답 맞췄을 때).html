@@ -1,0 +1,157 @@
+<html>
+        <head>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" crossorigin="anonymous">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" crossorigin="anonymous">
+            <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4" crossorigin="anonymous"></script>
+            <style> * { font-family: 'Pretendard', sans-serif; } </style>
+        </head>
+
+        
+<div class="ui-screen">
+    <div id="app" class="relative w-[390px] min-min-h-[840px] bg-white flex flex-col font-['Pretendard'] text-[#2D2D2D] overflow-hidden">
+    
+    <!-- #header: 상단 세션 및 맥락 바 -->
+    <header id="header" class="sticky top-0 z-20 bg-white/90 backdrop-blur-md px-5 py-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+            <button id="btn-exit" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <div id="session-progress" class="flex flex-col items-center">
+                <span class="text-[10px] font-bold text-blue-500 tracking-widest uppercase mb-1">Step 02 / 10</span>
+                <div class="w-32 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="w-1/5 h-full bg-blue-500 rounded-full transition-all duration-500"></div>
+                </div>
+            </div>
+            <button id="btn-scrap" class="text-yellow-400 transition-colors">
+                <i class="fa-solid fa-bookmark text-xl"></i>
+            </button>
+        </div>
+
+        <!-- 파고들기(디딤 문제) 맥락 배지 -->
+        <div id="context-badge" class="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-xl border border-blue-100">
+            <i class="fa-solid fa-level-down-alt text-blue-400 text-xs rotate-90"></i>
+            <span class="text-xs text-blue-600 font-medium truncate flex-1">
+                '해시 함수'를 이해하기 위한 더 쉬운 문제예요
+            </span>
+            <button class="text-[10px] font-bold text-blue-400 underline underline-offset-2">돌아가기</button>
+        </div>
+    </header>
+
+    <!-- #content: 결과 및 심화 학습 영역 -->
+    <main id="content" class="flex-1 px-6 pt-4 pb-32">
+        <!-- 문제 영역 (읽기 전용 상태) -->
+        <section id="problem-area" class="mb-6 opacity-60">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="px-2 py-0.5 bg-gray-100 text-[10px] font-bold text-gray-500 rounded uppercase tracking-tighter">Difficulty: Medium</span>
+            </div>
+            <h2 id="problem-text" class="text-xl font-bold leading-relaxed break-keep">
+                다음 코드에서 두 데이터가 동일한 인덱스에 저장되려고 할 때 발생하는 현상을 무엇이라고 하나요?
+            </h2>
+        </section>
+
+        <!-- 정답 피드백 영역 -->
+        <section id="answer-feedback-area" class="mb-8">
+            <div class="relative">
+                <div class="w-full px-5 py-4 bg-emerald-50 border-2 border-emerald-500 rounded-2xl flex items-center justify-between">
+                    <span class="text-lg font-bold text-emerald-700">해시 충돌</span>
+                    <div class="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center animate-bounce">
+                        <i class="fa-solid fa-check text-white text-sm"></i>
+                    </div>
+                </div>
+                <p class="mt-3 text-sm font-bold text-emerald-600 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                    완벽해요! 정확한 정답입니다. (+20 XP)
+                </p>
+            </div>
+        </section>
+
+        <!-- 개념 칩 (정답 후 노출) -->
+        <section id="concept-tags" class="mb-6">
+            <div class="flex flex-wrap gap-2">
+                <span class="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg border border-blue-100"># 해시 테이블</span>
+                <span class="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg border border-blue-100"># 해시 충돌</span>
+                <span class="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-bold rounded-lg border border-blue-100"># 자료구조</span>
+            </div>
+        </section>
+
+        <!-- 심화 정보 (Deep Dive) -->
+        <section id="deep-dive-content" class="space-y-4">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-[11px] font-bold text-gray-400 tracking-wider">DEEP DIVE</span>
+                <div class="flex-1 h-px bg-gray-100"></div>
+            </div>
+
+            <div class="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                <h4 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-microchip text-blue-500"></i>
+                    왜 충돌이 발생할까요?
+                </h4>
+                <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                    해시 테이블은 무한한 데이터를 유한한 크기의 배열(Bucket)에 매핑하기 때문에, 서로 다른 입력값이 같은 결과값을 갖는 상황이 반드시 발생하게 됩니다. 이를 <span class="font-bold text-slate-900">비둘기집 원리</span>라고도 부릅니다.
+                </p>
+                
+                <div class="space-y-3">
+                    <div class="p-3 bg-white rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-blue-600">해결책 01. 체이닝</span>
+                            <i class="fa-solid fa-link text-[10px] text-slate-300"></i>
+                        </div>
+                        <p class="text-[12px] text-slate-500 leading-snug">같은 인덱스에 데이터를 연결 리스트로 줄줄이 매다는 방식입니다. 구현이 간단하지만 메모리 사용량이 늘어날 수 있어요.</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-xl border border-slate-200">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold text-blue-600">해결책 02. 개방 주소법</span>
+                            <i class="fa-solid fa-magnifying-glass text-[10px] text-slate-300"></i>
+                        </div>
+                        <p class="text-[12px] text-slate-500 leading-snug">충돌이 나면 옆의 빈 칸을 찾아 들어가는 방식입니다. 선형 탐사, 이차 탐사 등 다양한 기법이 존재합니다.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-5 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-start gap-4">
+                <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-quote-left text-indigo-500 text-xs"></i>
+                </div>
+                <div>
+                    <p class="text-sm text-indigo-900 font-medium leading-relaxed italic">
+                        "좋은 해시 함수는 충돌을 최소화하여 검색 성능을 O(1)에 가깝게 유지하는 역할을 합니다."
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- #bottom-bar: 하단 액션 바 -->
+    <footer id="bottom-bar" class="fixed bottom-0 left-0 right-0 max-w-[390px] mx-auto bg-white/95 backdrop-blur-md px-6 pt-4 pb-8 flex flex-col gap-4 border-t border-gray-100 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+        <div class="flex items-center justify-between px-2">
+            <button id="btn-review" class="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-left"></i>
+                해설 다시보기
+            </button>
+            <div class="flex items-center gap-4">
+                <button id="btn-share" class="text-gray-400">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
+                <button id="btn-report" class="text-gray-300">
+                    <i class="fa-solid fa-ellipsis"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Primary Action: 다음 문제로 -->
+        <button id="btn-next" class="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-100 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+            <span>다음 문제로</span>
+            <i class="fa-solid fa-arrow-right text-sm"></i>
+        </button>
+    </footer>
+
+    <!-- 정답 축하 효과 (파티클 효과 대신 은은한 오버레이) -->
+    <div id="confetti-overlay" class="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+        <div class="absolute top-[-10%] left-[20%] w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+        <div class="absolute top-[5%] right-[15%] w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping delay-75"></div>
+        <div class="absolute top-[15%] left-[40%] w-2 h-2 bg-yellow-400 rounded-full animate-ping delay-150"></div>
+    </div>
+</div>
+</div>
+
+</html>
