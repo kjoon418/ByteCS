@@ -2,6 +2,7 @@ package watson.bytecs.session.data
 
 import kotlinx.serialization.Serializable
 import watson.bytecs.problem.JudgeResult
+import watson.bytecs.problem.data.EnrichmentDto
 import watson.bytecs.session.AttemptOutcome
 import watson.bytecs.session.DailySession
 import watson.bytecs.session.HintReveal
@@ -96,7 +97,7 @@ internal data class SessionAttemptResponseDto(
     val currentProblem: SessionProblemDto? = null,
     val streak: StreakDto? = null,
     val misconceptionHint: String? = null,
-    val enrichment: String? = null,
+    val enrichment: EnrichmentDto? = null,
     // 화면 표시용 대표 정답. 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출 연장).
     val representativeAnswer: String? = null,
 ) {
@@ -111,7 +112,7 @@ internal data class SessionAttemptResponseDto(
         currentProblem = currentProblem?.toDomain(),
         streak = streak?.toDomain(),
         misconceptionHint = misconceptionHint,
-        enrichment = enrichment,
+        enrichment = enrichment?.toDomain(),
         representativeAnswer = representativeAnswer,
     )
 }
@@ -139,9 +140,9 @@ internal data class RevealResponseDto(
     val explanation: String? = null,
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: EnrichmentDto? = null,
 ) {
-    fun toDomain(): Reveal = Reveal(concepts, explanation, representativeAnswer, enrichment)
+    fun toDomain(): Reveal = Reveal(concepts, explanation, representativeAnswer, enrichment?.toDomain())
 }
 
 /**
@@ -177,7 +178,7 @@ internal data class PastItemResponseDto(
     val explanation: String? = null,
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: EnrichmentDto? = null,
 ) {
     fun toDomain(): PastItem = PastItem(
         position = position,
@@ -191,6 +192,6 @@ internal data class PastItemResponseDto(
         concepts = concepts,
         explanation = explanation,
         representativeAnswer = representativeAnswer,
-        enrichment = enrichment,
+        enrichment = enrichment?.toDomain(),
     )
 }

@@ -246,6 +246,12 @@ val BcsTypography = Typography(
 - 키패드: 텍스트/영문 최적화. 제출은 IME action 또는 하단 버튼.
 - Compose: `BasicTextField` + `decorationBox`로 56dp·색 정밀 제어.
 
+#### 5.2 파생 — ConfirmedAnswerField (정답 확정 전환, 03 정답 상태·시안 52~66행)
+- 정답을 맞히면 편집 가능한 `AnswerTextField` 대신 이 컴포넌트로 바뀐다(`<input>`이 아니라 `<div>` — 더 이상 편집 대상이 아니라 확정된 기록). **[2026-07-16] 시안 충실화**: `AnswerTextField`와 **같은 높이(56dp)·타이포(`bodyM`)·패딩**을 유지해 확정 전환에 자리 이동감이 없다.
+- 표시 내용은 **사용자가 제출한 텍스트가 아니라 대표 정답**([2026-07-16] 오너 결정 — 허용답 나열 폐지). bg `successContainer`, border 1.5dp `success`(진하게), 우측 원형 체크 배지.
+- 체크 배지 등장은 절제된 스케일 인 1회(시안의 무한 bounce보다 약하게, `durBase`).
+- 바로 아래 **확인 라인**: 체크 글리프 + "완벽해요! 정확한 정답입니다."(`success` 색, XP 없음). 이 한 줄이 확인 역할을 하므로 `CorrectFeedback`("맞았어요!" 카드)과 이 상태에서 중복으로 쓰지 않는다 — `CorrectFeedback` 자체는 `ProblemScreen`(연습)·스크랩 재열람처럼 "확인"이지 "축하"가 아닌 맥락에 그대로 남는다.
+
 ### 5.3 카드 — BcsCard
 - bg `surface`, padding 16~20dp, radius 16, border 1dp `borderSubtle`, shadow `elevCard`(다크는 border로 대체).
 - 클릭형: `pressScale(0.98)` + ripple.
@@ -271,7 +277,10 @@ val BcsTypography = Typography(
 - **RevealAnswerButton** — secondary(GhostButton/TextLink). **사용자 명시 요청 시에만**. "정답 보기".
 - **ModelAnswerBlock** — 모범답안 + 짧은 해설(코드면 `codeBlock`). 도움 신호지만 **벌점처럼 보이게 하지 않는다**(중립·정보 톤).
 - **TypeAlongField**(정답 따라 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **모범답안을 직접 따라 입력해야 다음으로 진행**. AnswerTextField 재사용 + "정답을 따라 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점.
-- **EnrichmentBlock**('더 알아보기' 심화 정보, 리뷰 반영) — 정답 처리 후 그 개념의 흥미로운 추가 정보를 **[결정 2026-07-16] 별도 조작 없이 바로 보여주는** 정적 카드(InfoCard 톤, 토글 없음 — 확인하려 매번 한 번 더 누르는 마찰 제거). 없으면 표시 안 함. 진행을 막지 않음.
+- **EnrichmentBlock**('더 알아보기' 심화 정보, 리뷰 반영) — 정답 처리 후 그 개념의 흥미로운 추가 정보를 **[결정 2026-07-16] 별도 조작 없이 바로 보여주는** 정적 섹션(토글 없음 — 확인하려 매번 한 번 더 누르는 마찰 제거). 없으면 표시 안 함. 진행을 막지 않음.
+  - **[2026-07-16] 시안 구조 렌더(시안 71~114행)**: 자유 텍스트 한 덩어리가 아니라 구조체로 받는다 — `Enrichment(title, body, items: List<EnrichmentItem>, quote?)`, `EnrichmentItem(title, description)`. 정답 처리 이후에만·문제 배포 응답에는 비포함(no-leak 연장).
+  - 렌더 순서: 섹션 라벨 "더 알아보기" + 가는 구분선(1dp `borderSubtle`) → **본 카드**(bg `surfaceSubtle`, border `borderSubtle`, radius 16, padding 20dp — 제목 `titleS` + 리드 `bodyM` + 항목 서브카드들) → **인용 카드**(있으면만 — `InfoCard` 재사용, 인용 표식 + 이탤릭 `bodyM`).
+  - 항목 서브카드: bg `surface`, border `borderSubtle`, radius 12(`radiusChip`), 제목(`label`, `onInfoContainer`) + 설명(`caption`, `textSecondary`). 항목 0개·인용 없음 등 부분 구조도 자연스럽게 동작한다(빈 껍데기 없이 생략).
 
 ### 5.8 파고들기 맥락 — DrilldownBadge / DrilldownBreadcrumb
 - 디딤 문제로 내려간 상태에서만 상단에 노출. "〈원래 문제〉를 위한 더 쉬운 문제" 배지(info 톤) + **돌아가기**.

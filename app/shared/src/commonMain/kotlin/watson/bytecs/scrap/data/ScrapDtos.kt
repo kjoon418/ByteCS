@@ -1,6 +1,7 @@
 package watson.bytecs.scrap.data
 
 import kotlinx.serialization.Serializable
+import watson.bytecs.problem.data.EnrichmentDto
 import watson.bytecs.scrap.ScrapDetail
 import watson.bytecs.scrap.ScrapListItem
 
@@ -34,7 +35,7 @@ internal data class ScrapDetailDto(
     val explanation: String? = null,
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: EnrichmentDto? = null,
 ) {
     fun toDomain(): ScrapDetail = ScrapDetail(
         problemId = problemId,
@@ -43,6 +44,6 @@ internal data class ScrapDetailDto(
         concepts = concepts,
         explanation = explanation,
         representativeAnswer = representativeAnswer,
-        enrichment = enrichment,
+        enrichment = enrichment?.toDomain(),
     )
 }

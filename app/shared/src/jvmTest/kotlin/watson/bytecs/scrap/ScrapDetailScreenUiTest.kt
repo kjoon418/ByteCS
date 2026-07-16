@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -121,17 +122,26 @@ class ScrapDetailScreenUiTest {
 
     // ── '더 알아보기'(심화 정보, §5.7) ────────────────────────────────────────
 
-    /** [결정 2026-07-16] 재열람에 심화 정보가 있으면 '더 알아보기'가 별도 조작 없이 바로 보인다. */
+    /**
+     * [결정 2026-07-16] 재열람에 심화 정보가 있으면 '더 알아보기'가 별도 조작 없이 바로 보인다.
+     * [2026-07-16] 구조체(제목·리드) 렌더까지 확인한다.
+     */
     @Test
     fun 재열람에_심화_정보가_있으면_더_알아보기가_바로_보인다() = runComposeUiTest {
         setScreen(
             ScrapDetailUiState.Ready(
-                detail = ready.detail.copy(enrichment = "해시 충돌은 생일 문제와 연결돼요."),
+                detail = ready.detail.copy(
+                    enrichment = Enrichment(
+                        title = "생일 문제와의 연결",
+                        body = "해시 충돌은 생일 문제와 연결돼요.",
+                    ),
+                ),
                 scrapped = true,
             ),
         )
 
         onNodeWithText("더 알아보기").assertIsDisplayed()
+        onNodeWithText("생일 문제와의 연결").assertIsDisplayed()
         onNodeWithText("해시 충돌은 생일 문제와 연결돼요.").assertIsDisplayed()
     }
 

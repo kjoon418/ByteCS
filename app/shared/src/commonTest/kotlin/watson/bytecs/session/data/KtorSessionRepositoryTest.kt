@@ -11,6 +11,8 @@ import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import watson.bytecs.account.data.createAuthenticatedHttpClient
+import watson.bytecs.problem.Enrichment
+import watson.bytecs.problem.EnrichmentItem
 import watson.bytecs.problem.JudgeResult
 import watson.bytecs.session.ItemNotViewableException
 import watson.bytecs.session.RevealNotAllowedException
@@ -85,7 +87,10 @@ class KtorSessionRepositoryTest {
             respond(
                 content = """
                     {"result":"CORRECT","status":"IN_PROGRESS","solvedCount":1,"totalCount":3,"position":1,
-                     "concepts":["스택"],"explanation":"LIFO","enrichment":"스택은 함수 호출 스택에도 쓰여요.",
+                     "concepts":["스택"],"explanation":"LIFO",
+                     "enrichment":{"title":"스택의 쓰임","body":"스택은 함수 호출 스택에도 쓰여요.",
+                       "items":[{"title":"콜 스택","description":"함수 호출 순서를 스택으로 관리해요."}],
+                       "quote":"LIFO는 어디에나 있다."},
                      "representativeAnswer":"스택 (stack)",
                      "currentProblem":{"id":2,"question":"다음","difficulty":null,"codeSnippet":null},"streak":null}
                 """.trimIndent(),
@@ -99,8 +104,16 @@ class KtorSessionRepositoryTest {
         assertEquals(listOf("스택"), outcome.concepts)
         assertEquals(2L, outcome.currentProblem?.id)
         assertFalse(outcome.isCompleted)
-        // '더 알아보기'(§5.7) 필드가 서버 응답에서 그대로 매핑된다.
-        assertEquals("스택은 함수 호출 스택에도 쓰여요.", outcome.enrichment)
+        // '더 알아보기'(§5.7) 구조체(제목·리드·항목·인용)가 서버 응답에서 그대로 매핑된다(계약 §B).
+        assertEquals(
+            Enrichment(
+                title = "스택의 쓰임",
+                body = "스택은 함수 호출 스택에도 쓰여요.",
+                items = listOf(EnrichmentItem(title = "콜 스택", description = "함수 호출 순서를 스택으로 관리해요.")),
+                quote = "LIFO는 어디에나 있다.",
+            ),
+            outcome.enrichment,
+        )
         // 화면 표시용 대표 정답도 CORRECT 응답에서 그대로 매핑된다.
         assertEquals("스택 (stack)", outcome.representativeAnswer)
     }
@@ -144,7 +157,7 @@ class KtorSessionRepositoryTest {
             respond(
                 content = """
                     {"concepts":["스택","자료구조"],"explanation":"LIFO","representativeAnswer":"스택 (stack)",
-                     "enrichment":"스택은 함수 호출 스택에도 쓰여요."}
+                     "enrichment":{"title":"스택의 쓰임","body":"스택은 함수 호출 스택에도 쓰여요."}}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
@@ -156,8 +169,8 @@ class KtorSessionRepositoryTest {
         assertEquals(listOf("스택", "자료구조"), reveal.concepts)
         // 화면 표시용 대표 정답 하나(허용답 나열 없음, [2026-07-16] 오너 결정).
         assertEquals("스택 (stack)", reveal.representativeAnswer)
-        // 정답 공개도 정답 접근 허용 맥락이라 '더 알아보기'가 포함된다.
-        assertEquals("스택은 함수 호출 스택에도 쓰여요.", reveal.enrichment)
+        // 정답 공개도 정답 접근 허용 맥락이라 '더 알아보기' 구조체가 포함된다(항목·인용 없는 부분 구조).
+        assertEquals(Enrichment(title = "스택의 쓰임", body = "스택은 함수 호출 스택에도 쓰여요."), reveal.enrichment)
     }
 
     @Test
@@ -211,7 +224,8 @@ class KtorSessionRepositoryTest {
                 content = """
                     {"position":2,"problemId":12,"question":"지난문제","codeSnippet":null,"difficulty":"EASY",
                      "submittedAnswer":"스택","result":"CORRECT","revealed":false,"concepts":["스택"],"explanation":"LIFO",
-                     "representativeAnswer":"스택 (stack)","enrichment":"스택은 함수 호출 스택에도 쓰여요."}
+                     "representativeAnswer":"스택 (stack)",
+                     "enrichment":{"title":"스택의 쓰임","body":"스택은 함수 호출 스택에도 쓰여요."}}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
@@ -224,8 +238,8 @@ class KtorSessionRepositoryTest {
         assertEquals(JudgeResult.CORRECT, item.result)
         // 화면 표시용 대표 정답 하나(허용답 나열 없음, [2026-07-16] 오너 결정).
         assertEquals("스택 (stack)", item.representativeAnswer)
-        // 지난 문제 다시 보기도 정답 접근 허용 맥락이라 '더 알아보기'가 포함된다.
-        assertEquals("스택은 함수 호출 스택에도 쓰여요.", item.enrichment)
+        // 지난 문제 다시 보기도 정답 접근 허용 맥락이라 '더 알아보기' 구조체가 포함된다.
+        assertEquals(Enrichment(title = "스택의 쓰임", body = "스택은 함수 호출 스택에도 쓰여요."), item.enrichment)
     }
 
     @Test

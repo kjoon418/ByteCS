@@ -1,5 +1,6 @@
 package watson.bytecs.session
 
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 
 /**
@@ -120,7 +121,7 @@ class FakeSessionRepository(
             total: Int = 3,
             completed: Boolean = false,
             streak: Streak? = null,
-            enrichment: String? = null,
+            enrichment: Enrichment? = null,
             representativeAnswer: String? = "대표정답",
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
@@ -151,7 +152,7 @@ class FakeSessionRepository(
 
         fun nearMissOutcome(total: Int = 3) = mismatchOutcome(total).copy(result = JudgeResult.NEAR_MISS)
 
-        fun pastItem(position: Int, enrichment: String? = null) = PastItem(
+        fun pastItem(position: Int, enrichment: Enrichment? = null) = PastItem(
             position = position,
             problemId = 10L + position,
             question = "지난 Q$position",

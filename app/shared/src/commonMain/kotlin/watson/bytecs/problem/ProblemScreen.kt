@@ -311,7 +311,7 @@ private fun FeedbackSection(feedback: Feedback, problemId: Long) {
                     explanation = feedback.explanation,
                 )
                 // '더 알아보기'(§5.7) — 정답 처리 즉시 바로 보인다(2026-07-16 결정, 토글 없음).
-                EnrichmentBlock(content = feedback.enrichment)
+                EnrichmentBlock(enrichment = feedback.enrichment)
             }
             Feedback.Mismatch -> RetryNudge()
             Feedback.NearMiss -> NearMissNudge()

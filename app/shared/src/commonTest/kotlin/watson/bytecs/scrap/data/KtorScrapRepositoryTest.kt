@@ -7,6 +7,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.data.createProblemHttpClient
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -52,7 +53,7 @@ class KtorScrapRepositoryTest {
                     {"problemId":7,"question":"해시 충돌이란?","codeSnippet":null,
                      "concepts":["해시 충돌"],"explanation":"서로 다른 키가 같은 버킷으로 간다.",
                      "representativeAnswer":"해시 충돌 (collision)",
-                     "enrichment":"해시 충돌은 생일 문제와 연결돼요."}
+                     "enrichment":{"title":"생일 문제와의 연결","body":"해시 충돌은 생일 문제와 연결돼요."}}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
@@ -66,8 +67,8 @@ class KtorScrapRepositoryTest {
         assertEquals(listOf("해시 충돌"), detail.concepts)
         // 화면 표시용 대표 정답 하나(허용답 나열 없음, [2026-07-16] 오너 결정).
         assertEquals("해시 충돌 (collision)", detail.representativeAnswer)
-        // 재열람도 정답 접근 허용 맥락이라 '더 알아보기'가 포함된다.
-        assertEquals("해시 충돌은 생일 문제와 연결돼요.", detail.enrichment)
+        // 재열람도 정답 접근 허용 맥락이라 '더 알아보기' 구조체가 포함된다.
+        assertEquals(Enrichment(title = "생일 문제와의 연결", body = "해시 충돌은 생일 문제와 연결돼요."), detail.enrichment)
     }
 
     @Test

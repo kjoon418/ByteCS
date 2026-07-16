@@ -9,6 +9,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -58,7 +59,7 @@ class KtorProblemRepositoryTest {
             respond(
                 content = """
                     {"result":"CORRECT","concepts":["스택"],"explanation":"LIFO 구조",
-                     "enrichment":"스택은 함수 호출 스택에도 쓰여요."}
+                     "enrichment":{"title":"스택의 쓰임","body":"스택은 함수 호출 스택에도 쓰여요."}}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
@@ -71,8 +72,8 @@ class KtorProblemRepositoryTest {
         assertEquals(JudgeResult.CORRECT, result.result)
         assertEquals(listOf("스택"), result.concepts)
         assertEquals("LIFO 구조", result.explanation)
-        // '더 알아보기'(§5.7) 필드가 서버 응답에서 그대로 매핑된다.
-        assertEquals("스택은 함수 호출 스택에도 쓰여요.", result.enrichment)
+        // '더 알아보기'(§5.7) 구조체가 서버 응답에서 그대로 매핑된다(계약 §B).
+        assertEquals(Enrichment(title = "스택의 쓰임", body = "스택은 함수 호출 스택에도 쓰여요."), result.enrichment)
     }
 
     @Test

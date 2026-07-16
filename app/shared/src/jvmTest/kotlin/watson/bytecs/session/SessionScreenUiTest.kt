@@ -13,6 +13,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 import watson.bytecs.ui.theme.BcsTheme
 
@@ -346,7 +347,7 @@ class SessionScreenUiTest {
             active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
             onAdvance = { advanced++ },
         ) {
-            onNodeWithText("맞았어요!").assertIsDisplayed()
+            onNodeWithText("완벽해요! 정확한 정답입니다.").assertIsDisplayed()
             onNodeWithText("다음 문제").performClick()
         }
         assertEquals(1, advanced)
@@ -370,7 +371,7 @@ class SessionScreenUiTest {
             onAdvance = { advanced++ },
             onFinish = { finished++ },
         ) {
-            onNodeWithText("맞았어요!").assertIsDisplayed()
+            onNodeWithText("완벽해요! 정확한 정답입니다.").assertIsDisplayed()
             onNodeWithText("다음 문제").assertDoesNotExist()
             onNodeWithText("한입 마치기").assertIsDisplayed().performClick()
         }
@@ -696,17 +697,23 @@ class SessionScreenUiTest {
 
     /**
      * [결정 2026-07-16] 정답 피드백에 심화 정보가 있으면 '더 알아보기'가 별도 조작 없이 정답 시점에 바로 보인다.
+     * [2026-07-16] 구조체(제목·리드) 렌더까지 확인한다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 정답_피드백에_심화_정보가_있으면_더_알아보기가_바로_보인다() = runScreen(
         active(
             inputText = answer,
-            feedback = SessionFeedback.Correct(listOf(answer), "해설", "해시 충돌은 생일 문제와 연결돼요."),
+            feedback = SessionFeedback.Correct(
+                concepts = listOf(answer),
+                explanation = "해설",
+                enrichment = Enrichment(title = "생일 문제와의 연결", body = "해시 충돌은 생일 문제와 연결돼요."),
+            ),
         ),
     ) {
-        onNodeWithText("맞았어요!").assertIsDisplayed()
+        onNodeWithText("완벽해요! 정확한 정답입니다.").assertIsDisplayed()
         onNodeWithText("더 알아보기").assertIsDisplayed()
+        onNodeWithText("생일 문제와의 연결").assertIsDisplayed()
         onNodeWithText("해시 충돌은 생일 문제와 연결돼요.").assertIsDisplayed()
     }
 
@@ -716,7 +723,7 @@ class SessionScreenUiTest {
     fun 심화_정보가_없는_정답_피드백에는_더_알아보기가_없다() = runScreen(
         active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
     ) {
-        onNodeWithText("맞았어요!").assertIsDisplayed()
+        onNodeWithText("완벽해요! 정확한 정답입니다.").assertIsDisplayed()
         onNodeWithText("더 알아보기").assertDoesNotExist()
     }
 }

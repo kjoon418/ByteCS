@@ -1,5 +1,10 @@
 package watson.bytecs.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +16,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,16 +26,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontStyle
+import watson.bytecs.problem.Enrichment
+import watson.bytecs.problem.EnrichmentItem
 import watson.bytecs.ui.theme.BcsDimens
+import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.LocalBcsColors
 
 /**
@@ -80,12 +93,18 @@ fun CorrectFeedback(
 }
 
 /**
- * §5.2 파생 — 정답 입력란의 **확정 전환**(03 정답 상태 시안 55-60행).
+ * §5.2 파생 — 정답 입력란의 **확정 전환**(03 정답 상태 시안 52~66행).
  *
  * [AnswerTextField]를 재사용하지 않고 별도 컴포넌트로 둔다: 시안도 이 상태를 `<input>`이 아니라
  * `<div>`로 그린다 — 정답을 맞힌 뒤에는 더 이상 편집 대상이 아니라 **확정된 기록**이기 때문이다.
  * 편집 불가능한 정적 표시로 바뀌므로, 죽은 입력칸에 엔터를 쳐서 낡은 값이 다시 제출되는 경로도
  * 구조적으로 사라진다(칸이 없으니 누를 것도 없다).
+ *
+ * ⭐️ [AnswerTextField]와 높이·타이포·패딩을 그대로 맞춘다(둘 다 `inputHeight`·`bodyMedium`·
+ * `space4`/`space2` 패딩) — 정답 확정 순간 자리 이동감 없이 "그 입력칸이 그대로 확정됐다"는 느낌을
+ * 준다(시안 요구). 바로 아래 **확인 라인**("완벽해요! 정확한 정답입니다.", 시안 61~64행)까지 하나의
+ * 단위로 함께 그려, 화면이 둘을 따로 배치하지 않아도 늘 붙어 나온다. XP 등 게이미피케이션 문구는 없다
+ * (미도입 결정).
  */
 @Composable
 fun ConfirmedAnswerField(
@@ -93,44 +112,77 @@ fun ConfirmedAnswerField(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = BcsDimens.inputHeight)
-            .clip(RoundedCornerShape(BcsDimens.radiusCard))
-            .background(colors.successContainer)
-            .border(BcsDimens.borderWidthStrong, colors.success, RoundedCornerShape(BcsDimens.radiusCard))
-            .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2)
-            .semantics { contentDescription = "$representativeAnswer, 정답으로 확인됐어요" },
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
     ) {
-        Text(
-            text = representativeAnswer,
-            style = MaterialTheme.typography.titleSmall,
-            color = colors.onSuccessContainer,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(BcsDimens.space3))
-        SuccessCheckBadge()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = BcsDimens.inputHeight)
+                .clip(RoundedCornerShape(BcsDimens.radiusCard))
+                .background(colors.successContainer)
+                .border(BcsDimens.borderWidthStrong, colors.success, RoundedCornerShape(BcsDimens.radiusCard))
+                .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2)
+                .semantics { contentDescription = "$representativeAnswer, 정답으로 확인됐어요" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = representativeAnswer,
+                // AnswerTextField와 같은 타이포(bodyMedium) — titleSmall이었던 이전 버전은 확정 전환에
+                // 미묘한 자리 이동감을 남겼다.
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSuccessContainer,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(BcsDimens.space3))
+            SuccessCheckBadge()
+        }
+        // 확인 라인(시안 61~64행) — 체크 글리프 + success 톤 한 줄. 스크린리더 라이브 리전이라
+        // 정답 확정 순간이 즉시 낭독된다(§7).
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        ) {
+            CheckMark(color = colors.success)
+            Spacer(Modifier.width(BcsDimens.space2))
+            Text(
+                text = "완벽해요! 정확한 정답입니다.",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.success,
+            )
+        }
     }
 }
 
 /**
  * [ConfirmedAnswerField]의 체크 배지 — success 원 배경 위 흰 체크(§6.2). 장식이므로 시맨틱을 비운다
  * (의미는 위 [ConfirmedAnswerField]의 contentDescription이 이미 전달한다).
+ *
+ * ⭐️ 절제된 등장 연출(§2.2) — 시안의 무한 `animate-bounce`는 과하므로, 한 번의 스케일 인으로 약하게
+ * 옮긴다(§4.4 durBase). [ConfirmedAnswerField]가 문제별로 새로 컴포지션되므로(호출부가 `problem.id`로
+ * 키를 준다) 매 정답마다 다시 재생된다.
  */
 @Composable
 private fun SuccessCheckBadge(modifier: Modifier = Modifier) {
     val colors = LocalBcsColors.current
-    Box(
-        modifier = modifier
-            .size(BcsDimens.iconCheck + BcsDimens.space2)
-            .clip(CircleShape)
-            .background(colors.success)
-            .clearAndSetSemantics {},
-        contentAlignment = Alignment.Center,
+    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(
+        visibleState = visibleState,
+        modifier = modifier,
+        enter = scaleIn(tween(BcsMotion.durBase, easing = BcsMotion.easing), initialScale = 0.5f) +
+            fadeIn(tween(BcsMotion.durBase)),
     ) {
-        CheckMark(color = colors.onSuccess)
+        Box(
+            modifier = Modifier
+                .size(BcsDimens.iconCheck + BcsDimens.space2)
+                .clip(CircleShape)
+                .background(colors.success)
+                .clearAndSetSemantics {},
+            contentAlignment = Alignment.Center,
+        ) {
+            CheckMark(color = colors.onSuccess)
+        }
     }
 }
 
@@ -269,33 +321,91 @@ fun TypeAlongField(
  * §5.7 EnrichmentBlock — '더 알아보기'. 정답 처리 후 그 개념의 추가 정보를 **바로** 보여준다.
  *
  * ⭐️ [결정 2026-07-16] 예전엔 토글로 펼쳐야 보였지만, 확인하려 매번 한 번 더 누르는 마찰을 없애려고
- * 정적 노출로 바꿨다. 두 가지는 그대로 지킨다: [content]가 없으면 아무것도 그리지 않고(빈 껍데기 금지),
- * 진행을 막지 않는다(있든 없든 다음 문제로 갈 수 있다 — 하단 CTA는 이 컴포넌트와 무관하다).
+ * 정적 노출로 바꿨다(유지). [enrichment]가 없으면 아무것도 그리지 않고(빈 껍데기 금지), 진행을
+ * 막지 않는다(있든 없든 다음 문제로 갈 수 있다 — 하단 CTA는 이 컴포넌트와 무관하다).
+ *
+ * ⭐️ [결정 2026-07-16] 시안 구조(제목·리드·항목 카드·인용, 시안 71~114행)로 렌더한다 — 자유 텍스트
+ * 한 덩어리이던 이전 버전은 시안과 완전히 달랐다. 섹션 라벨+구분선 → 본 카드(제목·리드·항목 서브카드) →
+ * 인용 카드(있으면) 순서다. 항목이 0개거나 인용이 없어도 본 카드는 자연스럽게 동작한다(부분 구조 허용).
  */
 @Composable
 fun EnrichmentBlock(
-    content: String?,
+    enrichment: Enrichment?,
     modifier: Modifier = Modifier,
 ) {
-    if (content == null) return
+    if (enrichment == null) return
 
     val colors = LocalBcsColors.current
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
     ) {
-        Text(
-            text = "더 알아보기",
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.textSecondary,
-        )
-        InfoCard {
+        // 섹션 라벨 + 가는 구분선(시안 73~76행).
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.onInfoContainer,
+                text = "더 알아보기",
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textTertiary,
+            )
+            Spacer(Modifier.width(BcsDimens.space2))
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(BcsDimens.borderWidth)
+                    .background(colors.borderSubtle),
             )
         }
+
+        // 본 카드 — 제목 + 리드 문단 + 항목 서브카드들(시안 78~103행).
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(BcsDimens.radiusCard))
+                .background(colors.surfaceSubtle)
+                .border(BcsDimens.borderWidth, colors.borderSubtle, RoundedCornerShape(BcsDimens.radiusCard))
+                .padding(BcsDimens.space5),
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+        ) {
+            Text(text = enrichment.title, style = MaterialTheme.typography.titleSmall, color = colors.textPrimary)
+            Text(text = enrichment.body, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
+            if (enrichment.items.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space2)) {
+                    enrichment.items.forEach { item -> EnrichmentItemCard(item) }
+                }
+            }
+        }
+
+        // 인용 카드 — 있을 때만(시안 105~114행). 인용 표식 + 이탤릭 톤.
+        enrichment.quote?.let { quote ->
+            InfoCard {
+                Text(
+                    text = "“$quote”",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    color = colors.onInfoContainer,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * [EnrichmentBlock] 본 카드의 항목 서브카드 하나 — 제목 + 설명, 테두리 카드(시안 88~101행).
+ * 아이콘은 두지 않는다(§6.3 웹폰트 의존 회피 원칙 — 텍스트만으로 충분히 구별된다).
+ */
+@Composable
+private fun EnrichmentItemCard(item: EnrichmentItem, modifier: Modifier = Modifier) {
+    val colors = LocalBcsColors.current
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusChip))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BcsDimens.borderWidth, colors.borderSubtle, RoundedCornerShape(BcsDimens.radiusChip))
+            .padding(BcsDimens.space3),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space1),
+    ) {
+        Text(text = item.title, style = MaterialTheme.typography.labelLarge, color = colors.onInfoContainer)
+        Text(text = item.description, style = MaterialTheme.typography.bodySmall, color = colors.textSecondary)
     }
 }
 

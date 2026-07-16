@@ -1,5 +1,6 @@
 package watson.bytecs.session
 
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 
 /**
@@ -98,7 +99,7 @@ data class AttemptOutcome(
     val currentProblem: SessionProblem?,
     val streak: Streak?,
     val misconceptionHint: String? = null,
-    val enrichment: String? = null,
+    val enrichment: Enrichment? = null,
     val representativeAnswer: String? = null,
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
@@ -115,7 +116,7 @@ data class Reveal(
     val concepts: List<String>,
     val explanation: String?,
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: Enrichment? = null,
 )
 
 /**
@@ -136,7 +137,7 @@ data class PastItem(
     val concepts: List<String>,
     val explanation: String?,
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: Enrichment? = null,
 )
 
 /** 연속 학습 스트릭. 긍정 동기 전용 — 끊겨도 죄책감 연출 금지(UX 다크패턴 방지). */

@@ -152,7 +152,7 @@ private fun ReadyContent(
         )
 
         // '더 알아보기'(§5.7) — 재열람은 이미 정답 접근이 가능한 맥락이라 바로 보인다.
-        EnrichmentBlock(content = detail.enrichment)
+        EnrichmentBlock(enrichment = detail.enrichment)
 
         // 콘텐츠 오류 신고 진입점(07).
         TextLink(

@@ -144,7 +144,7 @@ sealed interface Feedback {
     data class Correct(
         val concepts: List<String>?,
         val explanation: String?,
-        val enrichment: String? = null,
+        val enrichment: Enrichment? = null,
         val representativeAnswer: String? = null,
     ) : Feedback
     data object Mismatch : Feedback

@@ -47,7 +47,6 @@ import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.ConceptChips
 import watson.bytecs.ui.components.ConfirmedAnswerField
-import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
 import watson.bytecs.ui.components.EnrichmentBlock
 import watson.bytecs.ui.components.ErrorBanner
@@ -439,7 +438,7 @@ private fun ActiveContent(
 
             // '더 알아보기'(§5.7) — 정답 공개도 정답 접근이 허용된 맥락이라 노출한다. 다음 행동(따라 입력) 위.
             Spacer(Modifier.height(BcsDimens.space3))
-            EnrichmentBlock(content = reveal.enrichment)
+            EnrichmentBlock(enrichment = reveal.enrichment)
 
             Spacer(Modifier.height(BcsDimens.space5))
             TypeAlongField(
@@ -496,16 +495,23 @@ private fun ActiveContent(
  */
 @Composable
 private fun FeedbackCard(feedback: SessionFeedback, problemId: Long) {
+    val colors = LocalBcsColors.current
     val announce = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
     when (feedback) {
+        // ⭐️ [2026-07-16] 확인("완벽해요! 정확한 정답입니다.")은 [ConfirmedAnswerField]가 이미 보여준다 —
+        //    옛 "맞았어요!" 카드를 여기서 또 그리면 같은 뜻의 확인이 두 번 중복된다. 그 아래 시안 위계
+        //    (개념 칩 → 해설 → 더 알아보기)만 잇는다. 해설(explanation)은 정답 시 반드시 노출돼야 하는
+        //    정보(명세)이므로 카드로 감싸지 않고 본문 텍스트로 흘린다 — 시안도 확인 라인 다음을 별도
+        //    카드 없이 개념 칩 → 심화 정보 카드로 바로 잇는 flat 구조라 같은 결을 따른다.
         is SessionFeedback.Correct -> Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
-            CorrectFeedback(
-                modifier = announce,
-                concepts = feedback.concepts,
-                explanation = feedback.explanation,
-            )
+            if (!feedback.concepts.isNullOrEmpty()) {
+                ConceptChips(feedback.concepts)
+            }
+            feedback.explanation?.let {
+                Text(text = it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
+            }
             // '더 알아보기'(§5.7) — 정답 처리 즉시 바로 보인다(2026-07-16 결정, 토글 없음).
-            EnrichmentBlock(content = feedback.enrichment)
+            EnrichmentBlock(enrichment = feedback.enrichment)
         }
 
         // 불일치엔 비처벌 넛지. 큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
@@ -570,7 +576,7 @@ private fun PastItemView(
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
                 }
                 // '더 알아보기'(§5.7) — 이미 정답 접근이 가능한 맥락이라 바로 보인다.
-                EnrichmentBlock(content = item.enrichment)
+                EnrichmentBlock(enrichment = item.enrichment)
                 GhostButton(text = "돌아가기", onClick = onClose)
                 Spacer(Modifier.height(BcsDimens.space6))
             }

@@ -1,5 +1,7 @@
 package watson.bytecs.scrap
 
+import watson.bytecs.problem.Enrichment
+
 /**
  * 문제 스크랩(기능 5) 도메인 모델. 백엔드 `/api/scraps` 계약과 형태를 맞추되 DTO와 분리한다.
  */
@@ -28,5 +30,5 @@ data class ScrapDetail(
     val concepts: List<String>,
     val explanation: String?,
     val representativeAnswer: String,
-    val enrichment: String? = null,
+    val enrichment: Enrichment? = null,
 )

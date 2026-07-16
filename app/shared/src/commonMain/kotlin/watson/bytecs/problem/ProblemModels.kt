@@ -29,6 +29,27 @@ enum class JudgeResult {
 }
 
 /**
+ * '더 알아보기' 심화 정보(§5.7)의 구조. [2026-07-16] 오너 결정 — 자유 텍스트 한 덩어리 대신 시안 구조
+ * (제목·리드·항목 카드·인용)로 고정한다. 정답 처리 이후에만 채워지고, 없으면 섹션 자체가 생략된다(no-leak
+ * 연장 — 문제 배포 응답에는 절대 포함되지 않는다). session·scrap 슬라이스도 이 타입을 공유한다.
+ *  - [title]: 본 카드 제목. [body]: 리드 문단.
+ *  - [items]: 보조 항목(제목+설명) 0개 이상, 순서 보존.
+ *  - [quote]: 인용(선택) — 어울리는 문제에만 있다.
+ */
+data class Enrichment(
+    val title: String,
+    val body: String,
+    val items: List<EnrichmentItem> = emptyList(),
+    val quote: String? = null,
+)
+
+/** [Enrichment]의 보조 항목 카드 하나. */
+data class EnrichmentItem(
+    val title: String,
+    val description: String,
+)
+
+/**
  * 답 제출 결과. 개념·해설·심화 정보·대표 정답은 **정답(CORRECT)일 때만** 채워지고, 불일치·근접에는 null이다
  * (무낙인·정답 비노출 원칙). [concepts]는 태깅 순서를 보존한 목록(첫 번째가 대표 개념).
  * [enrichment]는 '더 알아보기'(§5.7) — 없어도 되는 선택 콘텐츠다.
@@ -39,6 +60,6 @@ data class AttemptResult(
     val result: JudgeResult,
     val concepts: List<String>? = null,
     val explanation: String? = null,
-    val enrichment: String? = null,
+    val enrichment: Enrichment? = null,
     val representativeAnswer: String? = null,
 )

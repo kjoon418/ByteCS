@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -359,7 +360,7 @@ sealed interface SessionFeedback {
     data class Correct(
         val concepts: List<String>?,
         val explanation: String?,
-        val enrichment: String? = null,
+        val enrichment: Enrichment? = null,
         val representativeAnswer: String? = null,
     ) : SessionFeedback
 
