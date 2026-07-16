@@ -18,6 +18,7 @@ import watson.bytecs.account.domain.UserSettings
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.scrap.infrastructure.ScrapRepository
+import watson.bytecs.session.infrastructure.SessionRepository
 
 /**
  * 계정 발급·가입·로그인·설정·삭제를 조율한다.
@@ -32,6 +33,7 @@ class AccountService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val responseMapper: AccountResponseMapper,
     private val scrapRepository: ScrapRepository,
+    private val sessionRepository: SessionRepository,
 ) {
 
     @Transactional
@@ -116,8 +118,9 @@ class AccountService(
         // 먼저 조회해 없으면 404(UserNotFound)로 일관되게 응답한다(중복 삭제에도 500 없이).
         val user = userRepository.findById(userId)
             .orElseThrow { UserNotFoundException.byId(userId) }
-        // 스크랩은 학습 상태의 일부라 계정과 함께 삭제한다(도메인 [결정]). 사용자 삭제 전에 지운다.
+        // 스크랩·세션은 학습 상태의 일부라 계정과 함께 삭제한다(도메인 [결정]). 사용자 삭제 전에 지운다.
         scrapRepository.deleteByUserId(userId)
+        sessionRepository.deleteByUserId(userId)
         userRepository.delete(user)
     }
 

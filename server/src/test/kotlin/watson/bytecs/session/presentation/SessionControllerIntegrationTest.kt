@@ -15,9 +15,11 @@ import org.springframework.context.annotation.Import
 import org.springframework.context.annotation.Primary
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
+import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.MvcResult
 import org.springframework.test.web.servlet.ResultActionsDsl
+import org.springframework.test.web.servlet.delete
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
 import watson.bytecs.account.domain.User
@@ -50,6 +52,7 @@ class SessionControllerIntegrationTest(
     @Autowired private val sessionRepository: SessionRepository,
     @Autowired private val jwtTokenProvider: JwtTokenProvider,
     @Autowired private val clock: MutableClock,
+    @Autowired private val jdbcTemplate: JdbcTemplate,
 ) {
 
     private lateinit var token: String
@@ -437,6 +440,40 @@ class SessionControllerIntegrationTest(
             jsonPath("$.errorCode") { value("UNAUTHORIZED") }
         }
     }
+
+    @Test
+    fun `계정을 삭제하면 그 사용자의 세션과 세션 항목도 함께 삭제된다`() {
+        getToday(token)
+        submit(token, "정답1")
+        assertThat(sessionRepository.count()).isEqualTo(1)
+        assertThat(sessionItemRowCount()).isEqualTo(3)
+
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect { status { isNoContent() } }
+
+        assertThat(sessionRepository.count()).isEqualTo(0)
+        // 벌크 JPQL delete로 바뀌면 세션 행은 지워져도 @ElementCollection 테이블(study_session_item)이
+        // 남아 고아 행이 생긴다. 이 단언이 파생 쿼리(deleteByUserId) 사용을 강제하는 가드다.
+        assertThat(sessionItemRowCount()).isEqualTo(0)
+    }
+
+    @Test
+    fun `계정을 삭제해도 다른 사용자의 세션은 영향받지 않는다`() {
+        getToday(token)
+        val otherToken = issueTokenForNewUser()
+        getToday(otherToken)
+        assertThat(sessionRepository.count()).isEqualTo(2)
+
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect { status { isNoContent() } }
+
+        assertThat(sessionRepository.count()).isEqualTo(1)
+    }
+
+    private fun sessionItemRowCount(): Long =
+        jdbcTemplate.queryForObject("select count(*) from study_session_item", Long::class.java)!!
 
     private fun completeAllThree(bearer: String): ResultActionsDsl {
         getToday(bearer)

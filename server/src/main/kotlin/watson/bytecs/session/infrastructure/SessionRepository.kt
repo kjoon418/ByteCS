@@ -19,4 +19,12 @@ interface SessionRepository : JpaRepository<Session, Long> {
             "where s.userId = :userId and item.solved = true",
     )
     fun findSolvedProblemIds(userId: Long): List<Long>
+
+    /**
+     * 계정 삭제 시 그 사용자의 세션을 일괄 삭제한다(학습 상태 삭제 흐름 편입).
+     * 반드시 파생 쿼리(엔티티 단위 로드 후 삭제)여야 한다 — items는 @ElementCollection이라
+     * 벌크 JPQL delete(@Query/@Modifying)로는 컬렉션 테이블(study_session_item)이 정리되지 않아
+     * 고아 행을 새로 만든다. 파생 delete는 각 Session을 로드해 지우므로 컬렉션 행까지 함께 삭제된다.
+     */
+    fun deleteByUserId(userId: Long)
 }
