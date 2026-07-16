@@ -85,7 +85,7 @@ class KtorSessionRepositoryTest {
             respond(
                 content = """
                     {"result":"CORRECT","status":"IN_PROGRESS","solvedCount":1,"totalCount":3,"position":1,
-                     "concept":"스택","explanation":"LIFO",
+                     "concepts":["스택"],"explanation":"LIFO",
                      "currentProblem":{"id":2,"question":"다음","difficulty":null,"codeSnippet":null},"streak":null}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
@@ -95,7 +95,7 @@ class KtorSessionRepositoryTest {
         val outcome = KtorSessionRepository(client("t", engine), baseUrl).submitAttempt("스택")
 
         assertEquals(JudgeResult.CORRECT, outcome.result)
-        assertEquals("스택", outcome.concept)
+        assertEquals(listOf("스택"), outcome.concepts)
         assertEquals(2L, outcome.currentProblem?.id)
         assertFalse(outcome.isCompleted)
     }
@@ -104,7 +104,7 @@ class KtorSessionRepositoryTest {
     fun submitAttempt_completing_carriesStreak() = runTest {
         val engine = MockEngine {
             respond(
-                content = """{"result":"CORRECT","status":"COMPLETED","solvedCount":3,"totalCount":3,"position":3,"concept":"스택","explanation":"LIFO","currentProblem":null,"streak":{"count":7,"lastStudyDate":"2026-07-14"}}""",
+                content = """{"result":"CORRECT","status":"COMPLETED","solvedCount":3,"totalCount":3,"position":3,"concepts":["스택"],"explanation":"LIFO","currentProblem":null,"streak":{"count":7,"lastStudyDate":"2026-07-14"}}""",
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -135,14 +135,15 @@ class KtorSessionRepositoryTest {
             assertEquals(HttpMethod.Post, request.method)
             assertEquals("http://test/api/sessions/today/reveal", request.url.toString())
             respond(
-                content = """{"concept":"스택","explanation":"LIFO","acceptableAnswers":["스택","stack"]}""",
+                content = """{"concepts":["스택","자료구조"],"explanation":"LIFO","acceptableAnswers":["스택","stack"]}""",
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
         }
         val reveal = KtorSessionRepository(client("t", engine), baseUrl).reveal()
 
-        assertEquals("스택", reveal.concept)
+        // 태깅 순서 보존 확인(첫 번째 = 대표 개념) + 복수 개념 매핑.
+        assertEquals(listOf("스택", "자료구조"), reveal.concepts)
         assertEquals(listOf("스택", "stack"), reveal.acceptableAnswers)
     }
 
@@ -196,7 +197,7 @@ class KtorSessionRepositoryTest {
             respond(
                 content = """
                     {"position":2,"problemId":12,"question":"지난문제","codeSnippet":null,"difficulty":"EASY",
-                     "submittedAnswer":"스택","result":"CORRECT","revealed":false,"concept":"스택","explanation":"LIFO",
+                     "submittedAnswer":"스택","result":"CORRECT","revealed":false,"concepts":["스택"],"explanation":"LIFO",
                      "acceptableAnswers":["스택"]}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,

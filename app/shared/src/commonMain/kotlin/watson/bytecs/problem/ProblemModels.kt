@@ -30,11 +30,11 @@ enum class JudgeResult {
 
 /**
  * 답 제출 결과. 개념·해설은 **정답(CORRECT)일 때만** 채워지고, 불일치·근접에는 null이다
- * (무낙인·정답 비노출 원칙).
- * `POST /api/problems/{id}/attempts {answer}` → {result, concept?, explanation?}
+ * (무낙인·정답 비노출 원칙). [concepts]는 태깅 순서를 보존한 목록(첫 번째가 대표 개념).
+ * `POST /api/problems/{id}/attempts {answer}` → {result, concepts?, explanation?}
  */
 data class AttemptResult(
     val result: JudgeResult,
-    val concept: String? = null,
+    val concepts: List<String>? = null,
     val explanation: String? = null,
 )

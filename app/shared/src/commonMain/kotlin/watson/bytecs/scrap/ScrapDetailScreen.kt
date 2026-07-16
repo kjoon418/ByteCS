@@ -21,7 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
-import watson.bytecs.ui.components.ConceptChip
+import watson.bytecs.ui.components.ConceptChips
 import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.ScrapToggle
@@ -141,8 +141,8 @@ private fun ReadyContent(
 
         detail.codeSnippet?.let { CodeSnippetBlock(code = it) }
 
-        // 개념 칩(재열람이므로 공개해도 된다).
-        ConceptChip(detail.concept)
+        // 개념 칩(재열람이므로 공개해도 된다) — 개념 수만큼 렌더.
+        ConceptChips(detail.concepts)
 
         // 모범답안 + 해설.
         ModelAnswerBlock(

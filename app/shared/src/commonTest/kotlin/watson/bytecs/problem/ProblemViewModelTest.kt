@@ -63,7 +63,7 @@ class ProblemViewModelTest {
 
         val feedback = viewModel.ready().feedback
         assertTrue(feedback is Feedback.Correct, "정확 일치는 Correct 여야 한다")
-        assertEquals("프로세스와 스레드", feedback.concept)
+        assertEquals(listOf("프로세스와 스레드"), feedback.concepts)
         // 정답 시에는 해설도 함께 노출된다.
         assertNotNull(feedback.explanation, "정답 피드백은 해설을 노출해야 한다")
         assertEquals(
@@ -91,7 +91,7 @@ class ProblemViewModelTest {
 
         val feedback = viewModel.ready().feedback
         assertTrue(feedback is Feedback.NearMiss, "오탈자 수준은 NearMiss 여야 한다")
-        // NearMiss는 개념을 노출하지 않는다(별도 상태이므로 concept 필드 자체가 없다).
+        // NearMiss는 개념을 노출하지 않는다(별도 상태이므로 concepts 필드 자체가 없다).
     }
 
     @Test
@@ -172,7 +172,7 @@ class ProblemViewModelTest {
         val result = FakeProblemRepository().submitAttempt(problemId = 1L, answer = "스레두")
 
         assertEquals(JudgeResult.NEAR_MISS, result.result)
-        assertNull(result.concept, "근접은 개념을 노출하지 않아야 한다")
+        assertNull(result.concepts, "근접은 개념을 노출하지 않아야 한다")
         assertNull(result.explanation, "근접은 해설을 노출하지 않아야 한다")
     }
 
@@ -181,7 +181,7 @@ class ProblemViewModelTest {
         val result = FakeProblemRepository().submitAttempt(problemId = 1L, answer = "프로세스")
 
         assertEquals(JudgeResult.MISMATCH, result.result)
-        assertNull(result.concept, "불일치는 개념을 노출하지 않아야 한다")
+        assertNull(result.concepts, "불일치는 개념을 노출하지 않아야 한다")
         assertNull(result.explanation, "불일치는 해설을 노출하지 않아야 한다")
     }
 }

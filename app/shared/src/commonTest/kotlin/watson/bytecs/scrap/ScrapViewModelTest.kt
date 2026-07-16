@@ -35,7 +35,7 @@ class ScrapViewModelTest {
         problemId = id,
         question = "문제 $id",
         codeSnippet = null,
-        concept = "개념 $id",
+        concepts = listOf("개념 $id"),
         explanation = "해설 $id",
         acceptableAnswers = listOf("답$id"),
     )

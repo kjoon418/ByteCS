@@ -94,7 +94,7 @@ class SessionViewModel(
                     if (state !is SessionUiState.Active) return@update state
                     when (outcome.result) {
                         JudgeResult.CORRECT -> state.copy(
-                            feedback = SessionFeedback.Correct(outcome.concept, outcome.explanation),
+                            feedback = SessionFeedback.Correct(outcome.concepts, outcome.explanation),
                             // 다음 칸은 [advance]에서 실제로 이동한다(정답 후 [다음 문제] CTA).
                             pendingNext = outcome.currentProblem,
                             pendingPosition = outcome.position,
@@ -316,7 +316,8 @@ sealed interface SessionUiState {
 
 /** 제출 피드백. 세 상태 모두 비처벌. 개념·해설은 정답일 때만. */
 sealed interface SessionFeedback {
-    data class Correct(val concept: String?, val explanation: String?) : SessionFeedback
+    /** [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념). 문제가 개념 여러 개에 태깅될 수 있다. */
+    data class Correct(val concepts: List<String>?, val explanation: String?) : SessionFeedback
 
     /**
      * 불일치. [misconceptionHint]는 큐레이션된 예상 오답과 일치할 때만 실린다(push·자동, 기능 2.5) — 보통 null이다.

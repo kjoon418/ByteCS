@@ -39,7 +39,7 @@ import watson.bytecs.ui.components.AnswerTextField
 import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
-import watson.bytecs.ui.components.ConceptChip
+import watson.bytecs.ui.components.ConceptChips
 import watson.bytecs.ui.components.CorrectFeedback
 import watson.bytecs.ui.components.DifficultyIndicator
 import watson.bytecs.ui.components.ErrorBanner
@@ -376,9 +376,9 @@ private fun ActiveContent(
                 answers = reveal.acceptableAnswers,
                 explanation = reveal.explanation,
             )
-            // 개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9).
+            // 개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9). 여러 개면 칩이 늘어난다(태깅 순).
             Spacer(Modifier.height(BcsDimens.space3))
-            ConceptChip(reveal.concept)
+            ConceptChips(reveal.concepts)
 
             Spacer(Modifier.height(BcsDimens.space5))
             TypeAlongField(
@@ -439,7 +439,7 @@ private fun FeedbackCard(feedback: SessionFeedback) {
     when (feedback) {
         is SessionFeedback.Correct -> CorrectFeedback(
             modifier = announce,
-            concept = feedback.concept,
+            concepts = feedback.concepts,
             explanation = feedback.explanation,
         )
 
@@ -500,7 +500,7 @@ private fun PastItemView(
                 item.codeSnippet?.let { CodeSnippetBlock(code = it) }
                 LabeledBlock("내가 쓴 답", item.submittedAnswer ?: "—")
                 LabeledBlock("모범답안", item.acceptableAnswers.joinToString("  ·  "))
-                ConceptChip(item.concept)
+                ConceptChips(item.concepts)
                 item.explanation?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
                 }

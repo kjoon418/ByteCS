@@ -25,7 +25,7 @@ class FeedbackComponentsUiTest {
     fun 정답_피드백은_개념과_해설을_함께_보여준다() = runComposeUiTest {
         setContent {
             BcsTheme(darkTheme = false) {
-                CorrectFeedback(concept = "해시 충돌", explanation = "서로 다른 키가 같은 버킷으로 갑니다.")
+                CorrectFeedback(concepts = listOf("해시 충돌"), explanation = "서로 다른 키가 같은 버킷으로 갑니다.")
             }
         }
 

@@ -53,7 +53,7 @@ class SessionScreenUiTest {
     )
 
     private fun revealOf() = Reveal(
-        concept = answer,
+        concepts = listOf(answer),
         explanation = "해시 함수는 서로 다른 입력을 같은 값으로 보낼 수 있어요.",
         acceptableAnswers = listOf(answer, "충돌"),
     )
@@ -223,6 +223,25 @@ class SessionScreenUiTest {
         onNodeWithText(revealOf().explanation!!).assertIsDisplayed()
     }
 
+    /**
+     * 개념이 여러 개(N—M 태깅)면 칩도 개수만큼 모두 보인다 — 하나로 뭉개지거나 뒤 개념이 잘리지 않는다.
+     * 대표 개념(첫 번째)과 두 번째 개념을 모두 exact match로 확인한다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 개념이_여러_개면_모두_칩으로_보인다() = runScreen(
+        active(
+            reveal = Reveal(
+                concepts = listOf(answer, "해시 함수"),
+                explanation = "해시 함수는 서로 다른 입력을 같은 값으로 보낼 수 있어요.",
+                acceptableAnswers = listOf(answer, "충돌"),
+            ),
+        ),
+    ) {
+        onNodeWithText(answer).assertIsDisplayed()
+        onNodeWithText("해시 함수").assertIsDisplayed()
+    }
+
     /** 공개 상태에서 [정답 보기]를 또 내밀지 않는다 — 이미 열린 것을 여는 버튼은 없다. */
     @OptIn(ExperimentalTestApi::class)
     @Test
@@ -316,7 +335,7 @@ class SessionScreenUiTest {
     fun 정답_후에는_다음_문제로_넘어간다() {
         var advanced = 0
         runScreen(
-            active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+            active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
             onAdvance = { advanced++ },
         ) {
             onNodeWithText("맞았어요!").assertIsDisplayed()
@@ -338,7 +357,7 @@ class SessionScreenUiTest {
         var submitted = 0
         var advanced = 0
         runScreen(
-            active(inputText = "내가 쓴 답", feedback = SessionFeedback.Correct("개념", "해설")),
+            active(inputText = "내가 쓴 답", feedback = SessionFeedback.Correct(listOf("개념"), "해설")),
             onSubmit = { submitted++ },
             onAdvance = { advanced++ },
         ) {
@@ -405,7 +424,7 @@ class SessionScreenUiTest {
                     submittedAnswer = "LIFO/FIFO",
                     result = JudgeResult.CORRECT,
                     revealed = false,
-                    concept = "자료구조",
+                    concepts = listOf("자료구조"),
                     explanation = "스택은 나중에 넣은 것이 먼저 나옵니다.",
                     acceptableAnswers = listOf("LIFO와 FIFO"),
                 ),
@@ -538,7 +557,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 정답을_맞히면_스크랩_토글이_노출된다() = runScreen(
-        active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
     ) {
         onNodeWithContentDescription("스크랩").assertIsDisplayed()
     }
@@ -566,7 +585,7 @@ class SessionScreenUiTest {
                     submittedAnswer = "LIFO/FIFO",
                     result = JudgeResult.CORRECT,
                     revealed = false,
-                    concept = "자료구조",
+                    concepts = listOf("자료구조"),
                     explanation = null,
                     acceptableAnswers = listOf("LIFO와 FIFO"),
                 ),
@@ -582,7 +601,7 @@ class SessionScreenUiTest {
     fun 스크랩_토글을_누르면_지금_문제_id로_콜백된다() {
         val toggled = mutableListOf<Long>()
         runScreen(
-            active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+            active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
             onToggleScrap = { toggled += it },
         ) {
             onNodeWithContentDescription("스크랩").assertIsDisplayed().performClick()
@@ -594,7 +613,7 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 이미_스크랩된_문제는_해제_상태로_보인다() = runScreen(
-        active(inputText = answer, feedback = SessionFeedback.Correct(answer, "해설")),
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
         scrappedProblemIds = setOf(1L),
     ) {
         onNodeWithContentDescription("스크랩 해제").assertIsDisplayed()

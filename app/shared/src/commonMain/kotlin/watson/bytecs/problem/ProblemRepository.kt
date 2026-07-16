@@ -33,7 +33,7 @@ class FakeProblemRepository(
         val id: Long,
         val question: String,
         val acceptableAnswers: Set<String>,
-        val concept: String,
+        val concepts: List<String>,
         val difficulty: String? = null,
         val codeSnippet: String? = null,
         val explanation: String? = null,
@@ -59,7 +59,7 @@ class FakeProblemRepository(
         return when (judge(answer, seed.acceptableAnswers)) {
             JudgeResult.CORRECT -> AttemptResult(
                 result = JudgeResult.CORRECT,
-                concept = seed.concept,
+                concepts = seed.concepts,
                 explanation = seed.explanation,
             )
             // ⭐️ 불일치·근접에는 개념·해설을 노출하지 않는다.
@@ -127,7 +127,7 @@ class FakeProblemRepository(
                 id = 1L,
                 question = "한 프로세스 안에서 스택 등 일부를 제외한 자원을 공유하며 실행되는 흐름의 단위는?",
                 acceptableAnswers = setOf("스레드", "쓰레드", "thread"),
-                concept = "프로세스와 스레드",
+                concepts = listOf("프로세스와 스레드"),
                 difficulty = "EASY",
                 explanation = "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
             ),
@@ -135,7 +135,7 @@ class FakeProblemRepository(
                 id = 2L,
                 question = "다음 코드의 시간 복잡도를 빅오 표기법으로 나타내면?",
                 acceptableAnswers = setOf("o(n^2)", "o(n²)", "n^2", "오엔제곱"),
-                concept = "시간 복잡도",
+                concepts = listOf("시간 복잡도"),
                 difficulty = "MEDIUM",
                 codeSnippet = """
                     for (i in 0 until n) {

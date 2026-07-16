@@ -23,7 +23,7 @@ class ScrapDetailScreenUiTest {
             problemId = 7L,
             question = "서로 다른 키가 같은 버킷으로 매핑되는 현상을 부르는 용어는?",
             codeSnippet = null,
-            concept = "해시 충돌",
+            concepts = listOf("해시 충돌"),
             explanation = "서로 다른 키가 같은 버킷으로 간다.",
             acceptableAnswers = listOf("충돌", "해시 충돌", "collision"),
         ),
@@ -56,6 +56,20 @@ class ScrapDetailScreenUiTest {
         onNodeWithText("서로 다른 키가 같은 버킷으로 매핑되는 현상을 부르는 용어는?").assertIsDisplayed()
         onNodeWithText("모범답안").assertIsDisplayed()
         onNodeWithText("해시 충돌").assertIsDisplayed()
+    }
+
+    /** 문제가 여러 개념에 태깅됐으면(N—M) 재열람 화면에도 칩이 모두 보인다. */
+    @Test
+    fun 개념이_여러_개면_재열람에도_모두_보인다() = runComposeUiTest {
+        setScreen(
+            ScrapDetailUiState.Ready(
+                detail = ready.detail.copy(concepts = listOf("해시 충돌", "해시 함수")),
+                scrapped = true,
+            ),
+        )
+
+        onNodeWithText("해시 충돌").assertIsDisplayed()
+        onNodeWithText("해시 함수").assertIsDisplayed()
     }
 
     /** 스크랩 토글이 이 맥락에 있고, 누르면 토글 콜백을 호출한다. */

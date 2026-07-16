@@ -50,7 +50,7 @@ class KtorScrapRepositoryTest {
             respond(
                 content = """
                     {"problemId":7,"question":"해시 충돌이란?","codeSnippet":null,
-                     "concept":"해시 충돌","explanation":"서로 다른 키가 같은 버킷으로 간다.",
+                     "concepts":["해시 충돌"],"explanation":"서로 다른 키가 같은 버킷으로 간다.",
                      "acceptableAnswers":["충돌","해시 충돌","collision"]}
                 """.trimIndent(),
                 status = HttpStatusCode.OK,
@@ -62,7 +62,7 @@ class KtorScrapRepositoryTest {
         val detail = repository.get(problemId = 7L)
 
         assertEquals(7L, detail.problemId)
-        assertEquals("해시 충돌", detail.concept)
+        assertEquals(listOf("해시 충돌"), detail.concepts)
         assertEquals(listOf("충돌", "해시 충돌", "collision"), detail.acceptableAnswers)
     }
 

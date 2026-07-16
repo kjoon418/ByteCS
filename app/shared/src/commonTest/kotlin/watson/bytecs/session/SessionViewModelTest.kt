@@ -157,7 +157,7 @@ class SessionViewModelTest {
     @Test
     fun reveal_setsModelAnswers() = runTest {
         val repo = FakeSessionRepository()
-        repo.revealResult = Reveal("스택", "LIFO", listOf("스택", "stack"))
+        repo.revealResult = Reveal(listOf("스택"), "LIFO", listOf("스택", "stack"))
         val viewModel = SessionViewModel(repo).apply { loadSession() }
 
         viewModel.requestReveal()

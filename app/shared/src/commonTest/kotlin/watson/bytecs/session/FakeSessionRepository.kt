@@ -16,7 +16,8 @@ class FakeSessionRepository(
     var pastError: Throwable? = null
     var revealHintError: Throwable? = null
 
-    var revealResult: Reveal = Reveal(concept = "스택", explanation = "LIFO 구조", acceptableAnswers = listOf("스택", "stack"))
+    var revealResult: Reveal =
+        Reveal(concepts = listOf("스택"), explanation = "LIFO 구조", acceptableAnswers = listOf("스택", "stack"))
     var pastResult: PastItem = pastItem(position = 0)
 
     /** 힌트 열기 결과 공급자. 인자는 클라가 보낸 현재 공개 수. 기본은 +1(약→강 스크립트). */
@@ -125,7 +126,7 @@ class FakeSessionRepository(
             solvedCount = solved,
             totalCount = total,
             position = position,
-            concept = "개념",
+            concepts = listOf("개념"),
             explanation = "해설",
             currentProblem = next,
             streak = streak,
@@ -137,7 +138,7 @@ class FakeSessionRepository(
             solvedCount = 0,
             totalCount = total,
             position = 0,
-            concept = null,
+            concepts = null,
             explanation = null,
             currentProblem = problem(1L),
             streak = null,
@@ -155,7 +156,7 @@ class FakeSessionRepository(
             submittedAnswer = "내답",
             result = JudgeResult.CORRECT,
             revealed = false,
-            concept = "개념$position",
+            concepts = listOf("개념$position"),
             explanation = "해설$position",
             acceptableAnswers = listOf("정답$position"),
         )

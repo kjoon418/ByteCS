@@ -21,13 +21,16 @@ internal data class ScrapListItemDto(
     fun toDomain(): ScrapListItem = ScrapListItem(problemId, question, scrappedAt)
 }
 
-/** `GET /api/scraps/{problemId}` 응답. 재열람이므로 모범답안·해설을 담는다. */
+/**
+ * `GET /api/scraps/{problemId}` 응답. 재열람이므로 모범답안·해설을 담는다.
+ * [concepts]는 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+ */
 @Serializable
 internal data class ScrapDetailDto(
     val problemId: Long,
     val question: String,
     val codeSnippet: String? = null,
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
 ) {
@@ -35,7 +38,7 @@ internal data class ScrapDetailDto(
         problemId = problemId,
         question = question,
         codeSnippet = codeSnippet,
-        concept = concept,
+        concepts = concepts,
         explanation = explanation,
         acceptableAnswers = acceptableAnswers,
     )

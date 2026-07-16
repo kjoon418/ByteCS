@@ -34,12 +34,13 @@ internal data class AttemptRequestDto(
 
 /**
  * `POST /api/problems/{id}/attempts` 응답.
- * concept·explanation은 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출).
+ * concepts·explanation은 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출). concepts는 태깅 순서를
+ * 보존한 목록(첫 번째가 대표 개념) — 문제가 개념 N—M으로 태깅될 수 있다.
  */
 @Serializable
 internal data class AttemptResponseDto(
     val result: String,
-    val concept: String? = null,
+    val concepts: List<String>? = null,
     val explanation: String? = null,
 ) {
     fun toDomain(): AttemptResult = AttemptResult(
@@ -47,7 +48,7 @@ internal data class AttemptResponseDto(
         // 판정 오류를 네트워크 오류로 오인하지 않게 한다.
         result = JudgeResult.entries.find { it.name.equals(result, ignoreCase = true) }
             ?: throw IllegalStateException("알 수 없는 판정 결과: $result"),
-        concept = concept,
+        concepts = concepts,
         explanation = explanation,
     )
 }

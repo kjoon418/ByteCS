@@ -303,9 +303,9 @@ private fun FeedbackSection(feedback: Feedback) {
             expandVertically(tween(BcsMotion.durBase)),
     ) {
         when (feedback) {
-            // 개념 칩은 정답 이후에만 노출된다(§5.9, 정답 스포일 방지) — Correct에만 concept이 실린다.
+            // 개념 칩은 정답 이후에만 노출된다(§5.9, 정답 스포일 방지) — Correct에만 concepts가 실린다.
             is Feedback.Correct -> CorrectFeedback(
-                concept = feedback.concept,
+                concepts = feedback.concepts,
                 explanation = feedback.explanation,
             )
             Feedback.Mismatch -> RetryNudge()

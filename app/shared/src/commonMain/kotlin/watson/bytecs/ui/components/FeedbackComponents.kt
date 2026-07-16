@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,15 +34,16 @@ import watson.bytecs.ui.theme.LocalBcsColors
  */
 
 /**
- * §5.6 CorrectFeedback — 정답. success 액센트 + 체크 + (있으면) 개념 칩·해설.
+ * §5.6 CorrectFeedback — 정답. success 액센트 + 체크 + (있으면) 개념 칩(들)·해설.
  *
  * 햅틱과 진입 모션은 호출 화면이 붙인다(어느 시점에 울릴지는 화면의 상태 흐름이 안다).
- * [concept]는 정답 이후에만 들어온다 — 풀기 전 개념 노출은 정답 스포일이다(§5.9).
+ * [concepts]는 정답 이후에만 들어온다 — 풀기 전 개념 노출은 정답 스포일이다(§5.9). 태깅 순서를 보존한
+ * 목록이라 여러 개면 칩을 개수만큼 그린다(줄바꿈은 [FlowRow]).
  */
 @Composable
 fun CorrectFeedback(
     modifier: Modifier = Modifier,
-    concept: String? = null,
+    concepts: List<String>? = null,
     explanation: String? = null,
 ) {
     val colors = LocalBcsColors.current
@@ -61,10 +64,28 @@ fun CorrectFeedback(
                 color = colors.onSuccessContainer,
             )
         }
-        concept?.let { ConceptChip(it) }
+        if (!concepts.isNullOrEmpty()) {
+            ConceptChips(concepts)
+        }
         explanation?.let {
             Text(text = it, style = MaterialTheme.typography.bodyMedium, color = colors.onSuccessContainer)
         }
+    }
+}
+
+/**
+ * 개념 칩 목록 — 태깅 순서대로 렌더, 줄바꿈 필요 시 다음 줄로(FlowRow). 단일 개념일 때는 칩 하나만
+ * 그려져 기존 레이아웃과 동일하게 보인다.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun ConceptChips(concepts: List<String>, modifier: Modifier = Modifier) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+    ) {
+        concepts.forEach { ConceptChip(it) }
     }
 }
 

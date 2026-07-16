@@ -91,7 +91,7 @@ internal data class SessionAttemptResponseDto(
     val solvedCount: Int,
     val totalCount: Int,
     val position: Int,
-    val concept: String? = null,
+    val concepts: List<String>? = null,
     val explanation: String? = null,
     val currentProblem: SessionProblemDto? = null,
     val streak: StreakDto? = null,
@@ -103,7 +103,7 @@ internal data class SessionAttemptResponseDto(
         solvedCount = solvedCount,
         totalCount = totalCount,
         position = position,
-        concept = concept,
+        concepts = concepts,
         explanation = explanation,
         currentProblem = currentProblem?.toDomain(),
         streak = streak?.toDomain(),
@@ -130,11 +130,11 @@ internal data class ErrorBodyDto(
 /** `POST /api/sessions/today/reveal` 응답. */
 @Serializable
 internal data class RevealResponseDto(
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
 ) {
-    fun toDomain(): Reveal = Reveal(concept, explanation, acceptableAnswers)
+    fun toDomain(): Reveal = Reveal(concepts, explanation, acceptableAnswers)
 }
 
 /**
@@ -166,7 +166,7 @@ internal data class PastItemResponseDto(
     val submittedAnswer: String? = null,
     val result: String,
     val revealed: Boolean,
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String? = null,
     val acceptableAnswers: List<String>,
 ) {
@@ -179,7 +179,7 @@ internal data class PastItemResponseDto(
         submittedAnswer = submittedAnswer,
         result = result.toJudgeResult(),
         revealed = revealed,
-        concept = concept,
+        concepts = concepts,
         explanation = explanation,
         acceptableAnswers = acceptableAnswers,
     )

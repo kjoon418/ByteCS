@@ -77,7 +77,8 @@ data class DailySession(
 
 /**
  * 답 제출 결과.
- *  - [concept]·[explanation]: 정답(CORRECT)일 때만 채워진다(비정답은 no-leak으로 null).
+ *  - [concepts]·[explanation]: 정답(CORRECT)일 때만 채워진다(비정답은 no-leak으로 null). 태깅 순서를
+ *    보존한 개념 목록 — 첫 번째가 대표 개념이다(문제가 개념 N—M으로 태깅될 수 있다).
  *  - [currentProblem]: 정답으로 전진한 뒤 지금 풀 무낙인 문제. 완료됐으면 null.
  *  - [streak]: 이 제출로 세션이 완료됐을 때만 채워진다(04 완료 화면이 쓴다).
  *  - [misconceptionHint]: 비정답이고 제출이 예상 오답(큐레이션됨)과 일치할 때만 채워진다(push·자동, 기능 2.5).
@@ -90,7 +91,7 @@ data class AttemptOutcome(
     val solvedCount: Int,
     val totalCount: Int,
     val position: Int,
-    val concept: String?,
+    val concepts: List<String>?,
     val explanation: String?,
     val currentProblem: SessionProblem?,
     val streak: Streak?,
@@ -101,15 +102,17 @@ data class AttemptOutcome(
 
 /**
  * 정답 공개(안전판) 결과. 공개 후에도 모범답안 중 하나를 **직접 따라 입력**해야 다음으로 넘어간다.
+ *  - [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
  */
 data class Reveal(
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String?,
     val acceptableAnswers: List<String>,
 )
 
 /**
  * 지난 문제 다시 보기(읽기 전용). 이미 통과한 칸이므로 개념·모범답안을 공개해도 학습을 해치지 않는다.
+ *  - [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
  */
 data class PastItem(
     val position: Int,
@@ -120,7 +123,7 @@ data class PastItem(
     val submittedAnswer: String?,
     val result: JudgeResult,
     val revealed: Boolean,
-    val concept: String,
+    val concepts: List<String>,
     val explanation: String?,
     val acceptableAnswers: List<String>,
 )

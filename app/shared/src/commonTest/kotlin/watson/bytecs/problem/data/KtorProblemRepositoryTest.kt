@@ -56,7 +56,7 @@ class KtorProblemRepositoryTest {
             assertTrue(body.contains("\"answer\""), "본문에 answer 필드가 있어야 한다")
             assertTrue(body.contains("스택"), "제출한 답이 본문에 실려야 한다")
             respond(
-                content = """{"result":"CORRECT","concept":"스택","explanation":"LIFO 구조"}""",
+                content = """{"result":"CORRECT","concepts":["스택"],"explanation":"LIFO 구조"}""",
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -66,7 +66,7 @@ class KtorProblemRepositoryTest {
         val result = repository.submitAttempt(problemId = 7L, answer = "스택")
 
         assertEquals(JudgeResult.CORRECT, result.result)
-        assertEquals("스택", result.concept)
+        assertEquals(listOf("스택"), result.concepts)
         assertEquals("LIFO 구조", result.explanation)
     }
 
@@ -74,7 +74,7 @@ class KtorProblemRepositoryTest {
     fun submitAttempt_mapsMismatch_withoutConceptLeak() = runTest {
         val engine = MockEngine {
             respond(
-                content = """{"result":"MISMATCH","concept":null,"explanation":null}""",
+                content = """{"result":"MISMATCH","concepts":null,"explanation":null}""",
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -84,7 +84,7 @@ class KtorProblemRepositoryTest {
         val result = repository.submitAttempt(problemId = 7L, answer = "틀린답")
 
         assertEquals(JudgeResult.MISMATCH, result.result)
-        assertNull(result.concept)
+        assertNull(result.concepts)
         assertNull(result.explanation)
     }
 
@@ -102,7 +102,7 @@ class KtorProblemRepositoryTest {
         val result = repository.submitAttempt(problemId = 7L, answer = "스텍")
 
         assertEquals(JudgeResult.NEAR_MISS, result.result)
-        assertNull(result.concept)
+        assertNull(result.concepts)
         assertNull(result.explanation)
     }
 
@@ -110,7 +110,7 @@ class KtorProblemRepositoryTest {
     fun submitAttempt_mapsResultCaseInsensitively() = runTest {
         val engine = MockEngine {
             respond(
-                content = """{"result":"correct","concept":"스택","explanation":"LIFO"}""",
+                content = """{"result":"correct","concepts":["스택"],"explanation":"LIFO"}""",
                 status = HttpStatusCode.OK,
                 headers = jsonHeaders(),
             )
@@ -120,7 +120,7 @@ class KtorProblemRepositoryTest {
         val result = repository.submitAttempt(problemId = 7L, answer = "스택")
 
         assertEquals(JudgeResult.CORRECT, result.result)
-        assertEquals("스택", result.concept)
+        assertEquals(listOf("스택"), result.concepts)
     }
 
     @Test
