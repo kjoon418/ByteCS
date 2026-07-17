@@ -66,6 +66,7 @@ class ExtraStudyServiceTest {
                 codeSnippet = null,
                 hintCount = 0,
                 revealedHints = emptyList(),
+                category = null,
             ),
         )
 

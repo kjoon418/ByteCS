@@ -33,6 +33,7 @@ import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemCategory
 import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
@@ -136,6 +137,28 @@ class ExtraStudyControllerIntegrationTest(
             jsonPath("$.problem.representativeAnswer") { doesNotExist() }
             jsonPath("$.problem.explanation") { doesNotExist() }
             jsonPath("$.problem.enrichment") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `대표 분류는 풀기 전 현재 문제 응답에서도 노출된다`() {
+        reseedCategorizedProblem(ProblemCategory.DATABASE)
+
+        getCurrent(token).andExpect {
+            status { isOk() }
+            jsonPath("$.problem.category") { value("DATABASE") }
+            jsonPath("$.problem.concepts") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `정답 공개 응답은 대표 분류를 함께 준다`() {
+        reseedCategorizedProblem(ProblemCategory.SECURITY)
+        getCurrent(token)
+
+        reveal(token).andExpect {
+            status { isOk() }
+            jsonPath("$.category") { value("SECURITY") }
         }
     }
 
@@ -509,6 +532,31 @@ class ExtraStudyControllerIntegrationTest(
                     items = listOf(EnrichmentItem(ENRICHMENT_ITEM_TITLE, ENRICHMENT_ITEM_DESC)),
                     quote = ENRICHMENT_QUOTE,
                 ),
+            ),
+        )
+        answersById[problem.id] = "정답"
+    }
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 대표 개념에 카테고리가 부여된 문제 하나만 남긴다.
+     * 대표 분류가 풀기 전부터·정답 공개 응답에 실리는지 검증하는 데 쓴다.
+     */
+    private fun reseedCategorizedProblem(category: ProblemCategory) {
+        extraStudyRepository.deleteAll()
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+        answersById.clear()
+
+        val concept = conceptRepository.save(Concept("분류개념", category = category))
+        val problem = problemRepository.save(
+            Problem(
+                questionText = "분류 문제",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
             ),
         )
         answersById[problem.id] = "정답"

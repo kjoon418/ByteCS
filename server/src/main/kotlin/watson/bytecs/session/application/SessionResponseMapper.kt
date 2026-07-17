@@ -37,6 +37,7 @@ class SessionResponseMapper {
             codeSnippet = problem.codeSnippet,
             hintCount = problem.hintCount,
             revealedHints = toRevealedHints(problem, revealedHintCount),
+            category = problem.representativeCategory()?.name,
         )
 
     fun toStateResponse(session: Session, currentProblem: Problem?, streak: StudyStreak): SessionStateResponse =
@@ -100,6 +101,7 @@ class SessionResponseMapper {
             explanation = problem.explanation,
             enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
+            category = problem.representativeCategory()?.name,
         )
 
     fun toPastItemResponse(item: SessionItem, problem: Problem): PastItemResponse =
@@ -117,6 +119,7 @@ class SessionResponseMapper {
             explanation = problem.explanation,
             enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
+            category = problem.representativeCategory()?.name,
         )
 
     /** 이미 공개한 힌트만 약→강 순으로 응답 형태로 바꾼다(도메인이 [revealedHintCount]로 절단해 no-leak을 보장한다). */

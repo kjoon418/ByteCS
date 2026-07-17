@@ -6,6 +6,8 @@ package watson.bytecs.extrastudy.application.dto
  *
  * 힌트는 개수(hintCount)만 항상 싣고, 본문은 이미 공개한 것(revealedHints)만 약→강 순으로 싣는다 — 미공개 힌트 본문은 no-leak.
  * revealedHints는 재진입 복원용이라, 이 열린 항목에서 이미 연 만큼 담는다(갓 뽑은 새 문제라면 빈 목록).
+ *
+ * category는 대표 분류(명세 §7)로, 개념명과 달리 no-leak 대상이 아니라 **풀기 전부터** 싣는다. 미분류면 null.
  */
 data class ExtraStudyProblemResponse(
     val id: Long,
@@ -14,4 +16,5 @@ data class ExtraStudyProblemResponse(
     val codeSnippet: String?,
     val hintCount: Int,
     val revealedHints: List<ExtraStudyRevealedHintResponse>,
+    val category: String?,
 )

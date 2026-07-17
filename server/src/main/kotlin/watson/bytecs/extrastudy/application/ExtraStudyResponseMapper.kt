@@ -32,6 +32,7 @@ class ExtraStudyResponseMapper {
             codeSnippet = problem.codeSnippet,
             hintCount = problem.hintCount,
             revealedHints = toRevealedHints(problem, revealedHintCount),
+            category = problem.representativeCategory()?.name,
         )
 
     /** 풀 문제가 있을 때의 현재 상태(exhausted=false). */
@@ -64,6 +65,7 @@ class ExtraStudyResponseMapper {
             explanation = problem.explanation,
             enrichment = problem.enrichment?.let(EnrichmentResponse::from),
             representativeAnswer = problem.representativeAnswer,
+            category = problem.representativeCategory()?.name,
         )
 
     /** 힌트 열기 결과를 변환한다. 전체 힌트 수와, 공개분만 담은 전체 목록을 돌려준다(no-leak). */

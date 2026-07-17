@@ -7,6 +7,9 @@ package watson.bytecs.session.application.dto
  * 힌트는 개수(hintCount)만 항상 싣고, 본문은 이미 공개한 것(revealedHints)만 싣는다 — 미공개 힌트 본문은 no-leak.
  * hintCount가 0이면 클라이언트는 힌트 진입점 자체를 노출하지 않는다.
  * revealedHints는 재진입 복원용이라 약→강 순으로 이미 연 것을 담는다(갓 전진한 새 문제라면 빈 목록).
+ *
+ * category는 대표 분류(명세 §7)로, 개념명과 달리 정답을 스포일하는 위험이 낮아 **풀기 전부터** 싣는다(no-leak 규칙과 독립된 필드).
+ * 대표 개념이 미분류(null)면 category도 null이며, 클라는 배지를 표시하지 않는다.
  */
 data class SessionProblemResponse(
     val id: Long,
@@ -15,4 +18,5 @@ data class SessionProblemResponse(
     val codeSnippet: String?,
     val hintCount: Int,
     val revealedHints: List<RevealedHintResponse>,
+    val category: String?,
 )

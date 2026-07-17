@@ -37,4 +37,21 @@ interface SessionRepository : JpaRepository<Session, Long> {
      * 고아 행을 새로 만든다. 파생 delete는 각 Session을 로드해 지우므로 컬렉션 행까지 함께 삭제된다.
      */
     fun deleteByUserId(userId: Long)
+
+    /**
+     * 사용자가 세션에서 정답으로 통과한 본 문제의 (id, 그때 제출한 정답) 쌍(카테고리별 학습 이력의 '내 답' 복원용).
+     * 세션 날짜 오름차순으로 정렬해, 같은 문제를 복습으로 여러 날 다시 풀었다면 호출부가 마지막 통과 값으로 덮어써 최신 제출을 취하게 한다.
+     * 추가 학습은 열린 항목이 solved로 승격되며 제출 답을 보존하지 않으므로([ExtraStudyItem]), 이 쌍은 세션 출처만 담당한다 — 그 결손은 카테고리별 이력 응답에서 null로 graceful 처리한다.
+     */
+    @Query(
+        "select item.problemId as problemId, item.submittedAnswer as submittedAnswer from Session s join s.mutableItems item " +
+            "where s.userId = :userId and item.solved = true order by s.sessionDate asc",
+    )
+    fun findSolvedItemAnswers(userId: Long): List<SolvedItemAnswer>
+
+    /** JPQL 별칭 프로젝션 — [findSolvedItemAnswers] 전용. */
+    interface SolvedItemAnswer {
+        val problemId: Long
+        val submittedAnswer: String?
+    }
 }

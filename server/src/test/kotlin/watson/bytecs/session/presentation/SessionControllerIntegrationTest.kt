@@ -32,6 +32,7 @@ import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemCategory
 import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
@@ -118,6 +119,52 @@ class SessionControllerIntegrationTest(
             jsonPath("$.currentProblem.representativeAnswer") { doesNotExist() }
             jsonPath("$.currentProblem.explanation") { doesNotExist() }
             jsonPath("$.currentProblem.enrichment") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `대표 개념이 미분류이면 현재 문제의 대표 분류는 null이다`() {
+        // p1의 개념은 seedProblem 기본값(category=null)으로 만들어졌다.
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.category") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun `대표 분류는 풀기 전 현재 문제 응답에서도 노출된다(개념명과 달리 no-leak 대상이 아니다)`() {
+        reseedCategorizedProblem(ProblemCategory.DATA_STRUCTURE)
+
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.category") { value("DATA_STRUCTURE") }
+            // 개념명은 여전히 풀기 전에 새지 않는다 — 카테고리는 독립 필드다.
+            jsonPath("$.currentProblem.concepts") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `정답 공개 응답은 대표 분류를 함께 준다`() {
+        reseedCategorizedProblem(ProblemCategory.NETWORK)
+        getToday(token)
+
+        reveal(token).andExpect {
+            status { isOk() }
+            jsonPath("$.category") { value("NETWORK") }
+        }
+    }
+
+    @Test
+    fun `지난 문제 다시 보기 응답도 대표 분류를 준다`() {
+        reseedCategorizedProblem(ProblemCategory.ALGORITHM)
+        getToday(token)
+        submit(token, "정답")
+
+        mockMvc.get("/api/sessions/today/items/0") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.category") { value("ALGORITHM") }
         }
     }
 
@@ -749,6 +796,28 @@ class SessionControllerIntegrationTest(
             ),
         )
         return problem.id
+    }
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 대표 개념에 카테고리가 부여된 문제 하나만 남긴다.
+     * 대표 분류가 풀기 전부터·정답 공개·지난 문제 응답에 실리는지 검증하는 데 쓴다.
+     */
+    private fun reseedCategorizedProblem(category: ProblemCategory) {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val concept = conceptRepository.save(Concept("분류개념", category = category))
+        problemRepository.save(
+            Problem(
+                questionText = "분류 문제",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
+            ),
+        )
     }
 
     private fun issueTokenForNewUser(): String {
