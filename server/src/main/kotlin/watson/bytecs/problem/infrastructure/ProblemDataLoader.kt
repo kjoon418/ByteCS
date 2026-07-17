@@ -13,6 +13,7 @@ import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.Hint
 import watson.bytecs.problem.domain.MisconceptionHint
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemCategory
 import watson.bytecs.problem.domain.ProblemType
 
 /**
@@ -41,8 +42,9 @@ class ProblemDataLoader(
         val seedFile = loadSeedFile()
         // 같은 이름의 개념은 이 실행 안에서 하나의 [Concept] 행으로 묶여야, 문제 간 공유(복습 인터리빙의 전제)가 성립한다.
         val conceptCache = mutableMapOf<String, Concept>()
+        val conceptCategories = seedFile.conceptCategories.mapValues { (_, category) -> category?.let { ProblemCategory.valueOf(it) } }
 
-        val problems = seedFile.problems.map { toProblem(it, conceptCache) }
+        val problems = seedFile.problems.map { toProblem(it, conceptCache, conceptCategories) }
         problemRepository.saveAll(problems)
     }
 
@@ -52,16 +54,19 @@ class ProblemDataLoader(
         return resource.inputStream.use { objectMapper.readValue(it, ProblemSeedFile::class.java) }
     }
 
-    /** 이름 기준 find-or-create. DB에 이미 있으면 재사용하고, 없으면 새로 만들어 즉시 저장한다(Problem은 Concept를 cascade하지 않는다). */
-    private fun findOrCreateConcept(name: String, cache: MutableMap<String, Concept>): Concept =
+    /**
+     * 이름 기준 find-or-create. DB에 이미 있으면 재사용하고, 없으면 새로 만들어 즉시 저장한다(Problem은 Concept를 cascade하지 않는다).
+     * [categories]에 이름이 없으면 미분류(null)로 생성된다 — 카테고리 필드 도입 이전 시드와의 하위 호환.
+     */
+    private fun findOrCreateConcept(name: String, cache: MutableMap<String, Concept>, categories: Map<String, ProblemCategory?>): Concept =
         cache.getOrPut(name) {
-            conceptRepository.findByName(name) ?: conceptRepository.save(Concept(name))
+            conceptRepository.findByName(name) ?: conceptRepository.save(Concept(name, category = categories[name]))
         }
 
-    private fun toProblem(dto: ProblemSeedDto, conceptCache: MutableMap<String, Concept>): Problem =
+    private fun toProblem(dto: ProblemSeedDto, conceptCache: MutableMap<String, Concept>, conceptCategories: Map<String, ProblemCategory?>): Problem =
         Problem(
             questionText = dto.question,
-            concepts = dto.concepts.map { findOrCreateConcept(it, conceptCache) },
+            concepts = dto.concepts.map { findOrCreateConcept(it, conceptCache, conceptCategories) },
             acceptableAnswers = dto.acceptableAnswers.toSet(),
             representativeAnswer = dto.representativeAnswer,
             type = dto.type?.let { ProblemType.valueOf(it) },

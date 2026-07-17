@@ -17,6 +17,7 @@ import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemCategory
 import watson.bytecs.problem.domain.ProblemType
 
 /**
@@ -270,6 +271,47 @@ class ProblemDataLoaderTest {
             assertThat(stackProblem.concepts).contains(existingStack)
             // "스택"은 이미 존재하므로 새로 save 되어서는 안 된다.
             verify(conceptRepository, org.mockito.Mockito.never()).save(existingStack)
+        }
+    }
+
+    @Nested
+    inner class 개념_카테고리를_로드한다 {
+
+        private val categoryLoader = ProblemDataLoader(
+            conceptRepository,
+            problemRepository,
+            jacksonObjectMapper(),
+            resourcePath = "seed/category-backfill-problems.json",
+        )
+
+        @Suppress("UNCHECKED_CAST")
+        private fun runCategoryLoader(): List<Problem> {
+            given(problemRepository.count()).willReturn(0L)
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            categoryLoader.run()
+
+            val loadedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
+            verify(problemRepository).saveAll(loadedProblems.capture())
+            return loadedProblems.value
+        }
+
+        @Test
+        fun conceptCategories_맵에_있는_개념은_해당_카테고리로_생성된다() {
+            val problems = runCategoryLoader()
+
+            val concept = problems.single { it.conceptNames().contains("분류된 개념") }.concepts.single()
+            assertThat(concept.category).isEqualTo(ProblemCategory.DATABASE)
+        }
+
+        @Test
+        fun conceptCategories_맵에_없는_개념은_미분류로_남는다() {
+            // 카테고리 필드 도입 이전 시드와의 하위 호환 — 맵에 이름이 없으면 조용히 null로 생성된다.
+            val problems = runCategoryLoader()
+
+            val concept = problems.single { it.conceptNames().contains("미분류 개념") }.concepts.single()
+            assertThat(concept.category).isNull()
         }
     }
 

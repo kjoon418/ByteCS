@@ -1,0 +1,31 @@
+{
+  "problems": [
+    {
+      "question": "분류된 개념 하나로만 구성된 문제.",
+      "type": "DEFINITION_RECALL",
+      "difficulty": "EASY",
+      "concepts": ["분류된 개념"],
+      "acceptableAnswers": ["정답A"],
+      "representativeAnswer": "정답A",
+      "explanation": null,
+      "hints": [],
+      "misconceptionHints": [],
+      "enrichment": null
+    },
+    {
+      "question": "conceptCategories 맵에 없는 개념으로 구성된 문제(하위 호환 — 미분류 유지).",
+      "type": "DEFINITION_RECALL",
+      "difficulty": "EASY",
+      "concepts": ["미분류 개념"],
+      "acceptableAnswers": ["정답B"],
+      "representativeAnswer": "정답B",
+      "explanation": null,
+      "hints": [],
+      "misconceptionHints": [],
+      "enrichment": null
+    }
+  ],
+  "conceptCategories": {
+    "분류된 개념": "DATABASE"
+  }
+}
