@@ -15,6 +15,7 @@ import watson.bytecs.account.domain.EmailDuplicatedException
 import watson.bytecs.account.domain.InvalidCredentialsException
 import watson.bytecs.account.domain.InvalidUserStateException
 import watson.bytecs.account.domain.UserNotFoundException
+import watson.bytecs.extrastudy.domain.ExtraStudyNoOpenItemException
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.scrap.domain.ScrapNotFoundException
 import watson.bytecs.session.domain.ItemNotViewableException
@@ -108,6 +109,14 @@ class GlobalExceptionHandler {
 
         val response = ErrorResponse(exception.message ?: "아직 볼 수 없는 문제입니다.", exception.errorCode)
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response)
+    }
+
+    @ExceptionHandler(ExtraStudyNoOpenItemException::class)
+    fun handleExtraStudyNoOpenItem(exception: ExtraStudyNoOpenItemException): ResponseEntity<ErrorResponse> {
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "지금 풀 문제가 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
     }
 
     @ExceptionHandler(DataIntegrityViolationException::class)

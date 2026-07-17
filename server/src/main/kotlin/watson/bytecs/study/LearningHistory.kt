@@ -1,6 +1,7 @@
 package watson.bytecs.study
 
 import org.springframework.stereotype.Component
+import watson.bytecs.extrastudy.infrastructure.ExtraStudyRepository
 import watson.bytecs.session.infrastructure.SessionRepository
 
 /**
@@ -11,11 +12,11 @@ import watson.bytecs.session.infrastructure.SessionRepository
  * 그래서 두 활동의 이력을 합집합으로 돌려주는 지점을 한곳에 응집한다 — 각 슬라이스가 상대의 리포지토리를 직접 알 필요가 없다.
  *
  * 의존은 두 슬라이스의 infra(리포지토리)로만 향하고, 두 슬라이스의 application이 이 컴포넌트에 의존한다(순환 없음).
- * 이 커밋에서는 세션 이력만 합치며, 추가 학습 슬라이스가 도입되면 그 이력이 합집합에 편입된다.
  */
 @Component
 class LearningHistory(
     private val sessionRepository: SessionRepository,
+    private val extraStudyRepository: ExtraStudyRepository,
 ) {
 
     /**
@@ -23,12 +24,17 @@ class LearningHistory(
      * 새 개념 배정·추가 학습 선정에서 이미 푼 문제를 제외하는 기준이다.
      */
     fun findSolvedProblemIds(userId: Long): Set<Long> =
-        sessionRepository.findSolvedProblemIds(userId).toSet()
+        (sessionRepository.findSolvedProblemIds(userId) + extraStudyRepository.findSolvedProblemIds(userId)).toSet()
 
     /**
      * 사용자가 어디서든 '배정/제시받은'(풀었든 아니든) 본 문제 id 집합(세션 ∪ 추가 학습).
      * 유도형 복습 예외의 '아직 만난 적 없는 다른 문제'를 가리는 기준이다.
+     * 추가 학습은 solved에 더해 지금 열린(이어 풀) 문제도 '이미 만난 문제'이므로 배정 이력에 편입한다.
      */
-    fun findAssignedProblemIds(userId: Long): Set<Long> =
-        sessionRepository.findAssignedProblemIds(userId).toSet()
+    fun findAssignedProblemIds(userId: Long): Set<Long> {
+        val assigned = (sessionRepository.findAssignedProblemIds(userId) +
+            extraStudyRepository.findSolvedProblemIds(userId)).toMutableSet()
+        extraStudyRepository.findOpenProblemId(userId)?.let { assigned.add(it) }
+        return assigned
+    }
 }
