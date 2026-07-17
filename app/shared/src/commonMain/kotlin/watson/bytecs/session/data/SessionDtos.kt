@@ -41,6 +41,8 @@ internal data class SessionProblemDto(
     // 힌트: 전체 수(hintCount)만 항상 싣고, 본문은 공개된 것(revealedHints)만 싣는다(no-leak, 인수인계 §3.3).
     val hintCount: Int = 0,
     val revealedHints: List<HintDto> = emptyList(),
+    // 대표 분류(명세 §7). 개념명과 달리 no-leak 대상이 아니라 풀기 전부터 실린다. 미분류면 null.
+    val category: String? = null,
 ) {
     fun toDomain(): SessionProblem = SessionProblem(
         id = id,
@@ -49,6 +51,7 @@ internal data class SessionProblemDto(
         codeSnippet = codeSnippet,
         hintCount = hintCount,
         revealedHints = revealedHints.map { it.toDomain() },
+        category = category,
     )
 }
 
@@ -141,8 +144,10 @@ internal data class RevealResponseDto(
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
     val enrichment: EnrichmentDto? = null,
+    // 대표 분류(명세 §7). 미분류면 null.
+    val category: String? = null,
 ) {
-    fun toDomain(): Reveal = Reveal(concepts, explanation, representativeAnswer, enrichment?.toDomain())
+    fun toDomain(): Reveal = Reveal(concepts, explanation, representativeAnswer, enrichment?.toDomain(), category)
 }
 
 /**
@@ -179,6 +184,8 @@ internal data class PastItemResponseDto(
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 사라졌다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
     val enrichment: EnrichmentDto? = null,
+    // 대표 분류(명세 §7). 미분류면 null.
+    val category: String? = null,
 ) {
     fun toDomain(): PastItem = PastItem(
         position = position,
@@ -193,5 +200,6 @@ internal data class PastItemResponseDto(
         explanation = explanation,
         representativeAnswer = representativeAnswer,
         enrichment = enrichment?.toDomain(),
+        category = category,
     )
 }

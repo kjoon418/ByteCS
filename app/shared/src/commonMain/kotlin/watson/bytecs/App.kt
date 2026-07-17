@@ -36,6 +36,12 @@ import watson.bytecs.account.data.KtorAccountRepository
 import watson.bytecs.account.data.TokenStore
 import watson.bytecs.account.data.createAuthenticatedHttpClient
 import watson.bytecs.account.data.createTokenStore
+import watson.bytecs.categoryhistory.CategoryHistoryDetailScreen
+import watson.bytecs.categoryhistory.CategoryHistoryDetailViewModel
+import watson.bytecs.categoryhistory.CategoryHistoryListScreen
+import watson.bytecs.categoryhistory.CategoryHistoryListViewModel
+import watson.bytecs.categoryhistory.CategoryHistoryRepository
+import watson.bytecs.categoryhistory.data.KtorCategoryHistoryRepository
 import watson.bytecs.extrastudy.ExtraStudyRepository
 import watson.bytecs.extrastudy.ExtraStudyScreen
 import watson.bytecs.extrastudy.ExtraStudyViewModel
@@ -182,6 +188,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 onOpenAccount = { navigate(Screen.Account) },
                 onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
                 onOpenScrapList = { navigate(Screen.ScrapList) },
+                onOpenCategoryHistory = { navigate(Screen.CategoryHistoryList) },
             )
         }
 
@@ -269,6 +276,26 @@ private fun AppNavHost(dependencies: AppDependencies) {
             ScrapDetailScreen(
                 viewModel = viewModel,
                 onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                onBack = { back() },
+            )
+        }
+
+        Screen.CategoryHistoryList -> {
+            val viewModel = viewModel { CategoryHistoryListViewModel(dependencies.categoryHistoryRepository) }
+            CategoryHistoryListScreen(
+                viewModel = viewModel,
+                onOpenCategory = { category -> navigate(Screen.CategoryHistoryDetail(category)) },
+                onBack = { back() },
+            )
+        }
+
+        is Screen.CategoryHistoryDetail -> {
+            val viewModel = viewModel {
+                CategoryHistoryDetailViewModel(dependencies.categoryHistoryRepository, screen.category)
+            }
+            CategoryHistoryDetailScreen(
+                viewModel = viewModel,
+                category = screen.category,
                 onBack = { back() },
             )
         }
@@ -392,6 +419,12 @@ sealed interface Screen {
 
     /** 스크랩 재열람(읽기 전용). 재열람할 문제([problemId])를 실어 넘긴다. */
     data class ScrapDetail(val problemId: Long) : Screen
+
+    /** 카테고리별 학습 이력 목록(기능 7, 1차) — 8개 카테고리와 각 문제 수. */
+    data object CategoryHistoryList : Screen
+
+    /** 카테고리별 학습 이력 상세(읽기 전용). 선택한 카테고리([category], 서버 enum name)를 실어 넘긴다. */
+    data class CategoryHistoryDetail(val category: String) : Screen
 }
 
 /**
@@ -404,6 +437,7 @@ class AppDependencies(
     val sessionRepository: SessionRepository,
     val contentReportRepository: ContentReportRepository,
     val scrapRepository: ScrapRepository,
+    val categoryHistoryRepository: CategoryHistoryRepository,
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
@@ -432,6 +466,7 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     val sessionRepository = KtorSessionRepository(client)
     val contentReportRepository = KtorContentReportRepository(client)
     val scrapRepository = KtorScrapRepository(client)
+    val categoryHistoryRepository = KtorCategoryHistoryRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
         extraStudyRepository = extraStudyRepository,
@@ -439,6 +474,7 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
         sessionRepository = sessionRepository,
         contentReportRepository = contentReportRepository,
         scrapRepository = scrapRepository,
+        categoryHistoryRepository = categoryHistoryRepository,
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,

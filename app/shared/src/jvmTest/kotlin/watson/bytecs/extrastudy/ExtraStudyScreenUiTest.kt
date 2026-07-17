@@ -378,4 +378,32 @@ class ExtraStudyScreenUiTest {
         }
         assertEquals(1, exited)
     }
+
+    // ── 대표 분류 배지(기능 7) ───────────────────────────────────────────────
+
+    /** ⭐️ [기능 7] 세션 화면과 동일하게, 추가 학습도 대표 분류 배지를 풀기 전부터 보여준다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리가_있으면_풀기_전부터_배지가_보인다() = runScreen(
+        active().copy(problem = problem.copy(category = "NETWORK")),
+    ) {
+        onNodeWithText("네트워크").assertIsDisplayed()
+    }
+
+    /** category가 null(미분류)이면 배지를 아예 그리지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리가_null이면_배지가_보이지_않는다() = runScreen(active()) {
+        onNodeWithText("네트워크").assertDoesNotExist()
+    }
+
+    /** 배지가 떠 있어도 풀기 전 개념 칩(no-leak)은 여전히 숨는다 — 두 규칙은 독립이다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리_배지는_개념_칩_no_leak_규칙과_독립적이다() = runScreen(
+        active().copy(problem = problem.copy(category = "NETWORK")),
+    ) {
+        onNodeWithText("네트워크").assertIsDisplayed()
+        onNodeWithText(answer, substring = true).assertDoesNotExist()
+    }
 }

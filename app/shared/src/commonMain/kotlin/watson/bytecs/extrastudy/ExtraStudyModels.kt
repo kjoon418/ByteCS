@@ -38,6 +38,8 @@ data class ExtraStudyProblem(
     val codeSnippet: String? = null,
     val hintCount: Int = 0,
     val revealedHints: List<ExtraStudyHint> = emptyList(),
+    // 대표 분류(도메인 명세 §7). no-leak 대상이 아니라 풀기 전부터 실린다. 미분류면 null(=배지 미표시).
+    val category: String? = null,
 )
 
 /**
@@ -83,6 +85,7 @@ data class ExtraStudyReveal(
     val explanation: String?,
     val representativeAnswer: String,
     val enrichment: Enrichment? = null,
+    val category: String? = null,
 )
 
 /**

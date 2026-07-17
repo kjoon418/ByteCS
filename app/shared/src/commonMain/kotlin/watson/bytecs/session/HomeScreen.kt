@@ -57,6 +57,7 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * @param onOpenAccount 계정·설정(06).
  * @param onUpgrade 게스트 가입 유도 → 05.
  * @param onOpenScrapList 스크랩 목록 진입점(리뷰 반영, 2026-07-16 오너 결정) → 스크랩 목록.
+ * @param onOpenCategoryHistory 카테고리별 학습 이력 진입점(기능 7, 1차) → 카테고리 목록.
  */
 @Composable
 fun HomeScreen(
@@ -66,6 +67,7 @@ fun HomeScreen(
     onOpenAccount: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
+    onOpenCategoryHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -82,6 +84,7 @@ fun HomeScreen(
         onOpenAccount = onOpenAccount,
         onUpgrade = onUpgrade,
         onOpenScrapList = onOpenScrapList,
+        onOpenCategoryHistory = onOpenCategoryHistory,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -99,6 +102,7 @@ internal fun HomeScreenContent(
     onOpenAccount: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit = {},
+    onOpenCategoryHistory: () -> Unit = {},
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -125,6 +129,7 @@ internal fun HomeScreenContent(
                     onExtraPractice = onExtraPractice,
                     onUpgrade = onUpgrade,
                     onOpenScrapList = onOpenScrapList,
+                    onOpenCategoryHistory = onOpenCategoryHistory,
                 )
             }
         }
@@ -199,6 +204,7 @@ private fun HomeReady(
     onExtraPractice: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
+    onOpenCategoryHistory: () -> Unit,
 ) {
     val session = state.session
 
@@ -230,6 +236,9 @@ private fun HomeReady(
 
         // 스크랩 목록 진입점(리뷰 반영) — 조용한 secondary 행. 히어로(오늘의 한입 CTA)를 방해하지 않는다.
         ScrapEntryRow(onOpenScrapList = onOpenScrapList)
+
+        // 카테고리별 학습 이력 진입점(기능 7, 1차) — 스크랩 진입점과 같은 관례(조용한 secondary 행).
+        CategoryHistoryEntryRow(onOpenCategoryHistory = onOpenCategoryHistory)
 
         // 게스트 가입 유도(은은·권유). 막지 않는다. 가입자에겐 아예 나오지 않는다(배타적).
         if (!state.isMember) {
@@ -451,6 +460,31 @@ private fun ScrapEntryRow(onOpenScrapList: () -> Unit) {
             Text(text = "🔖", style = MaterialTheme.typography.titleMedium)
             Text(
                 text = "스크랩한 문제",
+                style = MaterialTheme.typography.labelLarge,
+                color = colors.textPrimary,
+                modifier = Modifier.weight(1f),
+            )
+            Text(text = "›", style = MaterialTheme.typography.titleMedium, color = colors.textTertiary)
+        }
+    }
+}
+
+/**
+ * 카테고리별 학습 이력 진입점(기능 7, 1차) — 조용한 secondary 행. [ScrapEntryRow]와 같은 관례
+ * (라벨 + `›`)를 따른다 — 히어로(오늘의 한입 CTA)를 방해하지 않도록 강조 없이 둔다.
+ */
+@Composable
+private fun CategoryHistoryEntryRow(onOpenCategoryHistory: () -> Unit) {
+    val colors = LocalBcsColors.current
+    BcsCard(onClick = onOpenCategoryHistory) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+        ) {
+            Text(text = "📚", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "카테고리별 학습 이력",
                 style = MaterialTheme.typography.labelLarge,
                 color = colors.textPrimary,
                 modifier = Modifier.weight(1f),

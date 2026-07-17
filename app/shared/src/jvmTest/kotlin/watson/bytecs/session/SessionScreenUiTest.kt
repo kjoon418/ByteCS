@@ -733,4 +733,38 @@ class SessionScreenUiTest {
         onNodeWithText("완벽해요! 정확한 정답입니다.").assertIsDisplayed()
         onNodeWithText("더 알아보기").assertDoesNotExist()
     }
+
+    // ── 대표 분류 배지(기능 7) ───────────────────────────────────────────────
+
+    /**
+     * ⭐️ [기능 7] 대표 분류 배지는 개념 칩과 달리 **풀기 전부터** 보인다 — 카테고리는 대분류라
+     * 스포일 위험이 낮다는 오너 판단(힌트 리스크 수용 기록, 도메인 명세 §7).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리가_있으면_풀기_전부터_배지가_보인다() = runScreen(
+        active().copy(problem = problem.copy(category = "DATA_STRUCTURE")),
+    ) {
+        onNodeWithText("자료구조").assertIsDisplayed()
+    }
+
+    /** category가 null(미분류)이면 배지를 아예 그리지 않는다(빈 껍데기 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리가_null이면_배지가_보이지_않는다() = runScreen(active()) {
+        onNodeWithText("자료구조").assertDoesNotExist()
+    }
+
+    /**
+     * 배지가 개념 칩 규칙과 독립적임을 못박는다 — 카테고리 배지는 떠 있어도(§7), 풀기 전 개념 칩은
+     * 여전히 숨는다(no-leak 유지, §5.9는 이 변경으로 바뀌지 않는다).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 카테고리_배지는_개념_칩_no_leak_규칙과_독립적이다() = runScreen(
+        active().copy(problem = problem.copy(category = "DATA_STRUCTURE")),
+    ) {
+        onNodeWithText("자료구조").assertIsDisplayed()
+        onNodeWithText(answer, substring = true).assertDoesNotExist()
+    }
 }

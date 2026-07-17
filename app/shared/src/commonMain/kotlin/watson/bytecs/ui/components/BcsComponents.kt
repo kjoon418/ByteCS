@@ -676,6 +676,50 @@ internal fun difficultyLabel(difficulty: String?): String? = when (difficulty?.u
 }
 
 /**
+ * §7 대표 분류 CategoryBadge — 문제의 대표 분류(도메인 명세 §7, 8개 고정 대분류) 배지.
+ *
+ * ⭐️ [ConceptChip]과 달리 **풀기 전부터** 부를 수 있다 — 카테고리는 대분류라 스포일 위험이 낮다는
+ * 오너 판단([결정 2026-07-17], 힌트 리스크 수용 기록). 개념 칩의 info 톤과 다른 중립 톤을 써서, 사용자가
+ * 이 배지를 개념(정답 힌트) 유출로 오인하지 않게 시각적으로 구별한다.
+ *
+ * 호출자 책임: [categoryLabel]이 "모르는/미분류 값이면 null(=표시 안 함)"을 이미 판단하므로,
+ * `categoryLabel(category)?.let { CategoryBadge(it) }` 한 번으로 처리한다([DifficultyIndicator]와 같은 계약).
+ */
+@Composable
+fun CategoryBadge(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBcsColors.current
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelMedium,
+        color = colors.textSecondary,
+        modifier = modifier
+            .clip(RoundedCornerShape(BcsDimens.radiusFull))
+            .background(colors.surfaceSubtle)
+            .border(BcsDimens.borderWidth, colors.borderSubtle, RoundedCornerShape(BcsDimens.radiusFull))
+            .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1),
+    )
+}
+
+/**
+ * 카테고리 enum name(서버 [watson.bytecs.problem.domain.ProblemCategory] 대응) → 한글 라벨.
+ * 모르는 값(미분류 null 포함)이면 null(=표시 안 함) — [difficultyLabel]과 같은 계약.
+ */
+internal fun categoryLabel(category: String?): String? = when (category) {
+    "DATA_STRUCTURE" -> "자료구조"
+    "ALGORITHM" -> "알고리즘"
+    "OPERATING_SYSTEM" -> "운영체제"
+    "NETWORK" -> "네트워크"
+    "DATABASE" -> "데이터베이스"
+    "COMPUTER_ARCHITECTURE" -> "컴퓨터구조"
+    "SOFTWARE_ENGINEERING" -> "소프트웨어공학"
+    "SECURITY" -> "보안"
+    else -> null
+}
+
+/**
  * §5.16 ScrapToggle — 문제를 개인 북마크에 저장/해제. 켜짐=primary, 꺼짐=textTertiary.
  * 아이콘 폰트 의존을 피해 별 글리프(★/☆)로 그린다. 최소 터치 타깃 48dp를 보장한다(§7).
  */

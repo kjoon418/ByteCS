@@ -38,6 +38,8 @@ internal data class ExtraStudyProblemDto(
     // 힌트: 전체 수(hintCount)만 항상 싣고, 본문은 공개된 것(revealedHints)만 싣는다(no-leak).
     val hintCount: Int = 0,
     val revealedHints: List<ExtraStudyHintDto> = emptyList(),
+    // 대표 분류(명세 §7). no-leak 대상이 아니라 풀기 전부터 실린다. 미분류면 null.
+    val category: String? = null,
 ) {
     fun toDomain(): ExtraStudyProblem = ExtraStudyProblem(
         id = id,
@@ -46,6 +48,7 @@ internal data class ExtraStudyProblemDto(
         codeSnippet = codeSnippet,
         hintCount = hintCount,
         revealedHints = revealedHints.map { it.toDomain() },
+        category = category,
     )
 }
 
@@ -104,9 +107,11 @@ internal data class ExtraStudyRevealResponseDto(
     // 화면 표시용 대표 정답 하나. 허용답 나열은 응답에서 하지 않는다([2026-07-16] 오너 결정).
     val representativeAnswer: String,
     val enrichment: EnrichmentDto? = null,
+    // 대표 분류(명세 §7). 미분류면 null.
+    val category: String? = null,
 ) {
     fun toDomain(): ExtraStudyReveal =
-        ExtraStudyReveal(concepts, explanation, representativeAnswer, enrichment?.toDomain())
+        ExtraStudyReveal(concepts, explanation, representativeAnswer, enrichment?.toDomain(), category)
 }
 
 /**

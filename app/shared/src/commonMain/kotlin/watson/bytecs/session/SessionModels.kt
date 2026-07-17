@@ -39,6 +39,8 @@ data class SessionHint(
  * 세션에서 '지금 풀 문제'. 정답을 유추할 정보(개념·허용답·해설)는 담지 않는다(무낙인·비노출).
  *  - [hintCount]: 이 문제의 전체 힌트 수(0이면 진입점을 노출하지 않는다). 미공개 본문은 담지 않는다.
  *  - [revealedHints]: 이미 공개한 힌트 본문(약→강, 재진입 복원용). 아직 안 연 것은 포함되지 않는다.
+ *  - [category]: 대표 분류(도메인 명세 §7, 8개 고정 대분류 enum name). 개념명과 달리 정답을 스포일하는
+ *    위험이 낮아 **풀기 전부터** 실린다(no-leak 규칙과 독립). 대표 개념이 미분류면 null(=배지 미표시).
  */
 data class SessionProblem(
     val id: Long,
@@ -47,6 +49,7 @@ data class SessionProblem(
     val codeSnippet: String? = null,
     val hintCount: Int = 0,
     val revealedHints: List<SessionHint> = emptyList(),
+    val category: String? = null,
 )
 
 /**
@@ -117,6 +120,7 @@ data class Reveal(
     val explanation: String?,
     val representativeAnswer: String,
     val enrichment: Enrichment? = null,
+    val category: String? = null,
 )
 
 /**
@@ -138,6 +142,7 @@ data class PastItem(
     val explanation: String?,
     val representativeAnswer: String,
     val enrichment: Enrichment? = null,
+    val category: String? = null,
 )
 
 /** 연속 학습 스트릭. 긍정 동기 전용 — 끊겨도 죄책감 연출 금지(UX 다크패턴 방지). */

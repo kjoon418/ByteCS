@@ -51,6 +51,7 @@ import watson.bytecs.scrap.ScrapRepository
 import watson.bytecs.ui.components.AnswerTextField
 import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
+import watson.bytecs.ui.components.CategoryBadge
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.ConceptChips
 import watson.bytecs.ui.components.ConfirmedAnswerField
@@ -68,6 +69,7 @@ import watson.bytecs.ui.components.ScrapToggle
 import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.TypeAlongField
+import watson.bytecs.ui.components.categoryLabel
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
@@ -386,8 +388,17 @@ private fun ActiveContent(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                difficultyLabel(state.problem.difficulty)?.let { label ->
-                    DifficultyIndicator(label)
+                // 난이도 + 대표 분류 배지(§7, 풀기 전부터) — 개념 칩과 달리 스포일 위험이 낮아 항상 함께 보인다.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    difficultyLabel(state.problem.difficulty)?.let { label ->
+                        DifficultyIndicator(label)
+                    }
+                    categoryLabel(state.problem.category)?.let { label ->
+                        CategoryBadge(label)
+                    }
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -592,7 +603,13 @@ private fun PastItemView(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("지난 문제 ${item.position + 1}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("지난 문제 ${item.position + 1}", style = MaterialTheme.typography.labelMedium, color = colors.textSecondary)
+                        categoryLabel(item.category)?.let { label -> CategoryBadge(label) }
+                    }
                     Spacer(Modifier.weight(1f))
                     ScrapToggle(
                         scrapped = item.problemId in scrappedProblemIds,
