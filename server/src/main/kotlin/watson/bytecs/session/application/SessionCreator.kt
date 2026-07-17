@@ -12,6 +12,7 @@ import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
 import java.time.LocalDate
+import kotlin.random.Random
 
 /**
  * 오늘 세션의 '생성(INSERT)'만 별도 트랜잭션으로 격리해 책임지는 협력자.
@@ -28,6 +29,9 @@ class SessionCreator(
     private val problemRepository: ProblemRepository,
     private val userRepository: UserRepository,
     private val reviewService: ReviewService,
+    // 새 개념 문제를 무작위로 뽑는 데 쓴다. 기본은 Random.Default이고, 테스트에서 시드 고정 Random을 주입해
+    // 셔플 결과를 결정적으로 검증한다(운영에선 사용자마다·매일 다른 세션을 위해 매번 새 순서를 뽑는다).
+    private val random: Random = Random.Default,
 ) {
 
     /**
@@ -47,9 +51,11 @@ class SessionCreator(
     /**
      * 오늘 세션에 배정할 본 문제 id를 정한다. 복습(기능 3)을 새 개념 문제와 인터리빙한다.
      *  1. 복습 편입: 복습 시점이 도래한 개념의 복습 문제를 도래 순으로 먼저 채운다(상한 없음 — 세션 분량까지 채울 수 있다).
-     *  2. 남은 칸: 기존 로직으로 새 개념 문제를 채운다 — 아직 안 푼 문제(id asc)가 있으면 그것, 없으면 전체 풀 폴백(반복 허용).
+     *  2. 남은 칸: 새 개념 문제를 채운다 — 아직 안 푼 문제가 있으면 그중에서, 없으면 전체 풀 폴백(반복 허용).
+     *     새 개념 후보는 매번 [random]으로 셔플해 무작위로 배정한다(모든 사용자가 같은 순서로 같은 문제를 받지 않게 — QA #6).
      * 중복 problemId는 선착순으로 제거하고(복습 우선), 세션 분량 초과분은 도래 순 우선으로 잘린다.
-     * 두 축 모두 결정적 순서(도래 순·id asc)라, 같은 학습 상태면 항상 같은 세션이 만들어진다.
+     * 정책: 복습은 도래 순으로 우선 배치하고, 남은 칸의 새 개념 문제는 무작위로 뽑는다.
+     * (같은 학습 상태·같은 시드면 같은 세션이 나오지만, 운영의 Random.Default에선 매번 다른 순서가 나온다.)
      */
     private fun assignProblemIds(user: User, today: LocalDate): List<Long> {
         val size = user.settings.dailySessionSize
@@ -60,10 +66,11 @@ class SessionCreator(
         val assignedProblemIds = sessionRepository.findAssignedProblemIds(user.id).toSet()
         val reviewProblemIds = reviewService.selectDueReviewProblemIds(user.id, today, assignedProblemIds, poolIds)
 
-        // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백.
+        // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백. 두 경우 모두 무작위로 셔플한다.
         val solvedProblemIds = sessionRepository.findSolvedProblemIds(user.id).toSet()
         val unseenProblemIds = allProblemIds.filter { it !in solvedProblemIds }
-        val newConceptCandidates = if (unseenProblemIds.isNotEmpty()) unseenProblemIds else allProblemIds
+        val newConceptCandidates =
+            (if (unseenProblemIds.isNotEmpty()) unseenProblemIds else allProblemIds).shuffled(random)
 
         // 복습 먼저 배치 → 남은 칸을 새 개념으로. LinkedHashSet으로 선착순 중복 제거·순서 보존, 분량에서 절단한다.
         val chosen = LinkedHashSet<Long>()

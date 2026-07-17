@@ -43,6 +43,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.random.Random
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -782,5 +783,18 @@ class SessionControllerIntegrationTest(
         @Primary
         fun mutableClock(): MutableClock =
             MutableClock(DAY1.atStartOfDay(KST).toInstant(), KST)
+
+        /**
+         * 세션 배정의 새 개념 문제 셔플([SessionCreator])을 이 통합 테스트에서 결정적으로 만든다.
+         * nextInt(until)이 항상 until-1을 돌려주면 Fisher-Yates 스왑이 제자리(no-op)라 셔플이 항등이 되어,
+         * 배정 순서가 id 오름차순으로 고정된다 — 세션 진행 흐름 검증이 무작위성에 흔들리지 않게 한다
+         * (무작위 배정 자체의 검증은 SessionCreatorTest가 시드 고정으로 담당한다).
+         */
+        @Bean
+        @Primary
+        fun deterministicRandom(): Random = object : Random() {
+            override fun nextBits(bitCount: Int): Int = 0
+            override fun nextInt(until: Int): Int = until - 1
+        }
     }
 }
