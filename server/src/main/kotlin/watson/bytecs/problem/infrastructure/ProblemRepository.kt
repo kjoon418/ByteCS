@@ -27,4 +27,15 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
      */
     @Query("select p.id from Problem p join p.concepts c where c.id = :conceptId order by p.id asc")
     fun findIdsByConceptIdOrderByIdAsc(conceptId: Long): List<Long>
+
+    /**
+     * 카테고리별 학습 이력 조회 전용(N+1 회피, [watson.bytecs.study.application.CategoryHistoryService]).
+     * `representativeCategory()`(개념)·`conceptNames()`(개념)·엔리치먼트를 모두 화면에 실어야 해서,
+     * 지연 로딩을 그대로 두면 문제당 최대 2쿼리가 추가로 발생한다(N+1).
+     * concepts는 [jakarta.persistence.OrderColumn]로 순서를 갖는 인덱스 컬렉션이라, 다른 컬렉션 없이
+     * 단일 연관(enrichment, @OneToOne)과 함께 페치해도 하이버네이트의 MultipleBagFetchException 대상이 아니다.
+     * concepts 조인으로 같은 문제 행이 개념 수만큼 늘어날 수 있어 `distinct`로 접는다.
+     */
+    @Query("select distinct p from Problem p left join fetch p.concepts left join fetch p.enrichment where p.id in :ids")
+    fun findAllByIdWithConceptsAndEnrichment(ids: Collection<Long>): List<Problem>
 }

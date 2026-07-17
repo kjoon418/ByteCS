@@ -36,8 +36,13 @@ class CategoryHistoryService(
         }
 
         val solvedProblemIds = learningHistory.findSolvedProblemIds(userId)
-        val solvedProblemsByCategory = problemRepository.findAllById(solvedProblemIds)
-            .groupBy { it.representativeCategory() }
+        // 빈 id 목록으로 in절을 쏘지 않고 바로 반환한다(불필요한 쿼리 방지 — Spring Data findAllById와 같은 최적화).
+        val solvedProblemsByCategory = if (solvedProblemIds.isEmpty()) {
+            emptyMap()
+        } else {
+            problemRepository.findAllByIdWithConceptsAndEnrichment(solvedProblemIds)
+                .groupBy { it.representativeCategory() }
+        }
         val submittedAnswersByProblemId = sessionRepository.findSolvedItemAnswers(userId)
             .associate { it.problemId to it.submittedAnswer }
 

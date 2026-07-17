@@ -52,7 +52,6 @@ class CategoryHistoryServiceTest {
     fun `8개 카테고리 전체를 선언 순서대로 반환하며 문제가 없으면 빈 목록이다`() {
         given(userRepository.existsById(USER_ID)).willReturn(true)
         given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(emptySet())
-        given(problemRepository.findAllById(emptySet<Long>())).willReturn(emptyList())
         given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(emptyList())
 
         val result = service.findByCategory(USER_ID)
@@ -68,7 +67,8 @@ class CategoryHistoryServiceTest {
 
         given(userRepository.existsById(USER_ID)).willReturn(true)
         given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(setOf(10L, 20L))
-        given(problemRepository.findAllById(setOf(10L, 20L))).willReturn(listOf(dataStructureProblem, networkProblem))
+        given(problemRepository.findAllByIdWithConceptsAndEnrichment(setOf(10L, 20L)))
+            .willReturn(listOf(dataStructureProblem, networkProblem))
         given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(emptyList())
 
         val result = service.findByCategory(USER_ID)
@@ -89,7 +89,7 @@ class CategoryHistoryServiceTest {
 
         given(userRepository.existsById(USER_ID)).willReturn(true)
         given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(setOf(0L))
-        given(problemRepository.findAllById(setOf(0L))).willReturn(listOf(problem))
+        given(problemRepository.findAllByIdWithConceptsAndEnrichment(setOf(0L))).willReturn(listOf(problem))
         given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(listOf(solvedItemAnswer(0L, "정답1")))
 
         val result = service.findByCategory(USER_ID)
@@ -99,12 +99,34 @@ class CategoryHistoryServiceTest {
     }
 
     @Test
+    fun `같은 문제를 여러 세션에서 통과했다면 가장 최신 세션의 제출 답으로 복원된다`() {
+        // SessionRepository.findSolvedItemAnswers는 세션 날짜 오름차순으로 정렬해 돌려준다(계약).
+        // 이 서비스는 그 순서를 신뢰해 .associate로 마지막(최신) 값이 이기게 한다 — 정렬 자체는 이 테스트의 관심사가 아니다.
+        val problem = problemOf("개념1", ProblemCategory.DATA_STRUCTURE)
+
+        given(userRepository.existsById(USER_ID)).willReturn(true)
+        given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(setOf(0L))
+        given(problemRepository.findAllByIdWithConceptsAndEnrichment(setOf(0L))).willReturn(listOf(problem))
+        given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(
+            listOf(
+                solvedItemAnswer(0L, "지난_제출"),
+                solvedItemAnswer(0L, "최신_제출"),
+            ),
+        )
+
+        val result = service.findByCategory(USER_ID)
+
+        val item = result.first { it.category == "DATA_STRUCTURE" }.items.single()
+        assertThat(item.submittedAnswer).isEqualTo("최신_제출")
+    }
+
+    @Test
     fun `추가 학습에서만 푼 문제는 제출한 답이 없어 null이다`() {
         val problem = problemOf("개념1", ProblemCategory.DATA_STRUCTURE)
 
         given(userRepository.existsById(USER_ID)).willReturn(true)
         given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(setOf(0L))
-        given(problemRepository.findAllById(setOf(0L))).willReturn(listOf(problem))
+        given(problemRepository.findAllByIdWithConceptsAndEnrichment(setOf(0L))).willReturn(listOf(problem))
         // 세션 제출 이력이 비어 있다 — 추가 학습은 열린 항목이 승격되며 제출 답을 보존하지 않는다([ExtraStudyItem]).
         given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(emptyList())
 
