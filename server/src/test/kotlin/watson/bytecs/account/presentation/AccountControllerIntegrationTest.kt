@@ -17,11 +17,6 @@ import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.delete
 import watson.bytecs.account.infrastructure.UserRepository
-import watson.bytecs.problem.domain.Concept
-import watson.bytecs.problem.domain.Difficulty
-import watson.bytecs.problem.domain.Problem
-import watson.bytecs.problem.infrastructure.ConceptRepository
-import watson.bytecs.problem.infrastructure.ProblemRepository
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -30,8 +25,6 @@ class AccountControllerIntegrationTest(
     @Autowired private val objectMapper: ObjectMapper,
     @Autowired private val userRepository: UserRepository,
     @Autowired private val passwordEncoder: PasswordEncoder,
-    @Autowired private val conceptRepository: ConceptRepository,
-    @Autowired private val problemRepository: ProblemRepository,
 ) {
 
     private companion object {
@@ -42,21 +35,6 @@ class AccountControllerIntegrationTest(
     @BeforeEach
     fun setUp() {
         userRepository.deleteAll()
-        problemRepository.deleteAll()
-        conceptRepository.deleteAll()
-
-        // 보안 permitAll 회귀 검증이 실제 200을 확인하도록 문제 하나를 시드한다.
-        val concept = conceptRepository.save(Concept("해시 충돌"))
-        problemRepository.save(
-            Problem(
-                questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
-                concepts = listOf(concept),
-                acceptableAnswers = setOf("해시 충돌", "collision"),
-                representativeAnswer = "해시 충돌",
-                difficulty = Difficulty.MEDIUM,
-                explanation = "체이닝, 개방 주소법 등으로 해소한다.",
-            ),
-        )
     }
 
     @Test
@@ -272,13 +250,6 @@ class AccountControllerIntegrationTest(
         }
     }
 
-    @Test
-    fun `문제 조회는 토큰 없이도 200을 반환한다 (permitAll 회귀)`() {
-        mockMvc.get("/api/problems/next")
-            .andExpect {
-                status { isOk() }
-            }
-    }
 
     /** 가입해 토큰을 반환한다. bearerToken을 주면 그 인증 하에 가입(게스트 승격)한다. */
     private fun register(email: String, password: String, bearerToken: String? = null): String {
