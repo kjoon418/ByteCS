@@ -114,18 +114,6 @@ internal fun HomeScreenContent(
                 onOpenAccount = onOpenAccount,
             )
         },
-        bottomBar = {
-            // 주요 액션은 엄지 영역 하단 고정(00 §3.1). 상태에 따라 시작/이어서/추가연습으로 전환.
-            ready?.let {
-                HomeCtaBar {
-                    when {
-                        it.isCompleted -> GhostButton(text = "조금 더 풀어보기", onClick = onExtraPractice)
-                        it.isInProgress -> PrimaryButton(text = "학습 이어서 하기", onClick = onStartOrContinue)
-                        else -> PrimaryButton(text = "오늘의 한입 시작하기", onClick = onStartOrContinue)
-                    }
-                }
-            }
-        },
     ) {
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             when (state) {
@@ -133,6 +121,8 @@ internal fun HomeScreenContent(
                 HomeUiState.Error -> HomeError(onRetry = onRetry)
                 is HomeUiState.Ready -> HomeReady(
                     state = state,
+                    onStartOrContinue = onStartOrContinue,
+                    onExtraPractice = onExtraPractice,
                     onUpgrade = onUpgrade,
                     onOpenScrapList = onOpenScrapList,
                 )
@@ -202,26 +192,11 @@ private fun AccountEntry(
     }
 }
 
-/** 하단 고정 CTA 바 — surface 위에 얹고 상단 1dp 경계로 콘텐츠와 분리한다(§4.3 다크는 그림자 대신 경계). */
-@Composable
-private fun HomeCtaBar(content: @Composable () -> Unit) {
-    val colors = LocalBcsColors.current
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(BcsDimens.borderWidth)
-                .background(colors.borderSubtle),
-        )
-        Box(modifier = Modifier.padding(horizontal = BcsDimens.space5, vertical = BcsDimens.space4)) {
-            content()
-        }
-    }
-}
-
 @Composable
 private fun HomeReady(
     state: HomeUiState.Ready,
+    onStartOrContinue: () -> Unit,
+    onExtraPractice: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
 ) {
@@ -247,7 +222,11 @@ private fun HomeReady(
 
         // 오늘 완료 상태는 별도 카드가 아니라 이 카드 자체의 시각 변화로 표현한다
         // (2026-07-16 오너 결정 — 홈 복잡도 감소). 긍정 빈 상태(§5.10)는 카드 안에서 이어진다.
-        TodayBiteCard(state = state)
+        TodayBiteCard(
+            state = state,
+            onStartOrContinue = onStartOrContinue,
+            onExtraPractice = onExtraPractice,
+        )
 
         // 스크랩 목록 진입점(리뷰 반영) — 조용한 secondary 행. 히어로(오늘의 한입 CTA)를 방해하지 않는다.
         ScrapEntryRow(onOpenScrapList = onOpenScrapList)
@@ -278,15 +257,23 @@ private fun Greeting() {
 }
 
 /**
- * 오늘의 한입 카드 — 배지 + 상태 제목 + 분량 진행(`2 / 10`).
+ * 오늘의 한입 카드 — 배지 + 상태 제목 + 분량 진행(`2 / 10`) + CTA 버튼.
  * ⭐️ 분량 기반이다. 카운트다운 타이머가 아니다(§5.4).
  *
  * 완료 시 별도 카드를 얹지 않고 **이 카드 자체가 시각적으로 변한다**(2026-07-16 오너 결정 — 홈 복잡도
  * 감소). 배지가 완료 표식으로, 진행 막대가 success 색으로 바뀌고, 긍정 빈 상태 문구(§5.10)가 안에 붙는다.
- * 추가 액션('조금 더 풀어보기')은 하단 CTA가 맡으므로 여기서는 안내 문구만 더한다.
+ *
+ * CTA 배치는 최신안(`docs/design/02 홈 오늘의 한입 디자인 최신안.html`)을 따른다 — 진행 막대 바로 아래,
+ * 완료 시 안내 문구 위에 전폭 버튼을 둔다(QA #8, 2026-07-17). 하단 고정 바가 아니라 카드 안에 있어야
+ * 버튼을 누르면 무엇이 시작되는지 맥락이 바로 붙는다. 최신안의 배지·프로필·분량 표기 등 나머지 요소는
+ * 오너 결정으로 폐기됐으므로 반영하지 않는다.
  */
 @Composable
-private fun TodayBiteCard(state: HomeUiState.Ready) {
+private fun TodayBiteCard(
+    state: HomeUiState.Ready,
+    onStartOrContinue: () -> Unit,
+    onExtraPractice: () -> Unit,
+) {
     val colors = LocalBcsColors.current
     val session = state.session
     val completed = state.isCompleted
@@ -331,6 +318,11 @@ private fun TodayBiteCard(state: HomeUiState.Ready) {
             total = session.totalCount,
             barColor = if (completed) colors.success else MaterialTheme.colorScheme.primary,
         )
+        when {
+            completed -> GhostButton(text = "조금 더 풀어보기", onClick = onExtraPractice)
+            state.isInProgress -> PrimaryButton(text = "학습 이어서 하기", onClick = onStartOrContinue)
+            else -> PrimaryButton(text = "오늘의 한입 시작하기", onClick = onStartOrContinue)
+        }
         if (completed) {
             Text(
                 text = "원한다면 조금 더 풀어볼 수도 있어요.",
