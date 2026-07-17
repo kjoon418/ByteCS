@@ -131,6 +131,14 @@ class Problem(
     fun conceptIds(): List<Long> = concepts.map { it.id }
 
     /**
+     * 이 문제의 대표 분류(명세 §7 '대표 분류 원칙', 결정 2026-07-17).
+     * 문제가 여러 개념·카테고리에 걸칠 수 있어도, 화면 표시·이력 분류는 **대표 개념(첫 번째 개념)의 카테고리**
+     * 하나로 결정적으로 도출한다([concepts]가 [OrderColumn]으로 순서를 보존하므로 같은 입력에는 항상 같은 결과다).
+     * 대표 개념이 미분류(null)면 대표 분류도 null이며, 이는 화면에서 '준비 중'으로 처리된다.
+     */
+    fun representativeCategory(): ProblemCategory? = concepts.first().category
+
+    /**
      * 제출한 답을 결정적으로 판정한다.
      *  1. 정규화 후 허용답과 정확히 일치하면 CORRECT.
      *  2. 오탈자 수준(편집거리 임계 내)으로 가까우면 NEAR_MISS. 단, [isNearMissCandidate]를 만족할 때만.
