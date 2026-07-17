@@ -119,7 +119,9 @@ class SessionScreenUiTest {
     fun 오답_피드백_상태에서도_정답이_새지_않는다() = runScreen(
         active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
     ) {
-        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        // 텍스트 카드 대신 라이브 리전 안내만 남는다(시각 신호는 문제 영역의 주황 플래시). 정답은 여전히 새지 않는다.
+        onNodeWithContentDescription("정답과 달라요, 다시 시도해 보세요").assertExists()
+        onNodeWithText("아직이에요, 다시 해볼까요?").assertDoesNotExist()
         onNodeWithText(answer, substring = true).assertDoesNotExist()
     }
 
@@ -159,6 +161,10 @@ class SessionScreenUiTest {
         onNodeWithText("오답", substring = true).assertDoesNotExist()
         onNodeWithText("틀렸", substring = true).assertDoesNotExist()
         onNodeWithText("실패", substring = true).assertDoesNotExist()
+        // 무낙인 가드레일은 라이브 리전(비시각) 안내에도 적용된다.
+        onNodeWithContentDescription("오답", substring = true).assertDoesNotExist()
+        onNodeWithContentDescription("틀렸", substring = true).assertDoesNotExist()
+        onNodeWithContentDescription("실패", substring = true).assertDoesNotExist()
     }
 
     /**
@@ -264,7 +270,7 @@ class SessionScreenUiTest {
     fun 따라_입력이_어긋나도_처벌하지_않는다() = runScreen(
         active(inputText = "해시충", feedback = SessionFeedback.Mismatch(), reveal = revealOf()),
     ) {
-        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        onNodeWithContentDescription("정답과 달라요, 다시 시도해 보세요").assertExists()
         onNodeWithText("오답", substring = true).assertDoesNotExist()
     }
 
@@ -570,7 +576,7 @@ class SessionScreenUiTest {
             feedback = SessionFeedback.Mismatch("실행 흐름의 단위를 다시 떠올려 봐요"),
         ),
     ) {
-        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        onNodeWithContentDescription("정답과 달라요, 다시 시도해 보세요").assertExists()
         onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertIsDisplayed()
         onNodeWithText("오답", substring = true).assertDoesNotExist()
     }
@@ -584,7 +590,7 @@ class SessionScreenUiTest {
     fun 교정_힌트가_없으면_교정_카드가_없다() = runScreen(
         active(inputText = "아무 오답", feedback = SessionFeedback.Mismatch(null)),
     ) {
-        onNodeWithText("아직이에요, 다시 해볼까요?").assertIsDisplayed()
+        onNodeWithContentDescription("정답과 달라요, 다시 시도해 보세요").assertExists()
         onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertDoesNotExist()
     }
 

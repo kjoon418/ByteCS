@@ -90,6 +90,8 @@ data class BcsColors(
     // 상태색 — 불일치/재시도. ⭐️ 중립 톤(빨강 절대 금지).
     val neutralNudgeForeground: Color,
     val neutralNudgeBackground: Color,
+    // 상태색 — 오답(불일치) 순간 문제 영역을 잠깐 물들이는 플래시. ⭐️ 주황 계열(무낙인 — danger 빨강 금지).
+    val retryFlash: Color,
     /**
      * 상태색 — 연속 학습(스트릭) 표시(§2.2).
      *
@@ -124,6 +126,7 @@ val BcsLightColors = BcsColors(
     onInfoContainer = Color(0xFF1D4ED8),
     neutralNudgeForeground = Color(0xFF64748B),
     neutralNudgeBackground = Color(0xFFF8FAFC),
+    retryFlash = Color(0xFFFFEDD5), // orange-100 (은은한 주황 플래시)
     streak = Color(0xFFF97316), // orange-500
     streakContainer = Color(0xFFFFF7ED), // orange-50
     difficulty = Color(0xFF94A3B8),
@@ -149,6 +152,7 @@ val BcsDarkColors = BcsColors(
     onInfoContainer = Color(0xFFDBEAFE),
     neutralNudgeForeground = Color(0xFF94A3B8),
     neutralNudgeBackground = Color(0xFF1E293B),
+    retryFlash = Color(0xFF7C2D12), // orange-900 (다크 주황 플래시)
     streak = Color(0xFFFB923C), // orange-400
     streakContainer = Color(0xFF431407), // orange-950
     difficulty = Color(0xFF64748B),

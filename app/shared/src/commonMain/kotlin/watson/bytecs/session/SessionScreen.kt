@@ -1,6 +1,7 @@
 package watson.bytecs.session
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,21 +26,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import watson.bytecs.scrap.ScrapRepository
 import watson.bytecs.ui.components.AnswerTextField
@@ -57,7 +63,6 @@ import watson.bytecs.ui.components.MisconceptionHintCard
 import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
-import watson.bytecs.ui.components.RetryNudge
 import watson.bytecs.ui.components.RevealAnswerButton
 import watson.bytecs.ui.components.ScrapToggle
 import watson.bytecs.ui.components.SessionProgress
@@ -340,10 +345,25 @@ private fun ActiveContent(
     LaunchedEffect(state.problem.id) {
         if (state.reveal == null) focusRequester.requestFocus()
     }
-    // 정답 순간 햅틱(긍정 피드백을 손끝으로).
+    // 오답(불일치) 순간 문제 영역을 주황으로 잠깐 물들였다 되돌린다 — 텍스트 카드 대신 무낙인 색 이펙트로 알린다.
+    var retryFlashing by remember { mutableStateOf(false) }
+    val problemTint by animateColorAsState(
+        targetValue = if (retryFlashing) colors.retryFlash else Color.Transparent,
+        animationSpec = tween(BcsMotion.durFast, easing = BcsMotion.easing),
+        label = "retryFlash",
+    )
+
+    // 정답 순간 햅틱(긍정 피드백을 손끝으로) · 오답(불일치) 순간 주황 플래시(같은 피드백 훅에 얹는다).
     LaunchedEffect(state.feedback) {
-        if (state.feedback is SessionFeedback.Correct) {
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        when (state.feedback) {
+            is SessionFeedback.Correct -> haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            is SessionFeedback.Mismatch -> {
+                // 주황으로 물들었다(durFast) 잠깐 유지 후 원색으로 돌아온다.
+                retryFlashing = true
+                delay(300)
+                retryFlashing = false
+            }
+            else -> Unit
         }
     }
 
@@ -353,7 +373,13 @@ private fun ActiveContent(
         // ⭐️ 문제 영역의 감쇠(03 정답 상태 시안 43행) — 정답을 맞힌 뒤에는 문제가 더 이상 화면의 초점이
         //    아니므로 시각적으로 한 발 물러난다. opacity만 낮출 뿐 트리에서 지우지 않으므로 스크린리더
         //    낭독은 그대로 유지된다(§7).
-        Column(modifier = if (state.solved) Modifier.alpha(0.6f) else Modifier) {
+        Column(
+            modifier = Modifier
+                .then(if (state.solved) Modifier.alpha(0.6f) else Modifier)
+                .clip(RoundedCornerShape(BcsDimens.radiusCard))
+                .background(problemTint)
+                .padding(BcsDimens.space3),
+        ) {
             // 난이도(왼쪽)와 '다시 볼래요' 스크랩(오른쪽)을 한 행에 둔다. ⭐️ 스크랩은 개인 북마크일 뿐
             //    모범답안을 노출하지 않으므로(도메인 §5) 풀이 중에도 열어 둔다 — 정답 접근 게이트와 무관하다.
             Row(
@@ -511,9 +537,16 @@ private fun FeedbackCard(feedback: SessionFeedback, problemId: Long) {
             EnrichmentBlock(enrichment = feedback.enrichment)
         }
 
-        // 불일치엔 비처벌 넛지. 큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
+        // 불일치엔 텍스트 카드를 두지 않는다 — 시각 신호는 문제 영역의 주황 플래시가 맡는다(세로 공간 절약).
+        //    비시각 사용자에겐 라이브 리전으로만 짧게 안내한다: '오답/틀림/실패' 어휘 없이(무낙인).
+        //    큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
         is SessionFeedback.Mismatch -> Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
-            RetryNudge(modifier = announce)
+            Box(
+                Modifier.semantics {
+                    liveRegion = LiveRegionMode.Polite
+                    contentDescription = "정답과 달라요, 다시 시도해 보세요"
+                },
+            )
             feedback.misconceptionHint?.let { hint -> MisconceptionHintCard(text = hint) }
         }
 
