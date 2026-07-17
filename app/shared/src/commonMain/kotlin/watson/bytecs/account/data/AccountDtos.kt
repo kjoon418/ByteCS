@@ -63,3 +63,13 @@ internal data class LoginRequestDto(
 internal data class UpdateSettingsRequestDto(
     val dailySessionSize: Int,
 )
+
+/**
+ * 비-2xx 응답 본문(서버 `common.error.ErrorResponse`와 대응). 400(INVALID_INPUT) 번역 시
+ * 서버가 만든 상세 메시지를 그대로 안내하기 위해 파싱한다.
+ */
+@Serializable
+internal data class ErrorResponseDto(
+    val message: String,
+    val errorCode: String,
+)

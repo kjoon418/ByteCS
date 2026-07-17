@@ -121,6 +121,27 @@ class LoginScreenUiTest {
         }
     }
 
+    // ── 형식 오류(QA #5): 연결 실패 문구로 새지 않는다 ──────────────────────
+
+    /**
+     * ⭐️ QA #5 회귀 — 클라 사전 검증을 통과해 서버까지 간 형식 오류(400)는 "연결이 원활하지 않다"가
+     * 아니라 서버가 준 형식 오류 문구로 안내해야 한다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 이메일_형식_오류는_서버_문구로_안내하고_연결_실패로_보이지_않는다() = runComposeUiTest {
+        val invalidFormat = AuthUiState(
+            mode = AuthMode.Register,
+            email = "aaa@aaa",
+            password = "password",
+            status = SubmitStatus.Failed("이메일 형식이 올바르지 않습니다."),
+        )
+        setContent { BcsTheme(darkTheme = false) { Screen(invalidFormat) } }
+
+        onNodeWithText("이메일 형식이 올바르지 않습니다.").assertIsDisplayed()
+        onNodeWithText("잠시 연결이 원활하지 않았어요.", substring = true).assertDoesNotExist()
+    }
+
     // ── 인라인 검증: 통과만, success 톤 ─────────────────────────────────────
 
     /**

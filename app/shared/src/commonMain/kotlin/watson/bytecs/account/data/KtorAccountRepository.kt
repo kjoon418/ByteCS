@@ -17,14 +17,15 @@ import watson.bytecs.account.AuthSession
 import watson.bytecs.account.EmailAlreadyInUseException
 import watson.bytecs.account.GuestSession
 import watson.bytecs.account.InvalidCredentialsException
+import watson.bytecs.account.InvalidInputException
 import watson.bytecs.problem.data.platformApiBaseUrl
 
 /**
  * 백엔드 계정 REST API에 붙는 [AccountRepository] 구현. 판정·상태 전이는 전적으로 서버에 위임한다.
  *
  * 인증 헤더는 [client]가 요청마다 붙이므로(→ [createAuthenticatedHttpClient]) 여기서 토큰을 다루지 않는다.
- * 특정 실패(가입 이메일 중복 409, 로그인 401)는 사용자 언어로 안내하기 위해 도메인 예외로 번역하고,
- * 그 밖의 비-2xx·네트워크 오류는 시스템 오류로 그대로 올린다(뷰모델이 "학습 기록은 안전해요"로 처리).
+ * 특정 실패(가입 이메일 중복 409, 로그인 401, 입력 형식 오류 400)는 사용자 언어로 안내하기 위해 도메인 예외로
+ * 번역하고, 그 밖의 비-2xx·네트워크 오류는 시스템 오류로 그대로 올린다(뷰모델이 "학습 기록은 안전해요"로 처리).
  */
 class KtorAccountRepository(
     private val client: HttpClient,
@@ -77,15 +78,18 @@ class KtorAccountRepository(
      * 가입·로그인 응답의 비-2xx를 사용자 언어 도메인 예외로 번역한다.
      *  - 409 → [EmailAlreadyInUseException](가입 이메일 중복).
      *  - 401 → [InvalidCredentialsException](로그인 실패, 원인 비구분).
+     *  - 400 → [InvalidInputException](입력 형식 오류, 예: 이메일 형식). 클라 사전 검증을 통과해 서버까지
+     *    간 경우의 폴백이라, 응답 바디의 서버 메시지를 그대로 실어 번역한다(연결 실패로 오인되지 않게).
      * 그 밖의 상태는 시스템 오류로 그대로 전파한다.
      */
-    private inline fun <T> translating(block: () -> T): T =
+    private suspend inline fun <T> translating(block: () -> T): T =
         try {
             block()
         } catch (error: ResponseException) {
             when (error.response.status) {
                 HttpStatusCode.Conflict -> throw EmailAlreadyInUseException()
                 HttpStatusCode.Unauthorized -> throw InvalidCredentialsException()
+                HttpStatusCode.BadRequest -> throw InvalidInputException(error.response.body<ErrorResponseDto>().message)
                 else -> throw error
             }
         }

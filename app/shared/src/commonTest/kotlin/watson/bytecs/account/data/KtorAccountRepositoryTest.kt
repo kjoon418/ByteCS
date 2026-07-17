@@ -11,6 +11,7 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import watson.bytecs.account.EmailAlreadyInUseException
 import watson.bytecs.account.InvalidCredentialsException
+import watson.bytecs.account.InvalidInputException
 import watson.bytecs.account.Role
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -87,6 +88,23 @@ class KtorAccountRepositoryTest {
         val repository = KtorAccountRepository(authedClient("guest-jwt", engine), baseUrl)
 
         assertFailsWith<EmailAlreadyInUseException> { repository.register("a@b.com", "pw12345678") }
+    }
+
+    @Test
+    fun register_maps400_toInvalidInput_withServerMessage() = runTest {
+        // QA #5: 400은 서버 메시지를 그대로 실어 InvalidInputException으로 번역해야 한다
+        // (else 폴백으로 새면 검증 실패가 연결 실패로 오인된다).
+        val engine = MockEngine {
+            respond(
+                content = """{"message":"이메일 형식이 올바르지 않습니다.","errorCode":"INVALID_INPUT"}""",
+                status = HttpStatusCode.BadRequest,
+                headers = jsonHeaders(),
+            )
+        }
+        val repository = KtorAccountRepository(authedClient("guest-jwt", engine), baseUrl)
+
+        val exception = assertFailsWith<InvalidInputException> { repository.register("aaa@aaa", "pw12345678") }
+        assertEquals("이메일 형식이 올바르지 않습니다.", exception.message)
     }
 
     @Test

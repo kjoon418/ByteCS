@@ -112,6 +112,9 @@ class AuthViewModel(
     private fun friendlyMessage(error: Throwable): String = when (error) {
         is EmailAlreadyInUseException -> "이미 사용 중인 이메일이에요. 로그인으로 이어가 볼까요?"
         is InvalidCredentialsException -> "이메일 또는 비밀번호를 다시 확인해 주세요."
+        // 클라 사전 검증을 통과해 서버까지 간 입력 형식 오류. 검증 실패를 연결 실패로 오인하지 않도록
+        // else 폴백(연결 문구) 대신 서버 메시지를 그대로 보여준다.
+        is InvalidInputException -> error.message ?: "입력값을 다시 확인해 주세요."
         else -> "잠시 연결이 원활하지 않았어요. 다시 시도해 주세요."
     }
 }
@@ -136,9 +139,12 @@ data class AuthUiState(
     val isGuestUpgrade: Boolean = false,
     val status: SubmitStatus = SubmitStatus.Idle,
 ) {
-    /** 이메일 형식 최소 검증(공백 아님 + @ 포함). 상세 규칙은 서버가 강제한다(클라이언트는 가벼운 가드만). */
+    /**
+     * 이메일 형식 검증. 서버 도메인 VO(`Email`)와 **같은 정규식**으로 맞춘다.
+     * 느슨하면(예: "aaa@aaa") 클라를 통과한 입력이 서버에서 거절되어, 검증 실패가 연결 실패로 오인된다.
+     */
     val isEmailValid: Boolean
-        get() = email.trim().let { it.isNotEmpty() && it.contains('@') && !it.startsWith('@') && !it.endsWith('@') }
+        get() = EMAIL_PATTERN.matches(email.trim())
 
     /**
      * 비밀번호 최소 검증. 서버 도메인 VO(RawPassword)의 최소 8자 규칙과 **같은 기준**으로 맞춘다.
@@ -153,6 +159,11 @@ data class AuthUiState(
     companion object {
         /** 서버 `watson.bytecs.account.domain.RawPassword.MINIMUM_LENGTH`와 동기화된 값. */
         const val MIN_PASSWORD_LENGTH = 8
+
+        // ⚠️ 동기화 지점: 서버·클라(app 모듈)는 코드 공유가 없어 정규식이 중복된다.
+        // 서버 `Email.kt`의 EMAIL_PATTERN(server/src/main/kotlin/watson/bytecs/account/domain/Email.kt)과
+        // 반드시 동일하게 유지할 것 — 어긋나면 클라 사전 검증을 통과한 입력이 서버에서 거절되거나 그 반대가 된다.
+        private val EMAIL_PATTERN = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     }
 }
 

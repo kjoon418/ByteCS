@@ -68,6 +68,19 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun tldMissingEmail_blocksSubmit() = runTest {
+        // QA #5 회귀: "aaa@aaa"는 @만 있고 TLD가 없어 느슨한 옛 정규식은 통과시켰지만
+        // 서버 Email VO는 거절한다 — 클라가 서버와 같은 정규식으로 사전에 막아야 한다.
+        val viewModel = AuthViewModel(guestSession())
+
+        viewModel.onEmailChange("aaa@aaa")
+        viewModel.onPasswordChange("pw12345678")
+
+        assertFalse(viewModel.uiState.value.isEmailValid, "TLD 없는 이메일은 서버가 거절하므로 무효")
+        assertFalse(viewModel.uiState.value.canSubmit, "TLD 없는 이메일은 제출을 막아야 한다")
+    }
+
+    @Test
     fun validInput_enablesSubmit() = runTest {
         val viewModel = AuthViewModel(guestSession())
         viewModel.fillValid()
@@ -273,6 +286,24 @@ class AuthViewModelTest {
         val status = viewModel.uiState.value.status
         assertTrue(status is SubmitStatus.Failed)
         assertTrue(status.message.contains("이미 사용 중인 이메일"), "중복 이메일은 구체적으로 안내")
+    }
+
+    @Test
+    fun registerInvalidInput_showsServerFormatMessage_notConnectionFallback() = runTest {
+        // QA #5: 강제로 전송된 형식 오류(400)는 else 폴백(연결 실패 문구)이 아니라 서버 메시지로 안내해야 한다.
+        val repository = FakeAccountRepository().apply {
+            registerError = InvalidInputException("이메일 형식이 올바르지 않습니다.")
+        }
+        val manager = SessionManager(repository, SettingsTokenStore(MapSettings()))
+        manager.bootstrap()
+        val viewModel = AuthViewModel(manager, initialMode = AuthMode.Register)
+
+        viewModel.fillValid()
+        viewModel.submit()
+
+        val status = viewModel.uiState.value.status
+        assertTrue(status is SubmitStatus.Failed, "실패는 Failed로")
+        assertEquals("이메일 형식이 올바르지 않습니다.", status.message, "연결 실패 문구가 아니라 서버 메시지를 그대로 보여줘야 한다")
     }
 
     @Test
