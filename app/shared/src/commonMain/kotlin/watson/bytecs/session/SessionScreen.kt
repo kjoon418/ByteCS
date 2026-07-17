@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -175,6 +176,17 @@ internal fun SessionScreenContent(
                     )
                 }
                 Spacer(Modifier.weight(1f))
+                // 콘텐츠 오류 신고(07) — 풀이 중(공개 전)에도 언제든 열려 있다. 신고 화면은 유형만 받으므로
+                //    정답을 유출하지 않는다. 키보드가 올라오면 좁아지는 세로 공간을 아끼려 본문 아래 행에서 탑바로 올린다.
+                if (active != null && active.past == null) {
+                    TextLink(
+                        text = "오류 신고",
+                        onClick = { onReport(active.problem.id) },
+                        color = LocalBcsColors.current.textTertiary,
+                        contentDescription = "이 문제의 콘텐츠 오류 신고",
+                    )
+                    Spacer(Modifier.width(BcsDimens.space4))
+                }
                 // 부담 없는 나가기(경고 모달 없음).
                 // ⭐️ '세션'은 내부 용어다 — 눈으로 보는 사용자가 어디서도 볼 수 없는 단어를 스크린리더
                 //    사용자만 듣게 두지 않는다. 사용자에게 이건 '오늘의 한입'이다.
@@ -353,18 +365,6 @@ private fun ActiveContent(
                 Spacer(Modifier.height(BcsDimens.space4))
                 CodeSnippetBlock(code = snippet)
             }
-        }
-
-        // 콘텐츠 오류 신고(07) — 문제 표시 영역에 눈에 띄지 않는 보조 액션으로 둔다. 풀이 여부와 무관하게 늘 열어 둔다
-        // (콘텐츠 오류는 언제든 알릴 수 있어야 한다). 신고 화면은 유형 선택만 받으므로 정답을 유출하지 않는다.
-        Spacer(Modifier.height(BcsDimens.space3))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            TextLink(
-                text = "오류 신고",
-                onClick = { onReport(state.problem.id) },
-                color = colors.textTertiary,
-                contentDescription = "이 문제의 콘텐츠 오류 신고",
-            )
         }
 
         Spacer(Modifier.height(BcsDimens.space6))
