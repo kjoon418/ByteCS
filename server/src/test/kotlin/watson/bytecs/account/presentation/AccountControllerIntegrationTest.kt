@@ -124,6 +124,18 @@ class AccountControllerIntegrationTest(
     }
 
     @Test
+    fun `잘못된 이메일 형식으로 가입하면 400과 INVALID_INPUT을 반환한다`() {
+        // QA #5: 클라가 오안내(연결 실패)하던 버그의 원인이 된 현재 서버 동작을 사양으로 고정한다.
+        mockMvc.post("/api/auth/register") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"email":"aaa@aaa","password":"$PASSWORD"}"""
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.errorCode") { value("INVALID_INPUT") }
+        }
+    }
+
+    @Test
     fun `올바른 자격 증명으로 로그인하면 토큰을 받는다`() {
         register(EMAIL, PASSWORD)
 
