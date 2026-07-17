@@ -11,6 +11,7 @@ import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
+import watson.bytecs.study.LearningHistory
 import java.time.LocalDate
 import kotlin.random.Random
 
@@ -29,6 +30,8 @@ class SessionCreator(
     private val problemRepository: ProblemRepository,
     private val userRepository: UserRepository,
     private val reviewService: ReviewService,
+    // 푼/배정 문제 풀은 세션 단독이 아니라 세션 ∪ 추가 학습의 합집합을 본다(설계 §1.2).
+    private val learningHistory: LearningHistory,
     // 새 개념 문제를 무작위로 뽑는 데 쓴다. 기본은 Random.Default이고, 테스트에서 시드 고정 Random을 주입해
     // 셔플 결과를 결정적으로 검증한다(운영에선 사용자마다·매일 다른 세션을 위해 매번 새 순서를 뽑는다).
     private val random: Random = Random.Default,
@@ -62,12 +65,13 @@ class SessionCreator(
         val allProblemIds = problemRepository.findAllIdsOrderByIdAsc()
         val poolIds = allProblemIds.toSet()
 
-        // 1) 복습 편입: 도래 개념의 복습 문제(회수된 후보는 건너뜀). 배정 이력은 유도형 예외 판정에 쓴다.
-        val assignedProblemIds = sessionRepository.findAssignedProblemIds(user.id).toSet()
+        // 1) 복습 편입: 도래 개념의 복습 문제(회수된 후보는 건너뜀). 배정 이력은 유도형 예외 판정에 쓴다(세션 ∪ 추가 학습).
+        val assignedProblemIds = learningHistory.findAssignedProblemIds(user.id)
         val reviewProblemIds = reviewService.selectDueReviewProblemIds(user.id, today, assignedProblemIds, poolIds)
 
         // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백. 두 경우 모두 무작위로 셔플한다.
-        val solvedProblemIds = sessionRepository.findSolvedProblemIds(user.id).toSet()
+        //    이미 푼 문제 판단도 세션 ∪ 추가 학습 합집합으로 본다 — 추가 학습에서 푼 문제를 세션이 새 개념으로 다시 내지 않게.
+        val solvedProblemIds = learningHistory.findSolvedProblemIds(user.id)
         val unseenProblemIds = allProblemIds.filter { it !in solvedProblemIds }
         val newConceptCandidates =
             (if (unseenProblemIds.isNotEmpty()) unseenProblemIds else allProblemIds).shuffled(random)

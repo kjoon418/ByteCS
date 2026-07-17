@@ -11,6 +11,7 @@ import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
+import watson.bytecs.study.LearningHistory
 import java.time.LocalDate
 import java.util.Optional
 import kotlin.random.Random
@@ -26,6 +27,7 @@ class SessionCreatorTest {
     private val problemRepository = mock(ProblemRepository::class.java)
     private val userRepository = mock(UserRepository::class.java)
     private val reviewService = mock(ReviewService::class.java)
+    private val learningHistory = mock(LearningHistory::class.java)
 
     private companion object {
         const val USER_ID = 1L
@@ -112,14 +114,16 @@ class SessionCreatorTest {
 
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user))
         given(problemRepository.findAllIdsOrderByIdAsc()).willReturn(all)
-        given(sessionRepository.findAssignedProblemIds(user.id)).willReturn(solved)
-        given(sessionRepository.findSolvedProblemIds(user.id)).willReturn(solved)
+        // 배정·풀이 이력은 세션 ∪ 추가 학습 합집합(LearningHistory)을 본다. 여기선 그 합집합만 stub한다.
+        given(learningHistory.findAssignedProblemIds(user.id)).willReturn(solved.toSet())
+        given(learningHistory.findSolvedProblemIds(user.id)).willReturn(solved.toSet())
         given(reviewService.selectDueReviewProblemIds(user.id, TODAY, solved.toSet(), all.toSet()))
             .willReturn(reviews)
         given(sessionRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(Session::class.java)))
             .willAnswer { it.getArgument(0) }
 
-        val creator = SessionCreator(sessionRepository, problemRepository, userRepository, reviewService, Random(seed))
+        val creator =
+            SessionCreator(sessionRepository, problemRepository, userRepository, reviewService, learningHistory, Random(seed))
         val session = creator.createInNewTransaction(USER_ID, TODAY)
         return session.items.map { it.problemId }
     }
