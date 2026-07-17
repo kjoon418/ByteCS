@@ -1,15 +1,23 @@
 package watson.bytecs.problem.presentation
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import org.assertj.core.api.Assertions.assertThat
 import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.ResultActionsDsl
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import watson.bytecs.account.domain.User
+import watson.bytecs.account.domain.UserRole
+import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Enrichment
@@ -18,13 +26,18 @@ import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ConceptRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
+import watson.bytecs.session.infrastructure.SessionRepository
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class ProblemControllerIntegrationTest(
     @Autowired private val mockMvc: MockMvc,
+    @Autowired private val objectMapper: ObjectMapper,
     @Autowired private val conceptRepository: ConceptRepository,
     @Autowired private val problemRepository: ProblemRepository,
+    @Autowired private val userRepository: UserRepository,
+    @Autowired private val sessionRepository: SessionRepository,
+    @Autowired private val jwtTokenProvider: JwtTokenProvider,
 ) {
 
     private var problemId: Long = 0
@@ -42,6 +55,8 @@ class ProblemControllerIntegrationTest(
 
     @BeforeEach
     fun setUp() {
+        sessionRepository.deleteAll()
+        userRepository.deleteAll()
         problemRepository.deleteAll()
         conceptRepository.deleteAll()
 
@@ -69,6 +84,7 @@ class ProblemControllerIntegrationTest(
 
     @Test
     fun `다음 문제는 개념과 허용답을 노출하지 않는다`() {
+        // 토큰 없이 호출하는 폴백 경로(문제 GET permitAll). 문제가 하나뿐이라 그 문제가 그대로 내려온다.
         mockMvc.get("/api/problems/next")
             .andExpect {
                 status { isOk() }
@@ -82,6 +98,43 @@ class ProblemControllerIntegrationTest(
                 jsonPath("$.explanation") { doesNotExist() }
                 jsonPath("$.enrichment") { doesNotExist() }
             }
+    }
+
+    @Test
+    fun `토큰이 있으면 이미 푼 문제를 제외하고 아직 풀지 않은 문제를 준다`() {
+        val secondId = seedProblem("스택", "정답S")
+        val token = issueGuestToken()
+
+        // 오늘 세션을 시작하고 현재 본 문제를 정답 처리해 '푼 문제'로 만든다(세션 배정 순서는 무작위라 응답에서 읽는다).
+        val current = getToday(token).andReturn()
+        val currentId = objectMapper.readTree(current.response.contentAsByteArray)
+            .get("currentProblem").get("id").asLong()
+        submitSession(token, if (currentId == problemId) "collision" else "정답S")
+
+        // 추가 연습은 방금 푼 문제를 빼므로, 남은 안 푼 문제 하나(결정적)를 준다.
+        val expected = if (currentId == problemId) secondId else problemId
+        mockMvc.get("/api/problems/next") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.id") { value(expected) }
+        }
+    }
+
+    @Test
+    fun `추가 연습을 반복 호출해도 같은 문제만 반복 제공하지 않는다`() {
+        // 안 푼 문제를 여럿 심어두면 호출마다 무작위로 흩어져, 항상 같은 문제만 오지 않는다(QA #7).
+        repeat(6) { i -> seedProblem("개념$i", "정답$i") }
+        val token = issueGuestToken()
+
+        val servedIds = (1..15).map {
+            val result = mockMvc.get("/api/problems/next") {
+                header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            }.andReturn()
+            objectMapper.readTree(result.response.contentAsByteArray).get("id").asLong()
+        }
+
+        assertThat(servedIds.toSet().size).isGreaterThan(1)
     }
 
     @Test
@@ -157,4 +210,36 @@ class ProblemControllerIntegrationTest(
             status { is4xxClientError() }
         }
     }
+
+    private fun seedProblem(conceptName: String, answer: String): Long {
+        val concept = conceptRepository.save(Concept(conceptName))
+        val problem = problemRepository.save(
+            Problem(
+                questionText = "$conceptName 질문",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf(answer),
+                representativeAnswer = answer,
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
+            ),
+        )
+        return problem.id
+    }
+
+    private fun issueGuestToken(): String {
+        val user = userRepository.save(User.createGuest())
+        return jwtTokenProvider.issue(user.id, UserRole.GUEST)
+    }
+
+    private fun getToday(token: String): ResultActionsDsl =
+        mockMvc.get("/api/sessions/today") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }
+
+    private fun submitSession(token: String, answer: String): ResultActionsDsl =
+        mockMvc.post("/api/sessions/today/attempts") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"answer":"$answer"}"""
+        }
 }
