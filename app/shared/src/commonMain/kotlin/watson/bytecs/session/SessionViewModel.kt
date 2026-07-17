@@ -184,12 +184,6 @@ class SessionViewModel(
                 throw cancellation
             } catch (completed: SessionCompletedException) {
                 load()
-            } catch (notAllowed: RevealNotAllowedException) {
-                // UI가 최소 한 번 시도한 뒤에만 공개 버튼을 보이므로 보통 도달하지 않는다.
-                // 도달해도 처벌이 아니므로 조용히 진행 중 표시만 내린다.
-                _uiState.update { state ->
-                    if (state is SessionUiState.Active) state.copy(isRevealing = false) else state
-                }
             } catch (error: Throwable) {
                 _uiState.update { state ->
                     if (state is SessionUiState.Active) state.copy(isRevealing = false, systemError = true) else state
@@ -340,12 +334,11 @@ sealed interface SessionUiState {
         val hasMoreHints: Boolean get() = revealedHints.size < problem.hintCount
 
         /**
-         * '정답 보기'를 제안할 수 있는지 — ⭐️ 최소 한 번 오답(불일치·근접)을 낸 뒤에만(no-leak 안전판).
-         * 이미 공개했거나 정답을 맞힌 상태에선 제안하지 않는다. 서버의 REVEAL_NOT_ALLOWED(오답 전 공개 금지)와 일치.
+         * '정답 보기'를 제안할 수 있는지 — ⭐️ [결정 2026-07-17] 시도 전에도 사용자가 원하면 열 수 있다(선행
+         * 오답 요구 폐지, 무낙인). 이미 공개했거나 정답을 맞힌 상태에서만 제안하지 않는다(불변식 3: 요청 시에만 공개).
          */
         val canReveal: Boolean
-            get() = reveal == null && !solved &&
-                (feedback is SessionFeedback.Mismatch || feedback is SessionFeedback.NearMiss)
+            get() = reveal == null && !solved
     }
 }
 

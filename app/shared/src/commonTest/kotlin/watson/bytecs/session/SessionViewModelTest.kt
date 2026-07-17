@@ -273,17 +273,17 @@ class SessionViewModelTest {
     // ── C2: 정답 공개 게이팅 방향 · 완료 이벤트 1회 · 타입드 예외 처리 ─────────────
 
     @Test
-    fun reveal_notOffered_beforeWrongAttempt_offeredAfter() = runTest {
-        // no-leak 안전판: 오답을 내기 전에는 '정답 보기'를 제안하지 않는다.
+    fun reveal_offered_beforeAndAfterWrongAttempt() = runTest {
+        // [결정 2026-07-17] 시도 전에도 '정답 보기'를 열 수 있다(선행 오답 요구 폐지, 무낙인).
         val repo = FakeSessionRepository().apply { onSubmit = { mismatchOutcome() } }
         val viewModel = SessionViewModel(repo).apply { loadSession() }
 
-        assertFalse(viewModel.active().canReveal, "시도 전에는 정답 보기 제안 안 함")
+        assertTrue(viewModel.active().canReveal, "시도 전에도 정답 보기 제안")
 
         viewModel.onInputChange("틀린답")
         viewModel.submit()
 
-        assertTrue(viewModel.active().canReveal, "오답(불일치·근접) 뒤에만 정답 보기 제안")
+        assertTrue(viewModel.active().canReveal, "오답 뒤에도 여전히 제안")
     }
 
     @Test
@@ -327,19 +327,6 @@ class SessionViewModelTest {
         viewModel.submit()
 
         assertTrue(viewModel.events.first() is SessionEvent.Completed, "완료로 재동기화")
-    }
-
-    @Test
-    fun reveal_notAllowed_isHandledSoftly_notSystemError() = runTest {
-        val repo = FakeSessionRepository().apply { revealError = RevealNotAllowedException() }
-        val viewModel = SessionViewModel(repo).apply { loadSession() }
-
-        viewModel.requestReveal()
-
-        val state = viewModel.active()
-        assertNull(state.reveal)
-        assertFalse(state.isRevealing, "진행 표시는 내려간다")
-        assertFalse(state.systemError, "공개 불가는 시스템 오류로 취급하지 않는다(비처벌)")
     }
 
     // ── 정답 후 재제출 · 서버 위치 재동기화 ─────────────────────────────────

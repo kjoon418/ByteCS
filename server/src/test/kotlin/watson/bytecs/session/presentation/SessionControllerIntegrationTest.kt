@@ -212,17 +212,10 @@ class SessionControllerIntegrationTest(
     }
 
     @Test
-    fun `시도 전에는 정답 공개가 막히고 한 번 틀린 뒤에는 공개된다`() {
+    fun `시도 전에도 정답 공개가 허용되고 공개 후 따라 입력으로 전진한다`() {
         getToday(token)
 
-        // 아직 한 번도 시도하지 않았으므로 공개 불가.
-        reveal(token).andExpect {
-            status { isConflict() }
-            jsonPath("$.errorCode") { value("REVEAL_NOT_ALLOWED") }
-        }
-
-        submit(token, "틀린 답")
-
+        // [결정 2026-07-17] 아직 한 번도 시도하지 않았어도 원하면 공개할 수 있다(선행 오답 요구 폐지).
         reveal(token).andExpect {
             status { isOk() }
             jsonPath("$.concepts[0]") { value("개념1") }

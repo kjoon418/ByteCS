@@ -119,18 +119,15 @@ class Session private constructor(
 
     /**
      * 현재 본 문제의 정답 공개(안전판)를 기록한다.
-     * 안전판은 한 번이라도 비정답을 제출한 뒤에만 열 수 있다(정답을 곧바로 흘리지 않기 위한 게이트).
-     * 공개해도 직접 정답을 입력해야 넘어가므로 진행은 바꾸지 않는다.
+     * [결정 2026-07-17] 사용자가 원하면 시도 전에도 열 수 있다(선행 오답 요구 없음, 무낙인). 공개는 도움/포기
+     * 신호로 기록되므로(기능 3) 시도 전 공개도 동일하게 숙련도에 반영된다.
+     * 공개해도 직접 정답을 입력해야 넘어가므로 진행은 바꾸지 않는다. 이미 완료된 세션에는 공개할 수 없다.
      */
     fun reveal() {
         if (isCompleted) {
             throw SessionAlreadyCompletedException.forReveal()
         }
-        val current = mutableItems[currentPosition]
-        if (current.wrongAttemptCount < MIN_WRONG_ATTEMPTS_TO_REVEAL) {
-            throw RevealNotAllowedException.beforeAnyWrongAttempt()
-        }
-        current.markRevealed()
+        mutableItems[currentPosition].markRevealed()
     }
 
     /**
@@ -164,9 +161,6 @@ class Session private constructor(
     }
 
     companion object {
-        // 정답 공개(안전판)를 열 수 있는 최소 비정답 제출 횟수.
-        private const val MIN_WRONG_ATTEMPTS_TO_REVEAL = 1
-
         /**
          * 배정된 본 문제 식별자 목록으로 새 세션을 만든다(주어진 순서를 그대로 위치 0..n-1로 고정).
          * 빈 배정은 '오늘의 한입'이 성립하지 않으므로 허용하지 않는다(서비스가 폴백으로 항상 비지 않게 보장).

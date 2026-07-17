@@ -129,15 +129,19 @@ class SessionTest {
     inner class 정답을_공개한다 {
 
         @Test
-        fun 비정답_제출_전에는_공개할_수_없다() {
+        fun 시도_전에도_공개할_수_있다() {
+            // [결정 2026-07-17] 선행 오답 요구 폐지 — 시도 전에도 원하면 공개할 수 있다(무낙인).
             val session = sessionOf(10L)
 
-            assertThatThrownBy { session.reveal() }
-                .isInstanceOf(RevealNotAllowedException::class.java)
+            session.reveal()
+
+            assertThat(session.items[0].revealed).isTrue()
+            // 공개해도 진행은 그대로다(직접 정답을 입력해야 넘어간다).
+            assertThat(session.currentPosition).isEqualTo(0)
         }
 
         @Test
-        fun 한_번_이상_틀린_뒤에는_공개할_수_있다() {
+        fun 한_번_이상_틀린_뒤에도_공개할_수_있다() {
             val session = sessionOf(10L)
             session.recordAttempt(Judgement.MISMATCH, AnswerText("틀림"))
 

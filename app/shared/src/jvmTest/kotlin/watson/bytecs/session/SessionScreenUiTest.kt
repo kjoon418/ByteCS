@@ -181,11 +181,11 @@ class SessionScreenUiTest {
         onNodeWithText("포기", substring = true).assertDoesNotExist()
     }
 
-    /** [정답 보기]는 최소 한 번 시도한 뒤에만 — 시도 전에 내밀면 스스로 떠올릴 기회를 뺏는다. */
+    /** [결정 2026-07-17] [정답 보기]는 시도 전에도 열 수 있다(무낙인·사용자 주도 — 선행 오답 요구 폐지). */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 정답_보기는_시도_전에는_제안하지_않는다() = runScreen(active(inputText = "해싱")) {
-        onNodeWithText("정답 보기").assertDoesNotExist()
+    fun 정답_보기는_시도_전에도_제안된다() = runScreen(active(inputText = "해싱")) {
+        onNodeWithText("정답 보기").assertIsDisplayed()
     }
 
     // ── 공개 후 흐름: 모범답안 → 따라 입력 ───────────────────────────────

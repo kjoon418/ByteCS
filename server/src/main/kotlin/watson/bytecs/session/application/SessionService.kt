@@ -120,7 +120,7 @@ class SessionService(
     @Transactional
     fun reveal(userId: Long): RevealResponse {
         val session = loadTodayOrThrow(userId)
-        session.reveal() // 완료·시도 전 공개는 도메인이 막는다.
+        session.reveal() // 완료 세션 공개는 도메인이 막는다(시도 전 공개는 2026-07-17부터 허용).
 
         val problemId = requireNotNull(session.currentItemProblemId()) {
             "정답 공개가 성공했다면 현재 본 문제가 존재해야 한다."

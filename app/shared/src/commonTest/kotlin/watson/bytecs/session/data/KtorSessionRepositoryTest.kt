@@ -15,7 +15,6 @@ import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.EnrichmentItem
 import watson.bytecs.problem.JudgeResult
 import watson.bytecs.session.ItemNotViewableException
-import watson.bytecs.session.RevealNotAllowedException
 import watson.bytecs.session.SessionCompletedException
 import watson.bytecs.session.SessionStatus
 import kotlin.test.Test
@@ -171,19 +170,6 @@ class KtorSessionRepositoryTest {
         assertEquals("스택 (stack)", reveal.representativeAnswer)
         // 정답 공개도 정답 접근 허용 맥락이라 '더 알아보기' 구조체가 포함된다(항목·인용 없는 부분 구조).
         assertEquals(Enrichment(title = "스택의 쓰임", body = "스택은 함수 호출 스택에도 쓰여요."), reveal.enrichment)
-    }
-
-    @Test
-    fun reveal_notAllowed_mapsToRevealNotAllowedException() = runTest {
-        val engine = MockEngine {
-            respond(
-                content = """{"message":"아직","errorCode":"REVEAL_NOT_ALLOWED"}""",
-                status = HttpStatusCode.Conflict,
-                headers = jsonHeaders(),
-            )
-        }
-        val repo = KtorSessionRepository(client("t", engine), baseUrl)
-        assertFailsWith<RevealNotAllowedException> { repo.reveal() }
     }
 
     @Test

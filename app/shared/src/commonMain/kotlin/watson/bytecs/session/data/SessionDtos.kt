@@ -125,7 +125,7 @@ internal data class SessionAttemptRequestDto(
 
 /**
  * 서버 공통 오류 본문(`{message, errorCode}`). 세션 예외를 상태 코드가 아니라 [errorCode]로 구별한다
- * — ITEM_NOT_VIEWABLE(403)과 SESSION_ALREADY_COMPLETED·REVEAL_NOT_ALLOWED(409)가 상태만으로는 안 갈리기 때문.
+ * — ITEM_NOT_VIEWABLE(403)과 SESSION_ALREADY_COMPLETED(409)가 상태만으로는 안 갈리기 때문.
  */
 @Serializable
 internal data class ErrorBodyDto(

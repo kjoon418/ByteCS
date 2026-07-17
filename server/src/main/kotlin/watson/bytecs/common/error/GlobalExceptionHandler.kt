@@ -18,7 +18,6 @@ import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.scrap.domain.ScrapNotFoundException
 import watson.bytecs.session.domain.ItemNotViewableException
-import watson.bytecs.session.domain.RevealNotAllowedException
 import watson.bytecs.session.domain.SessionAlreadyCompletedException
 import watson.bytecs.session.domain.SessionNotFoundException
 
@@ -100,14 +99,6 @@ class GlobalExceptionHandler {
         log.warn("[Conflict] {}", exception.message)
 
         val response = ErrorResponse(exception.message ?: "이미 완료된 세션입니다.", exception.errorCode)
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
-    }
-
-    @ExceptionHandler(RevealNotAllowedException::class)
-    fun handleRevealNotAllowed(exception: RevealNotAllowedException): ResponseEntity<ErrorResponse> {
-        log.warn("[Conflict] {}", exception.message)
-
-        val response = ErrorResponse(exception.message ?: "아직 정답을 공개할 수 없습니다.", exception.errorCode)
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
     }
 

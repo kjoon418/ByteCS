@@ -147,14 +147,11 @@ data class Streak(
 )
 
 // ── 타입드 예외 ─────────────────────────────────────────────────────────────
-// 서버는 세션 예외를 HTTP 상태 + 본문 errorCode로 알린다(SESSION_ALREADY_COMPLETED·REVEAL_NOT_ALLOWED=409,
-// ITEM_NOT_VIEWABLE=403). 저장소가 이를 도메인 예외로 번역해, 뷰모델이 시스템 오류와 구분해 친절히 처리한다.
+// 서버는 세션 예외를 HTTP 상태 + 본문 errorCode로 알린다(SESSION_ALREADY_COMPLETED=409, ITEM_NOT_VIEWABLE=403).
+// 저장소가 이를 도메인 예외로 번역해, 뷰모델이 시스템 오류와 구분해 친절히 처리한다.
 
 /** 이미 완료된 세션에 제출·공개를 시도(서버 SESSION_ALREADY_COMPLETED). */
 class SessionCompletedException : Exception("오늘 몫을 이미 마쳤어요")
-
-/** 아직 오답을 내지 않아 정답 공개를 열 수 없음(서버 REVEAL_NOT_ALLOWED). */
-class RevealNotAllowedException : Exception("아직 정답을 확인할 수 없어요")
 
 /** 아직 도달하지 않은(또는 없는) 칸을 열람 시도(서버 ITEM_NOT_VIEWABLE). */
 class ItemNotViewableException : Exception("아직 볼 수 없는 문제예요")

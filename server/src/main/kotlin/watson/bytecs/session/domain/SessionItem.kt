@@ -6,7 +6,7 @@ import jakarta.persistence.Embeddable
 /**
  * 세션에 배정된 본 문제 한 칸. [Session] 애그리거트에 값으로 소속된다(@Embeddable).
  * 공용 콘텐츠(Problem)와는 식별자(problemId)로만 느슨하게 연결해, 학습 상태(사용자 소유)와 콘텐츠(공용)를 분리한다.
- * 오답 횟수(wrongAttemptCount)는 정답 공개(안전판)를 열 수 있는지의 근거이자, 복습 신호(기능 3)의 씨앗이다.
+ * 오답 횟수(wrongAttemptCount)는 복습 신호(기능 3)의 씨앗으로 누적한다.
  * 상태는 [Session] 애그리거트가 주도해서 바꾸도록, 세터를 protected로 막고 변경 메서드만 노출한다.
  */
 @Embeddable
@@ -30,7 +30,7 @@ class SessionItem(
     var revealed: Boolean = false
         protected set
 
-    // 이 칸에서 누적한 비정답(불일치·근접) 제출 횟수. 1 이상이어야 정답 공개(안전판)를 열 수 있다.
+    // 이 칸에서 누적한 비정답(불일치·근접) 제출 횟수. 복습 신호(기능 3)의 씨앗으로만 쓴다.
     @Column(name = "wrong_attempt_count", nullable = false)
     var wrongAttemptCount: Int = 0
         protected set

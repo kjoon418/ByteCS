@@ -17,7 +17,6 @@ import watson.bytecs.session.HintReveal
 import watson.bytecs.session.ItemNotViewableException
 import watson.bytecs.session.PastItem
 import watson.bytecs.session.Reveal
-import watson.bytecs.session.RevealNotAllowedException
 import watson.bytecs.session.SessionCompletedException
 import watson.bytecs.session.SessionRepository
 
@@ -75,7 +74,6 @@ class KtorSessionRepository(
         } catch (error: ResponseException) {
             when (errorCodeOf(error)) {
                 "SESSION_ALREADY_COMPLETED" -> throw SessionCompletedException()
-                "REVEAL_NOT_ALLOWED" -> throw RevealNotAllowedException()
                 "ITEM_NOT_VIEWABLE" -> throw ItemNotViewableException()
                 else -> throw error
             }
