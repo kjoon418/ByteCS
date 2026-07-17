@@ -60,10 +60,10 @@ import watson.bytecs.ui.components.ErrorBanner
 import watson.bytecs.ui.components.GhostButton
 import watson.bytecs.ui.components.HintStepper
 import watson.bytecs.ui.components.MisconceptionHintCard
-import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.RevealAnswerButton
+import watson.bytecs.ui.components.RevealedAnswerField
 import watson.bytecs.ui.components.ScrapToggle
 import watson.bytecs.ui.components.SessionProgress
 import watson.bytecs.ui.components.TextLink
@@ -375,7 +375,7 @@ private fun ActiveContent(
         //    낭독은 그대로 유지된다(§7).
         Column(
             modifier = Modifier
-                .then(if (state.solved) Modifier.alpha(0.6f) else Modifier)
+                .then(if (state.solved || state.reveal != null) Modifier.alpha(0.6f) else Modifier)
                 .clip(RoundedCornerShape(BcsDimens.radiusCard))
                 .background(problemTint)
                 .padding(BcsDimens.space3),
@@ -470,21 +470,11 @@ private fun ActiveContent(
                 }
             }
         } else {
-            // ⭐️ 공개 후에는 모범답안이 **입력칸 위**에 온다 — "위 정답을 따라 적어 보세요"가 성립하려면
-            //    답이 먼저 보여야 하고, 따라 입력은 그걸 보고 하는 행동이기 때문이다(시안 F-2 순서).
-            ModelAnswerBlock(
-                representativeAnswer = reveal.representativeAnswer,
-                explanation = reveal.explanation,
-            )
-            // 개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9). 여러 개면 칩이 늘어난다(태깅 순).
-            Spacer(Modifier.height(BcsDimens.space3))
-            ConceptChips(reveal.concepts)
-
-            // '더 알아보기'(§5.7) — 정답 공개도 정답 접근이 허용된 맥락이라 노출한다. 다음 행동(따라 입력) 위.
-            Spacer(Modifier.height(BcsDimens.space3))
-            EnrichmentBlock(enrichment = reveal.enrichment)
-
-            Spacer(Modifier.height(BcsDimens.space5))
+            // ⭐️ [2026-07-17 QA #4] 공개 레이아웃을 정답 시 배치와 통일한다 — 입력칸 자리에 정답 표시 필드를
+            //    두고 **바로 아래**에 따라 입력 칸을 붙여, 입력 요소가 원래 자리 근처에 남게 한다(입력창이
+            //    사라졌다는 착각 방지). "이 정답을 따라 적어 보세요"가 성립하려면 답이 위에 먼저 보여야 한다.
+            RevealedAnswerField(representativeAnswer = reveal.representativeAnswer)
+            Spacer(Modifier.height(BcsDimens.space4))
             TypeAlongField(
                 value = state.inputText,
                 onValueChange = onInputChange,
@@ -496,6 +486,18 @@ private fun ActiveContent(
                 Spacer(Modifier.height(BcsDimens.space4))
                 FeedbackCard(feedback, problemId = state.problem.id)
             }
+
+            // 해설·개념·심화는 정답 시(FeedbackCard Correct)와 같은 flat 순서로 그 아래에 둔다.
+            //    개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9). 여러 개면 칩이 늘어난다(태깅 순).
+            Spacer(Modifier.height(BcsDimens.space4))
+            ConceptChips(reveal.concepts)
+            reveal.explanation?.let {
+                Spacer(Modifier.height(BcsDimens.space3))
+                Text(text = it, style = MaterialTheme.typography.bodyMedium, color = colors.textBody)
+            }
+            // '더 알아보기'(§5.7) — 정답 공개도 정답 접근이 허용된 맥락이라 노출한다.
+            Spacer(Modifier.height(BcsDimens.space3))
+            EnrichmentBlock(enrichment = reveal.enrichment)
         }
 
         // 시스템 오류(전송 실패) — 오답과 구분(§5.12), 안심 문구 우선 + 재시도 경로.

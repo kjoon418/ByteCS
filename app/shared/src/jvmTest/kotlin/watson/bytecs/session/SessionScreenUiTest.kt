@@ -188,16 +188,16 @@ class SessionScreenUiTest {
         onNodeWithText("정답 보기").assertIsDisplayed()
     }
 
-    // ── 공개 후 흐름: 모범답안 → 따라 입력 ───────────────────────────────
+    // ── 공개 후 흐름: 정답 표시 필드 → 따라 입력 ───────────────────────────────
 
     /**
-     * ⭐️ 공개 후 흐름은 모범답안 → 따라 입력이다. 따라 입력은 이 서비스가 진행을 요구하는 유일한 지점이고,
-     * 톤은 '벌'이 아니라 '손으로 써 보며 익히기'다.
+     * ⭐️ [2026-07-17 QA #4] 공개 후 흐름은 정답 표시 필드 → 따라 입력이다(정답 시 배치와 통일). 따라 입력은
+     * 이 서비스가 진행을 요구하는 유일한 지점이고, 톤은 '벌'이 아니라 '손으로 써 보며 익히기'다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 공개_후에는_모범답안과_따라_입력_안내가_함께_나온다() = runScreen(active(reveal = revealOf())) {
-        onNodeWithText("모범답안").assertIsDisplayed()
+    fun 공개_후에는_정답_표시_필드와_따라_입력_안내가_함께_나온다() = runScreen(active(reveal = revealOf())) {
+        onNodeWithText("이 정답을 따라 적어 보세요").assertIsDisplayed()
         // [2026-07-16] 허용답 나열이 아니라 화면 표시용 대표 정답 하나만 보인다.
         onNodeWithText(representativeAnswer).assertIsDisplayed()
         // 따라 입력(공용 TypeAlongField)의 학습 톤 문구.
@@ -206,18 +206,18 @@ class SessionScreenUiTest {
     }
 
     /**
-     * ⭐️ 모범답안은 따라 입력 칸보다 **위**에 있어야 한다 — 안내가 "**위** 정답을 따라 적어 보세요"이고,
+     * ⭐️ 정답 표시 필드는 따라 입력 칸보다 **위**에 있어야 한다 — 안내가 "이 정답을 따라 적어 보세요"이고,
      * 따라 입력은 답을 보고 하는 행동이라 순서가 곧 의미다(칸이 먼저 오면 보고 적을 것이 없다).
-     * 존재 단언만으로는 순서가 뒤집혀도 통과하므로 좌표로 못박는다.
+     * 존재 단언만으로는 순서가 뒤집혀도 통과하므로 좌표로 못박는다(불변식 19 배치 유지).
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 모범답안은_따라_입력_칸보다_위에_있다() = runScreen(active(reveal = revealOf())) {
-        val modelAnswerBottom = onNodeWithText("모범답안").getBoundsInRoot().bottom
+        val modelAnswerBottom = onNodeWithText("이 정답을 따라 적어 보세요").getBoundsInRoot().bottom
         val typeAlongTop = onNodeWithText("정답을 따라 적어 볼까요?").getBoundsInRoot().top
         assertTrue(
             modelAnswerBottom < typeAlongTop,
-            "모범답안($modelAnswerBottom)이 따라 입력 안내($typeAlongTop)보다 위에 있어야 한다",
+            "정답 표시 필드($modelAnswerBottom)가 따라 입력 안내($typeAlongTop)보다 위에 있어야 한다",
         )
     }
 
@@ -229,7 +229,7 @@ class SessionScreenUiTest {
      * 여기서 긍정 방향을 맡는다.
      *
      * 개념 문자열을 exact match로 찾는다: [ConceptChip]은 `Text(concept)` 하나를 그리므로 "해시 충돌"에
-     * 정확히 걸리고, 같은 화면 [ModelAnswerBlock]의 "해시 충돌  ·  충돌"과는 겹치지 않는다.
+     * 정확히 걸리고, 같은 화면 [RevealedAnswerField]의 "해시 충돌 (collision)"과는 겹치지 않는다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test

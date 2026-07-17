@@ -285,6 +285,49 @@ fun ModelAnswerBlock(
 }
 
 /**
+ * §5.7 파생 — 정답 공개 시 **입력창 자리**에 놓이는 정답 표시 필드([2026-07-17] QA #4).
+ *
+ * [ConfirmedAnswerField](정답 시)와 같은 골격이되 축하(success)가 아니라 info 톤이다: 공개는 낙인이 아니고,
+ * 이 필드 바로 아래의 [TypeAlongField]로 따라 적어 손으로 익히게 하는 안내다. 축하 문구·XP 등 게이미피케이션은
+ * 없다. 공개 레이아웃을 정답 시 배치와 통일해, 입력 요소가 원래 자리 근처에 남게 한다(입력창이 사라졌다는 착각 방지).
+ */
+@Composable
+fun RevealedAnswerField(
+    representativeAnswer: String,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalBcsColors.current
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+    ) {
+        Text(
+            text = "이 정답을 따라 적어 보세요",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.textLabel,
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = BcsDimens.inputHeight)
+                .clip(RoundedCornerShape(BcsDimens.radiusCard))
+                .background(colors.infoContainer)
+                .border(BcsDimens.borderWidth, colors.primaryBorder, RoundedCornerShape(BcsDimens.radiusCard))
+                .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space2)
+                .semantics { contentDescription = "$representativeAnswer, 공개된 정답이에요" },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = representativeAnswer,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onInfoContainer,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/**
  * §5.7 TypeAlongField — 정답 공개 후 모범답안을 직접 따라 입력하는 칸.
  *
  * 이 서비스가 진행을 요구하는 **유일한** 지점이다. 톤은 '벌'이 아니라 '손으로 써 보며 익히기'.
