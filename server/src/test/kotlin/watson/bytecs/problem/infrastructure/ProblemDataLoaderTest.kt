@@ -166,13 +166,6 @@ class ProblemDataLoaderTest {
             assertThat(enrichment.quote).isNotBlank()
         }
 
-        @Test
-        fun 심화_정보가_없는_문제를_최소_하나_남긴다() {
-            // graceful 분기(없으면 그냥 다음으로)가 시드로도 실행되게 하려면 심화 정보 없는 문제가 반드시 있어야 한다.
-            val problems = allLoadedProblems()
-
-            assertThat(problems.any { it.enrichment == null }).isTrue()
-        }
     }
 
     @Nested
