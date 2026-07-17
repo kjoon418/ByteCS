@@ -327,13 +327,13 @@ class SessionScreenUiTest {
 
     // ── 하단 CTA ─────────────────────────────────────────────────────────
 
-    /** 화면의 Primary는 '정답 확인하기' 하나. 빈 입력으로는 제출되지 않는다. */
+    /** 화면의 Primary는 '제출하기' 하나. 빈 입력으로는 제출되지 않는다. */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 빈_입력으로는_제출되지_않는다() {
         var submitted = 0
         runScreen(active(inputText = ""), onSubmit = { submitted++ }) {
-            onNodeWithText("정답 확인하기").performClick()
+            onNodeWithText("제출하기").performClick()
         }
         assertEquals(0, submitted)
     }
@@ -519,7 +519,7 @@ class SessionScreenUiTest {
     fun 지난_문제를_보는_동안에는_제출_CTA가_없다() = runScreen(
         active(position = 2, past = PastView.Loading),
     ) {
-        onNodeWithText("정답 확인하기").assertDoesNotExist()
+        onNodeWithText("제출하기").assertDoesNotExist()
     }
 
     // ── 힌트(pull) 진입점 ─────────────────────────────────────────────────

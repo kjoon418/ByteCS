@@ -199,7 +199,7 @@ internal fun SessionScreenContent(
                         text = when {
                             active.isLastProblem -> "한입 마치기"
                             active.solved -> "다음 문제"
-                            else -> "정답 확인하기"
+                            else -> "제출하기"
                         },
                         onClick = when {
                             active.isLastProblem -> onFinish
