@@ -36,11 +36,11 @@ import watson.bytecs.account.data.KtorAccountRepository
 import watson.bytecs.account.data.TokenStore
 import watson.bytecs.account.data.createAuthenticatedHttpClient
 import watson.bytecs.account.data.createTokenStore
-import watson.bytecs.problem.ProblemRepository
-import watson.bytecs.problem.ProblemScreen
-import watson.bytecs.problem.ProblemViewModel
+import watson.bytecs.extrastudy.ExtraStudyRepository
+import watson.bytecs.extrastudy.ExtraStudyScreen
+import watson.bytecs.extrastudy.ExtraStudyViewModel
 import io.ktor.http.Url
-import watson.bytecs.problem.data.KtorProblemRepository
+import watson.bytecs.extrastudy.data.KtorExtraStudyRepository
 import watson.bytecs.problem.data.platformApiBaseUrl
 import watson.bytecs.session.CompletionSummary
 import watson.bytecs.session.HomeScreen
@@ -178,7 +178,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
             HomeScreen(
                 viewModel = viewModel,
                 onStartOrContinue = { navigate(Screen.Session) },
-                onExtraPractice = { navigate(Screen.Problem) },
+                onExtraPractice = { navigate(Screen.ExtraStudy) },
                 onOpenAccount = { navigate(Screen.Account) },
                 onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
                 onOpenScrapList = { navigate(Screen.ScrapList) },
@@ -204,16 +204,17 @@ private fun AppNavHost(dependencies: AppDependencies) {
             SessionCompleteScreen(
                 summary = screen.summary,
                 onDone = { back() },
-                onMore = { navigate(Screen.Problem) },
+                onMore = { navigate(Screen.ExtraStudy) },
             )
         }
 
-        Screen.Problem -> {
-            val viewModel = viewModel { ProblemViewModel(dependencies.problemRepository) }
-            ProblemScreen(
+        Screen.ExtraStudy -> {
+            val viewModel = viewModel { ExtraStudyViewModel(dependencies.extraStudyRepository) }
+            ExtraStudyScreen(
                 viewModel = viewModel,
-                onOpenAccount = { navigate(Screen.Account) },
                 onBack = { back() },
+                onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                scrapRepository = dependencies.scrapRepository,
             )
         }
 
@@ -372,8 +373,8 @@ sealed interface Screen {
     /** 03 세션 풀이. */
     data object Session : Screen
 
-    /** 추가 연습(세션 밖 standalone 문제 풀이). */
-    data object Problem : Screen
+    /** 추가 학습('조금 더 풀기') — 세션 밖 자유 풀이(목표 분량·완결 없음, 한 번에 한 문제). */
+    data object ExtraStudy : Screen
 
     data object Account : Screen
 
@@ -398,7 +399,7 @@ sealed interface Screen {
  * 프리뷰·테스트는 Fake 저장소로 직접 구성할 수 있다.
  */
 class AppDependencies(
-    val problemRepository: ProblemRepository,
+    val extraStudyRepository: ExtraStudyRepository,
     val accountRepository: AccountRepository,
     val sessionRepository: SessionRepository,
     val contentReportRepository: ContentReportRepository,
@@ -426,14 +427,14 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
         tokenProvider = { tokenStore.get() },
         apiHost = Url(platformApiBaseUrl()).host,
     )
-    val problemRepository = KtorProblemRepository(client)
+    val extraStudyRepository = KtorExtraStudyRepository(client)
     val accountRepository = KtorAccountRepository(client)
     val sessionRepository = KtorSessionRepository(client)
     val contentReportRepository = KtorContentReportRepository(client)
     val scrapRepository = KtorScrapRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
-        problemRepository = problemRepository,
+        extraStudyRepository = extraStudyRepository,
         accountRepository = accountRepository,
         sessionRepository = sessionRepository,
         contentReportRepository = contentReportRepository,
