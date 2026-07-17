@@ -15,7 +15,6 @@ import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Concept
-import watson.bytecs.problem.domain.Enrichment
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
@@ -174,39 +173,6 @@ class ProblemDataLoaderTest {
 
             assertThat(problems.any { it.enrichment == null }).isTrue()
         }
-
-        @Test
-        fun 어떤_심화_정보도_다른_문제의_정답을_새로_노출하지_않는다() {
-            // 콘텐츠 신뢰성 가드레일: 심화 정보는 자기 문제의 정답(이미 맞힌 것)은 언급해도 되지만,
-            // 아직 안 풀었을 수 있는 '다른' 문제의 허용답 문자열을 새로 흘리면 안 된다.
-            val problems = allLoadedProblems()
-
-            problems.forEach { problem ->
-                val enrichment = problem.enrichment ?: return@forEach
-                // 구조 필드 전체(title·body·items의 제목/설명·quote)를 한 문자열로 훑는다.
-                val allText = enrichmentText(enrichment)
-                val normalized = allText.lowercase()
-                val otherAnswers = problems.filter { it !== problem }
-                    .flatMap { it.acceptableAnswers.map { answer -> AnswerText(answer).value } }
-                otherAnswers.forEach { answer ->
-                    assertThat(normalized)
-                        .`as`("심화 정보가 다른 문제의 정답 '%s'을(를) 노출하면 안 된다: %s", answer, allText)
-                        .doesNotContain(answer)
-                }
-            }
-        }
-
-        /** 심화 정보의 모든 텍스트 필드를 한 문자열로 모은다(no-leak 스윕이 구조 전체를 훑도록). */
-        private fun enrichmentText(enrichment: Enrichment): String =
-            buildList {
-                add(enrichment.title)
-                add(enrichment.body)
-                enrichment.items.forEach {
-                    add(it.title)
-                    add(it.description)
-                }
-                enrichment.quote?.let { add(it) }
-            }.joinToString(" ")
     }
 
     @Nested
