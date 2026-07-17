@@ -604,30 +604,31 @@ class SessionScreenUiTest {
         assertEquals(listOf(1L), reported)
     }
 
-    // ── 스크랩 토글: 정답 접근 맥락에만 노출 ──────────────────────────────────
+    // ── 스크랩 토글: 난이도 행에 상시 노출(풀이 중에도 허용) ──────────────────────
 
     /**
-     * ⭐️⭐️ 핵심 가드레일: **미해결 문제를 푸는 중에는 스크랩 토글이 없다.** 스크랩은 재열람으로 이어지고
-     * 재열람은 모범답안을 공개하므로, 아직 못 푼 문제에 스크랩을 열어 두면 정답 유출 경로가 된다.
-     * (게이트 `solved || reveal != null`의 '둘 다 아님' 절반 — 아래 두 노출 테스트가 나머지 절반을 맡는다.)
+     * ⭐️ 스크랩은 개인 북마크일 뿐 모범답안을 노출하지 않으므로(도메인 §5) 미해결 풀이 중에도 열려 있다.
+     * 재열람이 정답을 공개하더라도 그것은 재열람 화면의 가드레일이지, 북마크 시점을 제한할 근거가 아니다.
+     * (풀이 중에도 스크랩 가능 — 아래 no-leak 단언이 정답 비노출은 여전히 지킨다.)
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 미해결_풀이_중에는_스크랩_토글이_노출되지_않는다() = runScreen(
+    fun 미해결_풀이_중에도_스크랩_토글이_노출된다() = runScreen(
         active(inputText = "해싱", feedback = SessionFeedback.Mismatch()),
     ) {
-        onNodeWithContentDescription("스크랩").assertDoesNotExist()
-        onNodeWithContentDescription("스크랩 해제").assertDoesNotExist()
+        onNodeWithContentDescription("스크랩").assertIsDisplayed()
+        // 스크랩을 열어 둬도 정답은 여전히 새지 않는다(북마크는 정답을 담지 않는다).
+        onNodeWithText(answer, substring = true).assertDoesNotExist()
     }
 
-    /** 시도조차 안 한(피드백 없는) 상태에서도 당연히 토글이 없다 — 오답 넛지 유무와 무관하게 게이트가 닫혀 있다. */
+    /** 시도조차 안 한(피드백 없는) 상태에서도 난이도 행에 스크랩 토글이 함께 보인다. */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 첫_시도_전에는_스크랩_토글이_노출되지_않는다() = runScreen(active()) {
-        onNodeWithContentDescription("스크랩").assertDoesNotExist()
+    fun 첫_시도_전에도_스크랩_토글이_노출된다() = runScreen(active()) {
+        onNodeWithContentDescription("스크랩").assertIsDisplayed()
     }
 
-    /** 정답을 맞히면(정답 접근 가능) 스크랩 토글이 나온다 — 게이트의 solved 절반. */
+    /** 정답을 맞힌 뒤에도 스크랩 토글이 그대로 보인다. */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 정답을_맞히면_스크랩_토글이_노출된다() = runScreen(

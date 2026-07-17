@@ -354,10 +354,28 @@ private fun ActiveContent(
         //    아니므로 시각적으로 한 발 물러난다. opacity만 낮출 뿐 트리에서 지우지 않으므로 스크린리더
         //    낭독은 그대로 유지된다(§7).
         Column(modifier = if (state.solved) Modifier.alpha(0.6f) else Modifier) {
-            difficultyLabel(state.problem.difficulty)?.let { label ->
-                DifficultyIndicator(label)
-                Spacer(Modifier.height(BcsDimens.space2))
+            // 난이도(왼쪽)와 '다시 볼래요' 스크랩(오른쪽)을 한 행에 둔다. ⭐️ 스크랩은 개인 북마크일 뿐
+            //    모범답안을 노출하지 않으므로(도메인 §5) 풀이 중에도 열어 둔다 — 정답 접근 게이트와 무관하다.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                difficultyLabel(state.problem.difficulty)?.let { label ->
+                    DifficultyIndicator(label)
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = "다시 볼래요",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.textSecondary,
+                )
+                Spacer(Modifier.width(BcsDimens.space2))
+                ScrapToggle(
+                    scrapped = state.problem.id in scrappedProblemIds,
+                    onToggle = { onToggleScrap(state.problem.id) },
+                )
             }
+            Spacer(Modifier.height(BcsDimens.space2))
 
             Text(text = state.problem.question, style = BcsType.question, color = colors.textPrimary)
 
@@ -451,27 +469,6 @@ private fun ActiveContent(
             state.feedback?.let { feedback ->
                 Spacer(Modifier.height(BcsDimens.space4))
                 FeedbackCard(feedback, problemId = state.problem.id)
-            }
-        }
-
-        // ⭐️ 스크랩 토글은 정답 접근이 이미 가능해진 뒤에만 — 정답을 맞혔거나(solved) 정답을 공개한(reveal) 맥락.
-        //    미해결 풀이 중에는 노출하지 않는다(모범답안 유출 경로 차단). 이 게이트가 이 화면의 핵심 가드레일이다.
-        if (state.solved || state.reveal != null) {
-            Spacer(Modifier.height(BcsDimens.space4))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2, Alignment.End),
-            ) {
-                Text(
-                    text = "다시 볼래요",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.textSecondary,
-                )
-                ScrapToggle(
-                    scrapped = state.problem.id in scrappedProblemIds,
-                    onToggle = { onToggleScrap(state.problem.id) },
-                )
             }
         }
 
