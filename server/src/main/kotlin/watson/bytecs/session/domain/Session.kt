@@ -96,7 +96,7 @@ class Session private constructor(
      *  - 그 외(불일치·근접): 오답 횟수만 올리고 전진하지 않는다(무낙인·정답 직접 입력 원칙).
      * [misconceptionShown]이 참이면(이 비정답에 오답 교정 힌트가 실렸으면) 그 사실을 칸에 마킹한다 —
      * 숙련도 산정(기능 3)이 '오답 교정 힌트 없이 맞힘'(무도움)을 판별할 근거다.
-     * 이미 완료된 세션에는 더 제출할 수 없다(추가 연습은 별도 무상태 API 소관).
+     * 이미 완료된 세션에는 더 제출할 수 없다(추가 학습은 별도 무상태 API 소관).
      */
     fun recordAttempt(judgement: Judgement, answer: AnswerText, misconceptionShown: Boolean = false) {
         if (isCompleted) {

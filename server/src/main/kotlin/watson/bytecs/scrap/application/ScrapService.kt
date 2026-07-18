@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
@@ -33,14 +34,15 @@ class ScrapService(
 ) {
 
     /**
-     * 문제를 스크랩한다(멱등). 이미 스크랩했으면 아무것도 하지 않는다. 없는 문제는 스크랩할 수 없다(404).
+     * 문제를 스크랩한다(멱등). 이미 스크랩했으면 아무것도 하지 않는다.
+     * 없거나 미승인(초안·검수중·반려·회수)인 문제는 스크랩할 수 없다(404 — 서빙 게이트, 수용 기준 15).
      * 스테이트리스 JWT는 계정 삭제 후에도 유효하므로, 삭제된 사용자의 토큰이 이 경로로 고아 스크랩 행을 만들지 않도록
      * 저장 전에 사용자 존재를 확인한다(없으면 404 UserNotFound).
      */
     @Transactional
     fun scrap(userId: Long, problemId: Long) {
         requireUserExists(userId)
-        if (!problemRepository.existsById(problemId)) {
+        if (!problemRepository.existsByIdAndApprovalStatus(problemId, ApprovalStatus.APPROVED)) {
             throw ProblemNotFoundException.byId(problemId)
         }
         if (scrapRepository.existsByUserIdAndProblemId(userId, problemId)) {
@@ -61,13 +63,15 @@ class ScrapService(
     }
 
     /**
-     * 본인 스크랩 목록을 최신순으로 돌려준다(사용자 격리). 회수·삭제된 문제는 question이 null로 나온다.
+     * 본인 스크랩 목록을 최신순으로 돌려준다(사용자 격리). 회수·삭제된 문제는 question이 null로 나온다
+     * (서빙 게이트 — 미승인 문제는 findAllById로 걸려도 map에서 걸러 노출하지 않는다).
      * 삭제된 사용자의 토큰은 빈 목록(200)이 아니라 404여야 한다(사용자 존재를 먼저 확인).
      */
     fun list(userId: Long): List<ScrapSummaryResponse> {
         requireUserExists(userId)
         val scraps = scrapRepository.findByUserIdOrderByCreatedAtDesc(userId)
         val problemsById = problemRepository.findAllById(scraps.map { it.problemId })
+            .filter { it.approvalStatus == ApprovalStatus.APPROVED }
             .associateBy(Problem::id)
         return scraps.map { responseMapper.toSummaryResponse(it, problemsById[it.problemId]) }
     }
@@ -75,14 +79,15 @@ class ScrapService(
     /**
      * 스크랩한 문제를 읽기 전용으로 재열람한다(문제·모범답안·해설).
      * 본인이 스크랩하지 않은 문제는 404다(타인 스크랩·미스크랩 문제의 존재 여부를 흘리지 않는 사용자 격리).
+     * 미승인(회수 등)이 된 문제는 삭제된 문제와 동일하게 404다(서빙 게이트, 수용 기준 15).
      * 삭제된 사용자의 토큰도 같은 이유로 404다(사용자 존재를 먼저 확인).
      */
     fun detail(userId: Long, problemId: Long): ScrapDetailResponse {
         requireUserExists(userId)
         val scrap = scrapRepository.findByUserIdAndProblemId(userId, problemId)
             ?: throw ScrapNotFoundException.forProblem(problemId)
-        val problem = problemRepository.findById(problemId)
-            .orElseThrow { ProblemNotFoundException.byId(problemId) }
+        val problem = problemRepository.findByIdAndApprovalStatus(problemId, ApprovalStatus.APPROVED)
+            ?: throw ProblemNotFoundException.byId(problemId)
         return responseMapper.toDetailResponse(scrap, problem)
     }
 

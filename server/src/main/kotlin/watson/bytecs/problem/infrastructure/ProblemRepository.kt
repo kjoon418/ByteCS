@@ -2,10 +2,23 @@ package watson.bytecs.problem.infrastructure
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 
 interface ProblemRepository : JpaRepository<Problem, Long> {
+
+    /**
+     * id 스냅샷 경로(스크랩·신고)의 승인 게이트. 존재하되 승인 상태가 아니면(초안·검수중·반려·회수) false다 —
+     * 미승인 콘텐츠는 신규 노출뿐 아니라 재열람·재접수 경로에서도 노출되지 않는다(수용 기준 15).
+     */
+    fun existsByIdAndApprovalStatus(id: Long, approvalStatus: ApprovalStatus): Boolean
+
+    /**
+     * 스크랩 상세 재열람 전용 승인 게이트. 회수·미승인 문제는 존재해도 조회되지 않아, 호출부가
+     * 삭제된 문제와 동일하게(ProblemNotFoundException) 취급할 수 있게 한다.
+     */
+    fun findByIdAndApprovalStatus(id: Long, approvalStatus: ApprovalStatus): Problem?
 
     /**
      * 세션 배정·추가 학습 후보를 id 오름차순으로 조회한다(선정은 애플리케이션에서 무작위로 하되, 조회 순서는 고정).

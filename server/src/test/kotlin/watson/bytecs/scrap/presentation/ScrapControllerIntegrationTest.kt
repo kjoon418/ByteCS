@@ -110,6 +110,18 @@ class ScrapControllerIntegrationTest(
     }
 
     @Test
+    fun `미승인(회수) 문제를 스크랩하면 404를 반환한다`() {
+        // 서빙 게이트(수용 기준 15) — 회수된 문제는 존재해도 신규 스크랩 대상이 아니다.
+        val retracted = seedProblem("트라이", "트라이", status = ApprovalStatus.RETRACTED)
+
+        scrap(token, retracted).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
+        }
+        assertThat(scrapRepository.count()).isEqualTo(0)
+    }
+
+    @Test
     fun `스크랩을 해제하면 204이고 삭제된다`() {
         scrap(token, p1)
 
@@ -139,6 +151,22 @@ class ScrapControllerIntegrationTest(
             jsonPath("$[0].question") { value("큐 질문") }
             jsonPath("$[0].scrappedAt") { exists() }
             jsonPath("$[1].problemId") { value(p1) }
+        }
+    }
+
+    @Test
+    fun `스크랩한 뒤 문제가 회수되면 목록의 question은 null이다`() {
+        // 서빙 게이트(수용 기준 15) — 회수는 삭제와 동일하게 취급해 목록에서 내용을 숨긴다.
+        val retracted = seedProblem("링크드리스트", "링크드리스트", status = ApprovalStatus.APPROVED)
+        scrap(token, retracted)
+        retractProblem(retracted)
+
+        mockMvc.get("/api/scraps") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].problemId") { value(retracted) }
+            jsonPath("$[0].question") { value(nullValue()) }
         }
     }
 
@@ -186,6 +214,21 @@ class ScrapControllerIntegrationTest(
         }.andExpect {
             status { isOk() }
             jsonPath("$.enrichment") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun `스크랩한 뒤 문제가 회수되면 상세는 404를 반환한다`() {
+        // 서빙 게이트(수용 기준 15) — 회수는 삭제와 동일하게 취급해 재열람을 막는다.
+        val retracted = seedProblem("데드락", "데드락", status = ApprovalStatus.APPROVED)
+        scrap(token, retracted)
+        retractProblem(retracted)
+
+        mockMvc.get("/api/scraps/$retracted") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
         }
     }
 
@@ -313,12 +356,17 @@ class ScrapControllerIntegrationTest(
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
 
-    private fun seedProblem(conceptName: String, answer: String, enrichment: Enrichment? = null): Long {
+    private fun seedProblem(
+        conceptName: String,
+        answer: String,
+        enrichment: Enrichment? = null,
+        status: ApprovalStatus = ApprovalStatus.APPROVED,
+    ): Long {
         val concept = conceptRepository.save(Concept(conceptName))
         return problemRepository.save(
             Problem(
                 // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
-                approvalStatus = ApprovalStatus.APPROVED,
+                approvalStatus = status,
                 questionText = "$conceptName 질문",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
@@ -328,6 +376,13 @@ class ScrapControllerIntegrationTest(
                 enrichment = enrichment,
             ),
         ).id
+    }
+
+    /** 승인 상태의 문제를 회수(RETRACTED)로 전이시킨다(서빙 게이트 회귀 검증용). */
+    private fun retractProblem(problemId: Long) {
+        val problem = problemRepository.findById(problemId).orElseThrow()
+        problem.retract()
+        problemRepository.save(problem)
     }
 
     private fun issueTokenForNewUser(): String {

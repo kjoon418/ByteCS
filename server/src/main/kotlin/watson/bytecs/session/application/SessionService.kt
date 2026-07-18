@@ -64,7 +64,7 @@ class SessionService(
     @Transactional
     fun submitAnswer(userId: Long, answer: AnswerText): SessionAttemptResponse {
         val session = loadTodayOrThrow(userId)
-        // 완료된 세션엔 현재 본 문제가 없다. 도메인 규칙과 같은 의미의 예외로 일관되게 막는다(추가 연습 유도).
+        // 완료된 세션엔 현재 본 문제가 없다. 도메인 규칙과 같은 의미의 예외로 일관되게 막는다(추가 학습 유도).
         val currentProblemId = session.currentItemProblemId()
             ?: throw SessionAlreadyCompletedException.forAttempt()
         val problem = loadProblem(currentProblemId)

@@ -115,6 +115,37 @@ class ProblemRepositoryIntegrationTest(
         assertThat(candidateIds).containsExactly(approved.id)
     }
 
+    @Test
+    fun `existsByIdAndApprovalStatus는 승인 상태가 일치할 때만 true다`() {
+        // given — 스크랩·신고의 id 스냅샷 게이트가 쓰는 쿼리라, 회수된 문제는 존재해도 false여야 한다.
+        val concept = conceptRepository.save(Concept("스택"))
+        val approved = saveProblemWithStatus(concept, ApprovalStatus.APPROVED)
+        val retracted = saveProblemWithStatus(concept, ApprovalStatus.RETRACTED)
+        // 게이트의 존재 이유: Phase 2 반입이 만드는 DRAFT가 신규 스크랩·신고 대상으로 새지 않아야 한다(F3).
+        val draft = saveProblemWithStatus(concept, ApprovalStatus.DRAFT)
+
+        // when & then
+        assertThat(problemRepository.existsByIdAndApprovalStatus(approved.id, ApprovalStatus.APPROVED)).isTrue()
+        assertThat(problemRepository.existsByIdAndApprovalStatus(retracted.id, ApprovalStatus.APPROVED)).isFalse()
+        assertThat(problemRepository.existsByIdAndApprovalStatus(draft.id, ApprovalStatus.APPROVED)).isFalse()
+    }
+
+    @Test
+    fun `findByIdAndApprovalStatus는 승인 상태가 일치할 때만 문제를 돌려준다`() {
+        // given — 스크랩 상세 재열람 게이트가 쓰는 쿼리다.
+        val concept = conceptRepository.save(Concept("스택"))
+        val approved = saveProblemWithStatus(concept, ApprovalStatus.APPROVED)
+        val retracted = saveProblemWithStatus(concept, ApprovalStatus.RETRACTED)
+        // 게이트의 존재 이유: Phase 2 반입이 만드는 DRAFT가 스크랩 상세 재열람으로 새지 않아야 한다(F3).
+        val draft = saveProblemWithStatus(concept, ApprovalStatus.DRAFT)
+
+        // when & then
+        assertThat(problemRepository.findByIdAndApprovalStatus(approved.id, ApprovalStatus.APPROVED)?.id)
+            .isEqualTo(approved.id)
+        assertThat(problemRepository.findByIdAndApprovalStatus(retracted.id, ApprovalStatus.APPROVED)).isNull()
+        assertThat(problemRepository.findByIdAndApprovalStatus(draft.id, ApprovalStatus.APPROVED)).isNull()
+    }
+
     private fun saveProblemWithStatus(concept: Concept, status: ApprovalStatus): Problem =
         problemRepository.save(
             Problem(

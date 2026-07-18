@@ -13,7 +13,7 @@ class SessionAlreadyCompletedException private constructor(
 
     companion object {
         fun forAttempt(): SessionAlreadyCompletedException =
-            SessionAlreadyCompletedException("이미 완료된 세션입니다. 추가 연습을 이용하세요.")
+            SessionAlreadyCompletedException("이미 완료된 세션입니다. 추가 학습을 이용하세요.")
 
         fun forReveal(): SessionAlreadyCompletedException =
             SessionAlreadyCompletedException("이미 완료된 세션이라 공개할 본 문제가 없습니다.")

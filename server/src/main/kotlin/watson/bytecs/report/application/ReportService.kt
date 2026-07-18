@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.report.application.dto.ReportResponse
@@ -15,7 +16,8 @@ import java.time.Instant
 
 /**
  * 콘텐츠 오류 신고 접수를 조율한다.
- * 신고 대상은 서빙된 콘텐츠여야 하므로 문제 존재를 먼저 확인하고(없으면 404), 접수 시각은 주입된 [Clock]으로 결정적으로 찍는다.
+ * 신고 대상은 서빙된 콘텐츠여야 하므로 승인(APPROVED) 문제만 신고 대상으로 인정하고(없거나 미승인이면 404 —
+ * 서빙 게이트, 수용 기준 15), 접수 시각은 주입된 [Clock]으로 결정적으로 찍는다.
  */
 @Service
 @Transactional(readOnly = true)
@@ -34,7 +36,7 @@ class ReportService(
     @Transactional
     fun report(userId: Long, problemId: Long, category: ReportCategory, message: String?): ReportResponse {
         requireUserExists(userId)
-        if (!problemRepository.existsById(problemId)) {
+        if (!problemRepository.existsByIdAndApprovalStatus(problemId, ApprovalStatus.APPROVED)) {
             throw ProblemNotFoundException.byId(problemId)
         }
 

@@ -159,6 +159,25 @@ class ReportControllerIntegrationTest(
     }
 
     @Test
+    fun `미승인(회수) 문제를 신고하면 404를 반환하고 저장되지 않는다`() {
+        // 서빙 게이트(수용 기준 15) — 회수된 문제는 존재해도 신고 대상이 아니다.
+        val problem = problemRepository.findById(problemId).orElseThrow()
+        problem.retract()
+        problemRepository.save(problem)
+
+        mockMvc.post("/api/problems/$problemId/reports") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"category":"WRONG_ANSWER"}"""
+        }.andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
+        }
+
+        assertThat(contentReportRepository.count()).isEqualTo(0)
+    }
+
+    @Test
     fun `토큰 없이 신고하면 401을 반환한다 (permitAll 회귀 방지)`() {
         // /api/problems 하위는 permitAll이지만, 신고 경로만은 인증을 강제해야 한다.
         mockMvc.post("/api/problems/$problemId/reports") {
