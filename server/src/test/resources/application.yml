@@ -18,6 +18,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    # 마이그레이션은 운영(Postgres) 전용이다. 테스트는 H2 create-drop 스키마를 쓴다
+    # (마이그레이션 SQL 구문 자체는 FlywayMigrationSmokeTest가 H2 PostgreSQL 모드로 검증한다).
+    enabled: false
 
 server:
   port: 8080

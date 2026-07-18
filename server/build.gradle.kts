@@ -21,6 +21,9 @@ dependencies {
     runtimeOnly(libs.jjwt.impl)
     runtimeOnly(libs.jjwt.jackson)
     runtimeOnly(libs.postgresql)
+    // 운영 스키마는 Flyway 마이그레이션(db/migration)이 단일 출처다. ddl-auto는 validate로만 쓴다.
+    implementation(libs.flyway.core)
+    runtimeOnly(libs.flyway.postgresql)
     // H2는 local 프로파일 구동(bootRun)과 통합 테스트에만 쓰는 인메모리 DB.
     // testAndDevelopmentOnly: bootRun과 테스트 클래스패스에는 포함되지만,
     // 최종 bootJar(프로덕션 아티팩트)에는 포함되지 않아 운영 배포를 오염시키지 않는다.

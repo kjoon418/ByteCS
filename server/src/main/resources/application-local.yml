@@ -18,3 +18,6 @@ spring:
   h2:
     console:
       enabled: true
+  flyway:
+    # 마이그레이션은 운영(Postgres) 전용이다. local은 인메모리 H2를 create-drop으로 매 기동 초기화한다.
+    enabled: false
