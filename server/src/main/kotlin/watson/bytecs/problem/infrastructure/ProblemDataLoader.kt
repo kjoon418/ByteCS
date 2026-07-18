@@ -19,14 +19,16 @@ import watson.bytecs.problem.domain.ProblemType
 
 /**
  * 애플리케이션 기동 시, 문제가 하나도 없을 때만 리소스 JSON([resourcePath])의 CS 문제를 시딩한다.
- * 테스트는 각자 필요한 데이터를 직접 준비하도록, test 프로파일에서는 동작하지 않는다.
+ * **local 프로파일 전용이다** — 시딩분은 승인(APPROVED)으로 들어가므로, 운영에서 동작하면 미검수 콘텐츠가
+ * 즉시 서빙되어 "검수 전 실서비스 투입 금지" 가드레일을 깬다(운영 유입은 관리자 검수 경로만).
+ * 테스트는 각자 필요한 데이터를 직접 준비한다(이 로더의 단위 테스트는 빈을 직접 생성한다).
  *
  * 이 로더는 곧 검증기다: JSON을 DTO로 파싱한 뒤 반드시 도메인 생성자([Problem]·[Concept]·[MisconceptionHint]·
  * [Enrichment] 등)로 조립하며, 파싱 DTO를 그대로 영속화하지 않는다. 그래서 필수 필드 누락(Jackson 파싱 실패)이나
  * 불변식 위반(도메인 init require 실패)이 있으면 조용히 스킵되지 않고 기동이 시끄럽게 실패한다.
  */
 @Component
-@Profile("!test")
+@Profile("local")
 class ProblemDataLoader(
     private val conceptRepository: ConceptRepository,
     private val problemRepository: ProblemRepository,
@@ -66,7 +68,7 @@ class ProblemDataLoader(
 
     private fun toProblem(dto: ProblemSeedDto, conceptCache: MutableMap<String, Concept>, conceptCategories: Map<String, ProblemCategory?>): Problem =
         Problem(
-            // 명세: MVP는 시딩분을 승인 취급한다. 이 로더는 local·test 전용이며(운영 유입은 관리자 검수 경로),
+            // 명세: MVP는 시딩분을 승인 취급한다. 이 로더는 local 전용이며(운영 유입은 관리자 검수 경로),
             // 시드 구조는 로더 테스트의 no-leak·불변식 스윕이 전수 검증하므로 전이 검증 없이 승인으로 넣는다.
             approvalStatus = ApprovalStatus.APPROVED,
             questionText = dto.question,

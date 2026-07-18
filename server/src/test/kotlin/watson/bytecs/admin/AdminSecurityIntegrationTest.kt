@@ -1,10 +1,12 @@
 package watson.bytecs.admin
 
+import org.hamcrest.CoreMatchers.containsString
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.http.HttpHeaders
 import org.springframework.mock.web.MockHttpSession
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestBuilders.formLogin
@@ -16,7 +18,9 @@ import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
 import watson.bytecs.account.domain.Email
 import watson.bytecs.account.domain.User
+import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.account.security.JwtTokenProvider
 
 /**
  * 관리자 보안 체인(`/admin` 하위 경로)의 접근 제어와, 기존 무상태 API 체인이 영향을 받지 않음을 검증한다.
@@ -27,6 +31,7 @@ class AdminSecurityIntegrationTest(
     @Autowired private val mockMvc: MockMvc,
     @Autowired private val userRepository: UserRepository,
     @Autowired private val passwordEncoder: PasswordEncoder,
+    @Autowired private val jwtTokenProvider: JwtTokenProvider,
 ) {
 
     @BeforeEach
@@ -45,11 +50,27 @@ class AdminSecurityIntegrationTest(
     }
 
     @Test
-    fun `로그인 페이지는 비로그인 상태로 접근할 수 있다`() {
+    fun `로그인 페이지는 비로그인 상태로 접근할 수 있고 CSRF 토큰 필드를 렌더링한다`() {
+        // th:action 폼에 Spring Security의 CSRF 히든 필드가 자동 주입되어야 실제 브라우저 로그인이 403이 되지 않는다.
         mockMvc.get("/admin/login")
             .andExpect {
                 status { isOk() }
+                content { string(containsString("name=\"_csrf\"")) }
             }
+    }
+
+    @Test
+    fun `게스트 토큰의 Bearer 헤더로는 관리자 페이지에 접근할 수 없다`() {
+        // 관리자 체인은 세션 기반 폼 로그인만 인정한다 — JWT는 이 체인에서 인증 수단이 아니다.
+        val guest = userRepository.save(User.createGuest())
+        val guestToken = jwtTokenProvider.issue(guest.id, UserRole.GUEST)
+
+        mockMvc.get("/admin") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $guestToken")
+        }.andExpect {
+            status { is3xxRedirection() }
+            redirectedUrlPattern("**/admin/login")
+        }
     }
 
     @Test
