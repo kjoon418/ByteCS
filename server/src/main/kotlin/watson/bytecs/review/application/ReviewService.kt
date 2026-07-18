@@ -72,7 +72,7 @@ class ReviewService(
         poolIds: Set<Long>,
     ): Long? {
         if (problemRepository.findTypeById(mastery.lastProblemId) == ProblemType.DERIVATION) {
-            val unassigned = problemRepository.findIdsByConceptIdOrderByIdAsc(mastery.conceptId)
+            val unassigned = problemRepository.findApprovedIdsByConceptIdOrderByIdAsc(mastery.conceptId)
                 .firstOrNull { it !in assignedProblemIds && it in poolIds }
             if (unassigned != null) {
                 return unassigned

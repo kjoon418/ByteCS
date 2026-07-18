@@ -26,6 +26,7 @@ import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.extrastudy.infrastructure.ExtraStudyRepository
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Enrichment
@@ -264,6 +265,31 @@ class ExtraStudyControllerIntegrationTest(
     }
 
     @Test
+    fun `승인되지 않은 문제만 있으면 추가 학습은 소진 상태다`() {
+        // given — 기존 승인 시드(p1~p3)를 지우고 초안 문제만 남긴다. 서빙 게이트: 초안은 선정 후보가 아니다.
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val draftConcept = conceptRepository.save(Concept("초안 개념"))
+        problemRepository.save(
+            Problem(
+                approvalStatus = ApprovalStatus.DRAFT,
+                questionText = "초안 질문",
+                concepts = listOf(draftConcept),
+                acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
+            ),
+        )
+
+        // when and then
+        getCurrent(token).andExpect {
+            status { isOk() }
+            jsonPath("$.exhausted") { value(true) }
+            jsonPath("$.problem") { value(nullValue()) }
+        }
+    }
+
+    @Test
     fun `열린 문제가 없을 때 답 제출은 409를 반환한다`() {
         submitAttempt(token, "아무 답").andExpect {
             status { isConflict() }
@@ -468,6 +494,8 @@ class ExtraStudyControllerIntegrationTest(
         val concept = conceptRepository.save(Concept(conceptName))
         val problem = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "$conceptName 질문",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
@@ -492,6 +520,8 @@ class ExtraStudyControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("힌트개념"))
         val problem = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "힌트 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
@@ -519,6 +549,8 @@ class ExtraStudyControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("심화개념"))
         val problem = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "심화 정보 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
@@ -551,6 +583,8 @@ class ExtraStudyControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("분류개념", category = category))
         val problem = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "분류 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),

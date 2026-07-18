@@ -62,7 +62,9 @@ class SessionCreator(
      */
     private fun assignProblemIds(user: User, today: LocalDate): List<Long> {
         val size = user.settings.dailySessionSize
-        val allProblemIds = problemRepository.findAllIdsOrderByIdAsc()
+        // 서빙 게이트: 배정 후보 풀은 승인(APPROVED) 문제뿐이다. 복습 poolIds 가드도 이 풀을 공유하므로
+        // 회수·비승인 문제는 재출제·유도형 예외에서도 자동으로 걸러진다(계획 §4.2).
+        val allProblemIds = problemRepository.findApprovedIdsOrderByIdAsc()
         val poolIds = allProblemIds.toSet()
 
         // 1) 복습 편입: 도래 개념의 복습 문제(회수된 후보는 건너뜀). 배정 이력은 유도형 예외 판정에 쓴다(세션 ∪ 추가 학습).

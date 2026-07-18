@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Enrichment
@@ -100,6 +101,8 @@ class CategoryHistoryServiceQueryCountTest(
         )
         return problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "질문$index",
                 concepts = listOf(representative, other),
                 acceptableAnswers = setOf("정답"),

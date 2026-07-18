@@ -129,7 +129,8 @@ class ExtraStudyService(
      * '푼 문제'·'배정 이력'은 세션 ∪ 추가 학습 합집합([LearningHistory])을 본다.
      */
     private fun selectNext(userId: Long): Long? {
-        val allProblemIds = problemRepository.findAllIdsOrderByIdAsc()
+        // 서빙 게이트: 선정 후보 풀은 승인(APPROVED) 문제뿐이다(계획 §4.2).
+        val allProblemIds = problemRepository.findApprovedIdsOrderByIdAsc()
         if (allProblemIds.isEmpty()) return null
         val poolIds = allProblemIds.toSet()
 

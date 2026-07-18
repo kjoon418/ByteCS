@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.transaction.annotation.Transactional
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemCategory
@@ -79,4 +80,49 @@ class ProblemRepositoryIntegrationTest(
         assertThat(reloaded.conceptNames()).containsExactly("TCP 3-way handshake", "정규화 제3정규형")
         assertThat(reloaded.representativeCategory()).isEqualTo(ProblemCategory.NETWORK)
     }
+
+    @Test
+    fun `배정 후보 조회는 승인 상태의 문제만 돌려준다`() {
+        // given — 다섯 승인 상태를 전부 저장한다(서빙 게이트의 공통 근원 쿼리 검증).
+        val concept = conceptRepository.save(Concept("스택"))
+        val approved = saveProblemWithStatus(concept, ApprovalStatus.APPROVED)
+        saveProblemWithStatus(concept, ApprovalStatus.DRAFT)
+        saveProblemWithStatus(concept, ApprovalStatus.IN_REVIEW)
+        saveProblemWithStatus(concept, ApprovalStatus.REJECTED)
+        saveProblemWithStatus(concept, ApprovalStatus.RETRACTED)
+
+        // when
+        val candidateIds = problemRepository.findApprovedIdsOrderByIdAsc()
+
+        // then
+        assertThat(candidateIds).containsExactly(approved.id)
+    }
+
+    @Test
+    fun `개념별 후보 조회는 그 개념의 승인 문제만 돌려준다`() {
+        // given — 유도형 복습 예외가 새 문제를 꺼내오는 쿼리라, 비승인 문제가 섞이면 초안이 사용자에게 노출된다.
+        val targetConcept = conceptRepository.save(Concept("해시 충돌"))
+        val otherConcept = conceptRepository.save(Concept("큐"))
+        val approved = saveProblemWithStatus(targetConcept, ApprovalStatus.APPROVED)
+        saveProblemWithStatus(targetConcept, ApprovalStatus.DRAFT)
+        saveProblemWithStatus(targetConcept, ApprovalStatus.RETRACTED)
+        saveProblemWithStatus(otherConcept, ApprovalStatus.APPROVED)
+
+        // when
+        val candidateIds = problemRepository.findApprovedIdsByConceptIdOrderByIdAsc(targetConcept.id)
+
+        // then
+        assertThat(candidateIds).containsExactly(approved.id)
+    }
+
+    private fun saveProblemWithStatus(concept: Concept, status: ApprovalStatus): Problem =
+        problemRepository.save(
+            Problem(
+                approvalStatus = status,
+                questionText = "질문",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
+            ),
+        )
 }

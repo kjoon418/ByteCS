@@ -8,11 +8,15 @@ import watson.bytecs.problem.domain.ProblemType
 interface ProblemRepository : JpaRepository<Problem, Long> {
 
     /**
-     * 세션 배정·추가 연습 후보를 id 오름차순으로 조회한다(선정은 애플리케이션에서 무작위로 하되, 조회 순서는 고정).
+     * 세션 배정·추가 학습 후보를 id 오름차순으로 조회한다(선정은 애플리케이션에서 무작위로 하되, 조회 순서는 고정).
      * 배정에는 id만 필요하므로 전체 엔티티를 로딩하지 않고 id만 프로젝션한다.
+     *
+     * **서빙 게이트**: 승인(APPROVED) 상태만 후보다(명세 수용 기준 15 — 초안·검수중·반려·회수는 서빙되지 않는다).
+     * 이 쿼리가 세션 새 개념 배정·추가 학습 선정·복습 poolIds 가드의 공통 근원이라, 여기의 필터가
+     * 신규 노출 경로 전부를 막는다. 이미 배정·저장된 문제는 id 스냅샷으로 로드되므로 필터 대상이 아니다(계획 §4.2).
      */
-    @Query("select p.id from Problem p order by p.id asc")
-    fun findAllIdsOrderByIdAsc(): List<Long>
+    @Query("select p.id from Problem p where p.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED order by p.id asc")
+    fun findApprovedIdsOrderByIdAsc(): List<Long>
 
     /**
      * 복습 문제 선정에서 유도형 예외를 가릴 때 쓴다. 문제가 없거나 유형 미상이면 null(둘 다 예외 미적용으로 안전하게 퇴화).
@@ -24,9 +28,14 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
     /**
      * 한 개념에 태깅된 문제 id를 오름차순으로 조회한다(유도형 '아직 안 낸 다른 문제' 후보 선정).
      * @ManyToMany 조인이라 id만 프로젝션해 필요한 것만 가져온다.
+     * 새 문제를 꺼내오는 경로이므로 승인(APPROVED) 상태만 후보다(서빙 게이트 — 계획 §4.2).
      */
-    @Query("select p.id from Problem p join p.concepts c where c.id = :conceptId order by p.id asc")
-    fun findIdsByConceptIdOrderByIdAsc(conceptId: Long): List<Long>
+    @Query(
+        "select p.id from Problem p join p.concepts c " +
+            "where c.id = :conceptId and p.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED " +
+            "order by p.id asc",
+    )
+    fun findApprovedIdsByConceptIdOrderByIdAsc(conceptId: Long): List<Long>
 
     /**
      * 카테고리별 학습 이력 조회 전용(N+1 회피, [watson.bytecs.study.application.CategoryHistoryService]).

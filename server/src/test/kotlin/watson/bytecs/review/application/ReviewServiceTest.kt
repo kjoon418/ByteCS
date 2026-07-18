@@ -105,7 +105,7 @@ class ReviewServiceTest {
             givenDue(masteryOf(CONCEPT_A, lastProblemId = 100L))
             given(problemRepository.findTypeById(100L)).willReturn(ProblemType.DERIVATION)
             // 개념 A의 문제 풀: 100(이미 냄), 105·110(아직 안 냄). 최소 미배정 id는 105.
-            given(problemRepository.findIdsByConceptIdOrderByIdAsc(CONCEPT_A)).willReturn(listOf(100L, 105L, 110L))
+            given(problemRepository.findApprovedIdsByConceptIdOrderByIdAsc(CONCEPT_A)).willReturn(listOf(100L, 105L, 110L))
 
             val result = reviewService.selectDueReviewProblemIds(
                 USER_ID, TODAY, assignedProblemIds = setOf(100L), poolIds = setOf(100L, 105L, 110L),
@@ -119,7 +119,7 @@ class ReviewServiceTest {
             givenDue(masteryOf(CONCEPT_A, lastProblemId = 100L))
             given(problemRepository.findTypeById(100L)).willReturn(ProblemType.DERIVATION)
             // 개념 A의 문제가 100 하나뿐이고 이미 배정됨 → 미배정 후보 없음 → 같은 문제.
-            given(problemRepository.findIdsByConceptIdOrderByIdAsc(CONCEPT_A)).willReturn(listOf(100L))
+            given(problemRepository.findApprovedIdsByConceptIdOrderByIdAsc(CONCEPT_A)).willReturn(listOf(100L))
 
             val result = reviewService.selectDueReviewProblemIds(
                 USER_ID, TODAY, assignedProblemIds = setOf(100L), poolIds = setOf(100L),

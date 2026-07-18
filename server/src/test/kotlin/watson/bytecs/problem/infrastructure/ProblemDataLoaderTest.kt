@@ -14,6 +14,7 @@ import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.problem.domain.AnswerText
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
@@ -199,6 +200,22 @@ class ProblemDataLoaderTest {
             val timeComplexityProblem = loadedProblemOf(TIME_COMPLEXITY)
 
             assertThat(timeComplexityProblem.representativeAnswer).isEqualTo("O(n²)")
+        }
+    }
+
+    @Nested
+    inner class 승인_상태를_로드한다 {
+
+        @Test
+        fun 시딩된_문제는_전부_승인_상태다() {
+            // 명세: MVP는 시딩분을 승인 취급한다. 초안으로 들어가면 서빙 게이트(승인 필터)에 걸려
+            // 로컬 기동에서 어떤 세션도 만들 수 없게 된다.
+            val problems = allLoadedProblems()
+
+            assertThat(problems).isNotEmpty()
+            problems.forEach { problem ->
+                assertThat(problem.approvalStatus).isEqualTo(ApprovalStatus.APPROVED)
+            }
         }
     }
 

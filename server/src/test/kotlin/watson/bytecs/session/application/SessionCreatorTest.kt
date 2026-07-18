@@ -139,7 +139,7 @@ class SessionCreatorTest {
         val user = User.createGuest().apply { updateSettings(UserSettings(size)) }
 
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user))
-        given(problemRepository.findAllIdsOrderByIdAsc()).willReturn(all)
+        given(problemRepository.findApprovedIdsOrderByIdAsc()).willReturn(all)
         // 배정·풀이 이력은 세션 ∪ 추가 학습 합집합(LearningHistory)을 본다. 세션 이력과 추가 학습 이력을 각각 stub한다.
         given(sessionRepository.findAssignedProblemIds(user.id)).willReturn(solved)
         given(sessionRepository.findSolvedProblemIds(user.id)).willReturn(solved)

@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Profile
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Enrichment
@@ -65,6 +66,9 @@ class ProblemDataLoader(
 
     private fun toProblem(dto: ProblemSeedDto, conceptCache: MutableMap<String, Concept>, conceptCategories: Map<String, ProblemCategory?>): Problem =
         Problem(
+            // 명세: MVP는 시딩분을 승인 취급한다. 이 로더는 local·test 전용이며(운영 유입은 관리자 검수 경로),
+            // 시드 구조는 로더 테스트의 no-leak·불변식 스윕이 전수 검증하므로 전이 검증 없이 승인으로 넣는다.
+            approvalStatus = ApprovalStatus.APPROVED,
             questionText = dto.question,
             concepts = dto.concepts.map { findOrCreateConcept(it, conceptCache, conceptCategories) },
             acceptableAnswers = dto.acceptableAnswers.toSet(),

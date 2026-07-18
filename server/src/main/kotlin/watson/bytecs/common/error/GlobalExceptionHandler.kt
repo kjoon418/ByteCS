@@ -16,6 +16,7 @@ import watson.bytecs.account.domain.InvalidCredentialsException
 import watson.bytecs.account.domain.InvalidUserStateException
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.extrastudy.domain.ExtraStudyNoOpenItemException
+import watson.bytecs.problem.domain.InvalidApprovalStateException
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.scrap.domain.ScrapNotFoundException
 import watson.bytecs.session.domain.ItemNotViewableException
@@ -116,6 +117,14 @@ class GlobalExceptionHandler {
         log.warn("[Conflict] {}", exception.message)
 
         val response = ErrorResponse(exception.message ?: "지금 풀 문제가 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(InvalidApprovalStateException::class)
+    fun handleInvalidApprovalState(exception: InvalidApprovalStateException): ResponseEntity<ErrorResponse> {
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "허용되지 않는 승인 상태 전이입니다.", exception.errorCode)
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
     }
 

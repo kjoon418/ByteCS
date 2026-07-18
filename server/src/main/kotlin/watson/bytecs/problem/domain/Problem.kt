@@ -106,6 +106,13 @@ class Problem(
     @OneToMany(cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     @JoinColumn(name = "problem_id")
     val misconceptionHints: List<MisconceptionHint> = emptyList(),
+
+    /**
+     * 생성 시점의 승인 상태. 신규 등록(관리자 반입·수동 등록)의 기본은 초안이다.
+     * 시드 로더만 예외적으로 APPROVED로 생성한다(명세: MVP는 시딩분을 승인 취급 —
+     * 시드는 로더 테스트의 no-leak·분포 스윕이 구조를 전수 검증하므로 전이 검증을 거치지 않는다).
+     */
+    approvalStatus: ApprovalStatus = ApprovalStatus.DRAFT,
 ) {
     init {
         require(questionText.isNotBlank()) { "문제 지문은 비어 있을 수 없습니다." }
@@ -123,6 +130,83 @@ class Problem(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long = 0
         protected set
+
+    /**
+     * 콘텐츠 승인 상태(명세 '콘텐츠 승인 상태' 절). **승인(APPROVED)만 서빙 후보 쿼리에 잡힌다**
+     * ([watson.bytecs.problem.infrastructure.ProblemRepository]의 승인 필터).
+     * 전이는 아래 전이 메서드로만 일어나며, 허용되지 않는 전이는 [InvalidApprovalStateException]으로 거부된다.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "approval_status", nullable = false)
+    var approvalStatus: ApprovalStatus = approvalStatus
+        protected set
+
+    /** 검수를 시작한다. 초안·반려·회수 상태에서만 가능하다(반려·회수는 수정 후 재검수 경로). */
+    fun startReview() {
+        validateTransition(
+            approvalStatus in REVIEWABLE_STATUSES,
+            "검수는 초안·반려·회수 상태에서만 시작할 수 있습니다. 현재 상태 = $approvalStatus",
+        )
+        approvalStatus = ApprovalStatus.IN_REVIEW
+    }
+
+    /**
+     * 승인한다. 검수중에서만 가능하며, 결정적 구조 검증(콘텐츠 신뢰성 가드레일)을 통과해야 한다:
+     *  - **문제 유형 태깅 존재**(명세 수용 기준 23 — 유형은 근접 신호·복습 선정 분기의 입력이라 없으면 동작이 정의되지 않는다).
+     *  - **힌트·오답 교정 힌트의 자기 정답 비노출(no-leak)** — 학습 효과 보존.
+     * (허용답 비어있지 않음·개념 태깅 존재·대표 정답 포함은 생성자 init 불변식이 이미 보장한다.)
+     */
+    fun approve() {
+        validateTransition(
+            approvalStatus == ApprovalStatus.IN_REVIEW,
+            "승인은 검수중 상태에서만 할 수 있습니다. 현재 상태 = $approvalStatus",
+        )
+        validateApprovable()
+        approvalStatus = ApprovalStatus.APPROVED
+    }
+
+    /** 반려한다. 검수중에서만 가능하다. */
+    fun reject() {
+        validateTransition(
+            approvalStatus == ApprovalStatus.IN_REVIEW,
+            "반려는 검수중 상태에서만 할 수 있습니다. 현재 상태 = $approvalStatus",
+        )
+        approvalStatus = ApprovalStatus.REJECTED
+    }
+
+    /** 회수한다(승인 해제 → 서빙 중단). 승인 상태에서만 가능하다. */
+    fun retract() {
+        validateTransition(
+            approvalStatus == ApprovalStatus.APPROVED,
+            "회수는 승인 상태에서만 할 수 있습니다. 현재 상태 = $approvalStatus",
+        )
+        approvalStatus = ApprovalStatus.RETRACTED
+    }
+
+    private fun validateTransition(allowed: Boolean, message: String) {
+        if (!allowed) {
+            throw InvalidApprovalStateException(message)
+        }
+    }
+
+    /**
+     * 승인 요건(결정적 구조 검증). 판정 기준은 시드 no-leak 스윕(ProblemDataLoaderTest)과 동일하다 —
+     * 정규화([AnswerText])한 허용답이 힌트 본문·교정 메시지(소문자화)에 부분 문자열로 포함되면 위반.
+     */
+    private fun validateApprovable() {
+        if (type == null) {
+            throw InvalidApprovalStateException(TYPE_REQUIRED_MESSAGE)
+        }
+
+        val normalizedAnswers = acceptableAnswers.map { AnswerText(it).value }
+        val curatedTexts = hints.map { it.text } + misconceptionHints.map { it.message }
+        curatedTexts.forEach { text ->
+            val normalizedText = text.lowercase()
+            if (normalizedAnswers.any { it in normalizedText }) {
+                throw InvalidApprovalStateException(ANSWER_LEAK_MESSAGE)
+            }
+        }
+    }
 
     /** 개념 이름을 태깅 순서(대표 개념이 먼저)로 돌려준다. 정답 처리 후 개념 노출에 쓴다. */
     fun conceptNames(): List<String> = concepts.map { it.name }
@@ -205,6 +289,13 @@ class Problem(
         type == ProblemType.DEFINITION_RECALL && acceptable.length >= MIN_NEAR_MISS_LENGTH
 
     companion object {
+        const val TYPE_REQUIRED_MESSAGE = "승인하려면 문제 유형(정의 재생형/유도형) 태깅이 있어야 합니다."
+        const val ANSWER_LEAK_MESSAGE = "힌트·오답 교정 힌트가 정답을 노출하는 문제는 승인할 수 없습니다."
+
+        // 수정 후 재검수 경로(반려·회수)를 포함해, 검수를 시작할 수 있는 상태들.
+        private val REVIEWABLE_STATUSES =
+            setOf(ApprovalStatus.DRAFT, ApprovalStatus.REJECTED, ApprovalStatus.RETRACTED)
+
         // 1~2자 답은 근접 판정을 아예 하지 않는다.
         // (편집거리 1이 '전혀 다른 답'과 구분되지 않아, 근접이 정답의 길이·모양을 흘리기 때문)
         private const val MIN_NEAR_MISS_LENGTH = 3

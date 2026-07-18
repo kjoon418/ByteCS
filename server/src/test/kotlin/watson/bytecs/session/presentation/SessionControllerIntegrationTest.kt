@@ -25,6 +25,7 @@ import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Enrichment
@@ -119,6 +120,43 @@ class SessionControllerIntegrationTest(
             jsonPath("$.currentProblem.representativeAnswer") { doesNotExist() }
             jsonPath("$.currentProblem.explanation") { doesNotExist() }
             jsonPath("$.currentProblem.enrichment") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `승인 상태의 문제만 세션에 배정된다`() {
+        // given — 기존 승인 시드(p1~p3)를 지우고, 승인 1건 + 비승인 4건(초안·검수중·반려·회수)만 남긴다.
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val approvedId = seedProblemWithStatus("승인 개념", ApprovalStatus.APPROVED)
+        seedProblemWithStatus("초안 개념", ApprovalStatus.DRAFT)
+        seedProblemWithStatus("검수중 개념", ApprovalStatus.IN_REVIEW)
+        seedProblemWithStatus("반려 개념", ApprovalStatus.REJECTED)
+        seedProblemWithStatus("회수 개념", ApprovalStatus.RETRACTED)
+
+        // when and then — 서빙 게이트: 배정 후보는 승인 문제뿐이다(명세 수용 기준 15).
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.totalCount") { value(1) }
+            jsonPath("$.currentProblem.id") { value(approvedId) }
+        }
+    }
+
+    @Test
+    fun `승인된 문제가 하나도 없으면 세션을 만들 수 없다`() {
+        // given
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        seedProblemWithStatus("초안 개념", ApprovalStatus.DRAFT)
+
+        // when and then — 초안 유출 차단: 서빙 관점에서는 콘텐츠가 하나도 없는 것과 같다.
+        getToday(token).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
         }
     }
 
@@ -712,6 +750,8 @@ class SessionControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("힌트개념"))
         problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "힌트 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
@@ -740,6 +780,8 @@ class SessionControllerIntegrationTest(
         val secondary = conceptRepository.save(Concept("보조개념"))
         problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "복수 개념 문제",
                 concepts = listOf(primary, secondary),
                 acceptableAnswers = setOf("정답"),
@@ -763,6 +805,8 @@ class SessionControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("심화개념"))
         problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "심화 정보 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),
@@ -787,6 +831,8 @@ class SessionControllerIntegrationTest(
         val concept = conceptRepository.save(Concept(conceptName))
         val problem = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "$conceptName 질문",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf(answer),
@@ -796,6 +842,20 @@ class SessionControllerIntegrationTest(
             ),
         )
         return problem.id
+    }
+
+    /** 서빙 게이트 검증용 — 지정한 승인 상태의 문제를 시드한다. */
+    private fun seedProblemWithStatus(conceptName: String, status: ApprovalStatus): Long {
+        val concept = conceptRepository.save(Concept(conceptName))
+        return problemRepository.save(
+            Problem(
+                approvalStatus = status,
+                questionText = "$conceptName 질문",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("정답"),
+                representativeAnswer = "정답",
+            ),
+        ).id
     }
 
     /**
@@ -810,6 +870,8 @@ class SessionControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("분류개념", category = category))
         problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "분류 문제",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("정답"),

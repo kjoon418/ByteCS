@@ -15,6 +15,7 @@ import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Problem
@@ -48,6 +49,8 @@ class ReportControllerIntegrationTest(
         val concept = conceptRepository.save(Concept("해시 충돌"))
         problemId = problemRepository.save(
             Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
                 questionText = "서로 다른 키가 동일한 해시 인덱스로 매핑되는 현상은?",
                 concepts = listOf(concept),
                 acceptableAnswers = setOf("해시 충돌"),
