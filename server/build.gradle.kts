@@ -15,6 +15,8 @@ dependencies {
     implementation(libs.spring.boot.starter.data.jpa)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.spring.boot.starter.security)
+    // 관리자 페이지(/admin/**)는 서버 렌더링 웹(내부 도구)이다 — 문제 콘텐츠 파이프라인 구현 계획 §5.
+    implementation(libs.spring.boot.starter.thymeleaf)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlin.reflect)
     implementation(libs.jjwt.api)

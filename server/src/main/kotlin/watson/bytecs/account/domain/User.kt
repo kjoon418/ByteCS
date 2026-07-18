@@ -87,5 +87,15 @@ class User private constructor(
                 settings = UserSettings.default(),
                 streak = StudyStreak.initial(),
             )
+
+        /** 관리자 계정. 자가 가입 경로가 없으며 기동 부트스트랩에서만 생성된다(관리자 페이지 폼 로그인 전용). */
+        fun createAdmin(email: Email, passwordHash: String): User =
+            User(
+                role = UserRole.ADMIN,
+                email = email.value,
+                passwordHash = passwordHash,
+                settings = UserSettings.default(),
+                streak = StudyStreak.initial(),
+            )
     }
 }

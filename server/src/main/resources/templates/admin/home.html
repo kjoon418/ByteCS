@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CS한입 관리자</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f5f6f8; margin: 0; }
+        header { background: #fff; border-bottom: 1px solid #e2e4e8; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; }
+        header h1 { font-size: 1.05rem; margin: 0; }
+        header form { margin: 0; }
+        header .account { font-size: 0.85rem; color: #555; margin-right: 12px; }
+        header button { padding: 6px 12px; border: 1px solid #ccd0d6; border-radius: 6px; background: #fff; cursor: pointer; }
+        main { max-width: 960px; margin: 32px auto; padding: 0 24px; }
+        .placeholder { background: #fff; border: 1px dashed #ccd0d6; border-radius: 12px; padding: 40px; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>CS한입 관리자</h1>
+    <div style="display: flex; align-items: center;">
+        <span class="account" th:text="${adminEmail}">admin@example.com</span>
+        <form th:action="@{/admin/logout}" method="post">
+            <button type="submit">로그아웃</button>
+        </form>
+    </div>
+</header>
+<main>
+    <!-- Phase 2~4에서 대시보드·문제 목록·검수 큐·초안 반입·신고 콘솔·개념 관리가 이 자리를 채운다(구현 계획 §5.2). -->
+    <div class="placeholder">
+        관리자 기능 준비 중입니다. 문제 등록·검수 화면이 곧 추가됩니다.
+    </div>
+</main>
+</body>
+</html>
