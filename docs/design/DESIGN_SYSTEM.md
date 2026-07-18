@@ -273,10 +273,10 @@ val BcsTypography = Typography(
 - **RetryNudge**(불일치) — ⭐️ **경고 아닌 중립 인라인 넛지**(`neutralNudge`). 제출 순간 **분명한** 상태 변화를 주되 "아직이에요, 다시 해볼까요?" 톤. 빨강·경고 아이콘·토스트로 휙 사라짐 금지(설명이 남아야 함). 입력 유지·무제한 재시도.
 - **NearMissNudge**(근접·오탈자, 리뷰 반영) — 불일치가 오탈자 수준으로 가까울 때 "거의 맞았어요, 오타를 확인해보세요"를 `info`/중립 톤으로. ⭐️ **정답·개념 비노출.** RetryNudge와 구별되는 별도 톤으로 '오타 때문임'을 알린다.
 
-### 5.7 정답 공개·따라 입력·심화 — RevealAnswerButton / ModelAnswerBlock / TypeAlongField / EnrichmentBlock
+### 5.7 정답 공개·직접 입력·심화 — RevealAnswerButton / ModelAnswerBlock / TypeAlongField / EnrichmentBlock
 - **RevealAnswerButton** — secondary(GhostButton/TextLink). **사용자 명시 요청 시에만**. "정답 보기".
 - **ModelAnswerBlock** — 모범답안 + 짧은 해설(코드면 `codeBlock`). 도움 신호지만 **벌점처럼 보이게 하지 않는다**(중립·정보 톤).
-- **TypeAlongField**(정답 따라 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **모범답안을 직접 따라 입력해야 다음으로 진행**. AnswerTextField 재사용 + "정답을 따라 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점.
+- **TypeAlongField**(정답 직접 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **정답을 직접 입력해야 다음으로 진행**(입력이 허용답 집합과 일치하면 통과 — 화면의 대표 정답 문자를 그대로 베낄 필요는 없다. **[반영 2026-07-19: C6]**). AnswerTextField 재사용 + "정답을 다시 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점.
 - **EnrichmentBlock**('더 알아보기' 심화 정보, 리뷰 반영) — 정답 처리 후 그 개념의 흥미로운 추가 정보를 **[결정 2026-07-16] 별도 조작 없이 바로 보여주는** 정적 섹션(토글 없음 — 확인하려 매번 한 번 더 누르는 마찰 제거). 없으면 표시 안 함. 진행을 막지 않음.
   - **[2026-07-16] 시안 구조 렌더(시안 71~114행)**: 자유 텍스트 한 덩어리가 아니라 구조체로 받는다 — `Enrichment(title, body, items: List<EnrichmentItem>, quote?)`, `EnrichmentItem(title, description)`. 정답 처리 이후에만·문제 배포 응답에는 비포함(no-leak 연장).
   - 렌더 순서: 섹션 라벨 "더 알아보기" + 가는 구분선(1dp `borderSubtle`) → **본 카드**(bg `surfaceSubtle`, border `borderSubtle`, radius 16, padding 20dp — 제목 `titleS` + 리드 `bodyM` + 항목 서브카드들) → **인용 카드**(있으면만 — `InfoCard` 재사용, 인용 표식 + 이탤릭 `bodyM`).
@@ -344,7 +344,7 @@ val BcsTypography = Typography(
 | **불일치(재시도)** | `neutralNudge` | ⭐️ 중립·격려(빨강 금지) |
 | **근접(오탈자)** | `info`/중립 | 안내('오타 확인', 정답 비노출) |
 | 오답 교정 힌트 표시 | `info` | 안내(오답 낙인 아님) |
-| 정답 공개·따라 입력 | `info`/뉴트럴 | 정보(벌점 아님) |
+| 정답 공개·직접 입력 | `info`/뉴트럴 | 정보(벌점 아님) |
 
 ### 6.3 난이도
 - 은은한 단계 표시(`difficulty` 색, 점/라벨). 디딤 문제는 '더 쉬움'을 암시. 압박·강조 금지.
@@ -434,6 +434,6 @@ val BcsTypography = Typography(
 - [ ] 접근성: 글자 확대·스크린리더 대체텍스트·포커스 순서(문제→입력→제출→힌트).
 - [ ] 힌트가 문제별 자유 구성(고정 L1/L2 사다리 0건)·모두 info 톤·정답 비노출.
 - [ ] 근접(오탈자) 신호가 RetryNudge와 구별되는 톤으로 표시되고 정답 비노출.
-- [ ] 정답 공개 후 따라 입력(TypeAlongField) 통과해야 진행, 정답 처리 후 [더 알아보기] 바로 노출(토글 없음).
+- [ ] 정답 공개 후 직접 입력(TypeAlongField) 통과해야 진행, 정답 처리 후 [더 알아보기] 바로 노출(토글 없음).
 - [ ] 스크랩 토글·목록, 지난 문제 다시 보기 동작. 완료 화면 축하 연출 또렷.
 - [ ] 오답·불일치·근접·스트릭 끊김에 빨강/경고/죄책감 연출 0건.
