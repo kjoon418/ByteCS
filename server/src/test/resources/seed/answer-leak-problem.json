@@ -1,0 +1,18 @@
+{
+  "problems": [
+    {
+      "question": "힌트가 정답을 노출하는 불량 데이터.",
+      "type": "DEFINITION_RECALL",
+      "difficulty": "EASY",
+      "concepts": ["유출 개념"],
+      "acceptableAnswers": ["정답"],
+      "representativeAnswer": "정답",
+      "explanation": null,
+      "hints": [
+        { "text": "이 개념의 정답은 정답입니다." }
+      ],
+      "misconceptionHints": [],
+      "enrichment": null
+    }
+  ]
+}

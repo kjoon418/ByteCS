@@ -1,0 +1,15 @@
+{
+  "problems": [
+    {
+      "question": "유형 태깅이 빠진 불량 데이터.",
+      "difficulty": "EASY",
+      "concepts": ["유형 미상 개념"],
+      "acceptableAnswers": ["정답"],
+      "representativeAnswer": "정답",
+      "explanation": null,
+      "hints": [],
+      "misconceptionHints": [],
+      "enrichment": null
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
+import watson.bytecs.problem.domain.InvalidApprovalStateException
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemCategory
@@ -360,6 +361,47 @@ class ProblemDataLoaderTest {
 
         assertThatThrownBy { invalidLoader.run() }
             .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Nested
+    inner class 승인_요건을_충족하지_못한_시드는_기동을_실패시킨다 {
+
+        @Test
+        fun 유형_태깅이_빠진_시드는_구조_단정에서_예외를_던진다() {
+            // C3: 승인 상태로 곧장 생성되는 시드는 approve()의 전이 검증을 거치지 않으므로,
+            // saveAll 전 assertStructurallyApprovable()이 유형 미상(type=null)을 잡아내야 한다(수용 기준 23).
+            val typeMissingLoader = ProblemDataLoader(
+                conceptRepository,
+                problemRepository,
+                jacksonObjectMapper(),
+                resourcePath = "seed/type-missing-problem.json",
+            )
+            given(problemRepository.count()).willReturn(0L)
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            assertThatThrownBy { typeMissingLoader.run() }
+                .isInstanceOf(InvalidApprovalStateException::class.java)
+                .hasMessage(Problem.TYPE_REQUIRED_MESSAGE)
+        }
+
+        @Test
+        fun 힌트가_정답을_노출하는_시드는_구조_단정에서_예외를_던진다() {
+            // C3: no-leak 위반도 같은 구조 단정 경로(assertStructurallyApprovable)로 잡혀야 한다(수용 기준 16).
+            val answerLeakLoader = ProblemDataLoader(
+                conceptRepository,
+                problemRepository,
+                jacksonObjectMapper(),
+                resourcePath = "seed/answer-leak-problem.json",
+            )
+            given(problemRepository.count()).willReturn(0L)
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            assertThatThrownBy { answerLeakLoader.run() }
+                .isInstanceOf(InvalidApprovalStateException::class.java)
+                .hasMessage(Problem.ANSWER_LEAK_MESSAGE)
+        }
     }
 
     /** 로더를 실제로 구동해, 로드된 전체 문제를 꺼낸다. */

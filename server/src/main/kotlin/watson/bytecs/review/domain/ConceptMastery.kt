@@ -56,6 +56,12 @@ class ConceptMastery private constructor(
     /**
      * 정답 통과를 숙련도에 반영한다(애그리거트 주도).
      * 신호로 레벨을 갱신하고, 갱신된 레벨의 간격만큼 다음 복습 시점을 민다. 갱신한 문제 id를 '그때 푼 그 문제'로 남긴다.
+     *
+     * [관찰 — 레벨 경계에서의 신호 붕괴. 열린 질문 7(가중치)에 묶여 있음. 동작 변경 없음]
+     * [MasterySignal.nextLevel]의 min/max 클램프 때문에, 레벨 경계에서는 서로 다른 도움 신호가 같은 다음 레벨로 붕괴한다:
+     *  - level 0(MIN)에서는 AIDED(유지=0)와 REVEALED(max(0-1,0)=0)가 둘 다 0을 내어 구분되지 않는다.
+     *  - level 4(MAX)에서는 UNAIDED(min(4+1,4)=4)와 AIDED(유지=4)가 둘 다 4를 내어 구분되지 않는다.
+     * 즉 최저·최고 레벨에서는 '이번에 어떤 도움을 받았는지'가 다음 레벨 값에 반영되지 않는다.
      */
     fun applySolve(signal: MasterySignal, solvedOn: LocalDate, problemId: Long) {
         level = signal.nextLevel(level)

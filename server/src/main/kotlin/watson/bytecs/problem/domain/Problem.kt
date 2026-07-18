@@ -165,6 +165,15 @@ class Problem(
         approvalStatus = ApprovalStatus.APPROVED
     }
 
+    /**
+     * 전이 없이 승인 요건(구조 단정)만 재사용한다. 시드 로더처럼 승인 상태로 곧장 생성하는 경로가
+     * (전이 검증 없이도) [approve]와 같은 구조 가드레일(유형 태깅·no-leak)을 통과했는지 확인할 때 쓴다.
+     * 위반 시 [InvalidApprovalStateException]을 던진다.
+     */
+    fun assertStructurallyApprovable() {
+        validateApprovable()
+    }
+
     /** 반려한다. 검수중에서만 가능하다. */
     fun reject() {
         validateTransition(

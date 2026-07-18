@@ -26,6 +26,11 @@ import watson.bytecs.problem.domain.ProblemType
  * 이 로더는 곧 검증기다: JSON을 DTO로 파싱한 뒤 반드시 도메인 생성자([Problem]·[Concept]·[MisconceptionHint]·
  * [Enrichment] 등)로 조립하며, 파싱 DTO를 그대로 영속화하지 않는다. 그래서 필수 필드 누락(Jackson 파싱 실패)이나
  * 불변식 위반(도메인 init require 실패)이 있으면 조용히 스킵되지 않고 기동이 시끄럽게 실패한다.
+ *
+ * 시드는 승인(APPROVED)으로 곧장 생성되어 [Problem.approve]의 전이 검증(IN_REVIEW 상태 요구)을 거치지 않으므로,
+ * 유형 미상(type=null)·힌트 정답 유출 같은 승인 요건 위반이 검증 없이 서빙될 수 있다(수용 기준 16·23).
+ * 그래서 saveAll 직전에 [Problem.assertStructurallyApprovable]로 같은 구조 가드레일을 재사용해 단정한다 —
+ * 위반이 있으면 [watson.bytecs.problem.domain.InvalidApprovalStateException]으로 기동이 실패한다.
  */
 @Component
 @Profile("local")
@@ -48,6 +53,8 @@ class ProblemDataLoader(
         val conceptCategories = seedFile.conceptCategories.mapValues { (_, category) -> category?.let { ProblemCategory.valueOf(it) } }
 
         val problems = seedFile.problems.map { toProblem(it, conceptCache, conceptCategories) }
+        // 승인 상태로 곧장 만든 시드가 승인 요건(유형 태깅·no-leak)을 실제로 충족하는지, 저장 전에 단정한다.
+        problems.forEach { it.assertStructurallyApprovable() }
         problemRepository.saveAll(problems)
     }
 
