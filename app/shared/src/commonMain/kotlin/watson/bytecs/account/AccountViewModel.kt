@@ -200,10 +200,10 @@ class AccountViewModel(
 
         /**
          * 계정 정보를 아직 못 불러왔을 때 보여줄 세션 크기. 도메인 명세 [결정] 기본값이자
-         * 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`와 같은 10 — 값이 어긋나면 계정이 도착하는 순간
+         * 서버 `UserSettings.DEFAULT_DAILY_SESSION_SIZE`와 같은 5 — 값이 어긋나면 계정이 도착하는 순간
          * 숫자가 튄다.
          */
-        const val DEFAULT_SESSION_SIZE = 10
+        const val DEFAULT_SESSION_SIZE = 5
     }
 }
 

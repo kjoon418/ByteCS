@@ -56,7 +56,7 @@ class AccountViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.isMember)
         assertEquals("a@b.com", state.email)
-        assertEquals(10, state.sessionSize, "회원 화면은 서버가 준 세션 크기를 그대로 보여준다")
+        assertEquals(5, state.sessionSize, "회원 화면은 서버가 준 세션 크기를 그대로 보여준다")
     }
 
     @Test
@@ -65,9 +65,9 @@ class AccountViewModelTest {
         val manager = SessionManager(FakeAccountRepository(), SettingsTokenStore(MapSettings()))
         val viewModel = AccountViewModel(manager, themeController())
 
-        // 도메인 명세 [결정]: 세션 크기 기본값은 10(서버 UserSettings.DEFAULT_DAILY_SESSION_SIZE와 동일).
-        assertEquals(10, viewModel.uiState.value.sessionSize, "계정 도착 전 기본 세션 크기는 명세 결정값 10")
-        assertEquals(10, AccountViewModel.DEFAULT_SESSION_SIZE)
+        // 도메인 명세 [결정]: 세션 크기 기본값은 5(서버 UserSettings.DEFAULT_DAILY_SESSION_SIZE와 동일).
+        assertEquals(5, viewModel.uiState.value.sessionSize, "계정 도착 전 기본 세션 크기는 명세 결정값 5")
+        assertEquals(5, AccountViewModel.DEFAULT_SESSION_SIZE)
     }
 
     @Test
@@ -109,12 +109,12 @@ class AccountViewModelTest {
 
     @Test
     fun settingsUpdate_backToServerValue_isNotDirty_andSkipsPatch() = runTest {
-        val (viewModel, repository) = memberViewModel() // 서버 세션 크기 10
+        val (viewModel, repository) = memberViewModel() // 서버 세션 크기 5
 
         viewModel.onSessionSizeChange(11)
         assertTrue(viewModel.uiState.value.isSettingsDirty)
 
-        viewModel.onSessionSizeChange(10) // 서버 값으로 되돌림
+        viewModel.onSessionSizeChange(5) // 서버 값으로 되돌림
         assertFalse(viewModel.uiState.value.isSettingsDirty, "서버 값과 같으면 변경 아님")
 
         viewModel.saveSettings()

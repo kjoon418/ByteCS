@@ -18,7 +18,7 @@ data class UserSettings(
     }
 
     companion object {
-        const val DEFAULT_DAILY_SESSION_SIZE = 10
+        const val DEFAULT_DAILY_SESSION_SIZE = 5
         const val MINIMUM = 1
         const val MAXIMUM = 50
 

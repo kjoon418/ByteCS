@@ -258,7 +258,7 @@ val BcsTypography = Typography(
 - 변형: **InfoCard**(힌트·안내) bg `primaryContainer`, border `primaryBorder`, 텍스트 `onPrimaryContainer`, 좌측 info/전구 아이콘 `primary`.
 
 ### 5.4 세션 진행 — SessionProgress
-- ⭐️ **분량 기반**(예: `2 / 10` + 점/막대). **카운트다운 타이머 아님.**
+- ⭐️ **분량 기반**(예: `2 / 5` + 점/막대). **카운트다운 타이머 아님.**
 - 점 인디케이터: 완료=`success`/`primary` 채운 점, 현재=`primary` 테두리, 남음=`border`. radius full.
 - 담백하게 상단에. 압박 주지 않기.
 
@@ -390,7 +390,7 @@ val BcsTypography = Typography(
 
 ### 8.1 히어로 와이어프레임 — 03 문제 풀이 (구성 예시)
 ```
-┌── TopBar: [←나가기]      2 / 10     [⋯ 신고] ──┐  SessionProgress(분량)
+┌── TopBar: [←나가기]      2 / 5      [⋯ 신고] ──┐  SessionProgress(분량)
 │  (디딤 상태면) 〈원래 문제〉를 위한 더 쉬운 문제 ↩ │  DrilldownBadge
 ├──────────────[ 600dp 중앙 ]──────────────┤
 │  Q. 서로 다른 키가 같은 버킷으로 매핑되는     │  question (18/SemiBold)
