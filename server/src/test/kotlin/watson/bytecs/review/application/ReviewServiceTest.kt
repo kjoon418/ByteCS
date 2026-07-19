@@ -41,7 +41,9 @@ class ReviewServiceTest {
         fun 신규_개념이면_첫_통과로_행을_만든다() {
             given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(null)
 
-            reviewService.recordSolve(USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY, problemId = 100L, alreadySolved = false,
+            )
 
             val saved = ArgumentCaptor.forClass(ConceptMastery::class.java)
             verify(conceptMasteryRepository).save(saved.capture())
@@ -57,7 +59,9 @@ class ReviewServiceTest {
             val existing = ConceptMastery.firstSolve(USER_ID, CONCEPT_A, MasterySignal.AIDED, TODAY, problemId = 100L)
             given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(existing)
 
-            reviewService.recordSolve(USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY.plusDays(1), problemId = 200L)
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY.plusDays(1), problemId = 200L, alreadySolved = false,
+            )
 
             assertThat(existing.level).isEqualTo(1) // 0 → 1
             assertThat(existing.lastProblemId).isEqualTo(200L)
@@ -69,7 +73,9 @@ class ReviewServiceTest {
             given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(null)
             given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_B)).willReturn(null)
 
-            reviewService.recordSolve(USER_ID, listOf(CONCEPT_A, CONCEPT_B), MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A, CONCEPT_B), MasterySignal.UNAIDED, TODAY, problemId = 100L, alreadySolved = false,
+            )
 
             verify(conceptMasteryRepository, times(2)).save(org.mockito.ArgumentMatchers.any())
         }
@@ -78,10 +84,66 @@ class ReviewServiceTest {
         fun 사용자별로_격리해_조회한다() {
             given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(null)
 
-            reviewService.recordSolve(USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY, problemId = 100L, alreadySolved = false,
+            )
 
             verify(conceptMasteryRepository).findByUserIdAndConceptId(USER_ID, CONCEPT_A)
             verify(conceptMasteryRepository, never()).findByUserIdAndConceptId(OTHER_USER_ID, CONCEPT_A)
+        }
+    }
+
+    /**
+     * D8: 세션 소진 시 반복 폴백(도메인 §1.5)으로 이미 푼 문제를 재출제해 다시 맞혀도,
+     * 복습 시점이 도래하기 전이면 그 정답으로 숙련도·다음 복습 시점을 갱신하지 않는다.
+     * 도래한 뒤의 재출제(정상 복습)나 신규 정답은 지금과 동일하게 갱신한다.
+     */
+    @Nested
+    inner class 반복_재정답의_숙련도_갱신을_제외한다 {
+
+        @Test
+        fun 복습_미도래_상태에서_재출제된_문제를_다시_맞히면_갱신을_건너뛴다() {
+            // 마지막 정답이 TODAY, 사다리[1]=3일 뒤(TODAY+3)가 다음 복습 — 아직 도래 전이다.
+            val existing = ConceptMastery.firstSolve(USER_ID, CONCEPT_A, MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(existing)
+
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY.plusDays(1),
+                problemId = 100L, alreadySolved = true,
+            )
+
+            assertThat(existing.level).isEqualTo(1) // 그대로 — 갱신되지 않았다.
+            assertThat(existing.nextReviewDate).isEqualTo(TODAY.plusDays(3)) // 그대로.
+            assertThat(existing.lastProblemId).isEqualTo(100L) // 그대로.
+        }
+
+        @Test
+        fun 복습_시점이_도래한_뒤의_재출제_정답은_정상_갱신한다() {
+            // 다음 복습이 TODAY+3인데, TODAY+3 당일에 다시 맞혔다 — 도래한 정상 복습이다.
+            val existing = ConceptMastery.firstSolve(USER_ID, CONCEPT_A, MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(existing)
+
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY.plusDays(3),
+                problemId = 100L, alreadySolved = true,
+            )
+
+            assertThat(existing.level).isEqualTo(2) // 1 → 2, 정상 갱신됐다.
+            assertThat(existing.nextReviewDate).isEqualTo(TODAY.plusDays(3).plusDays(7))
+        }
+
+        @Test
+        fun 처음_보는_정답이면_alreadySolved가_아니어도_정상_갱신한다() {
+            val existing = ConceptMastery.firstSolve(USER_ID, CONCEPT_A, MasterySignal.UNAIDED, TODAY, problemId = 100L)
+            given(conceptMasteryRepository.findByUserIdAndConceptId(USER_ID, CONCEPT_A)).willReturn(existing)
+
+            reviewService.recordSolve(
+                USER_ID, listOf(CONCEPT_A), MasterySignal.UNAIDED, TODAY.plusDays(1),
+                problemId = 200L, alreadySolved = false,
+            )
+
+            assertThat(existing.level).isEqualTo(2) // 정상 갱신됐다.
+            assertThat(existing.lastProblemId).isEqualTo(200L)
         }
     }
 

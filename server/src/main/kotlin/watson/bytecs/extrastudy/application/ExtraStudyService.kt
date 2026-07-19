@@ -82,12 +82,19 @@ class ExtraStudyService(
         val misconceptionHintSeen = open.misconceptionHintSeen
 
         val outcome = problem.evaluate(answer)
+        // D8: recordAttempt로 이번 정답이 반영되기 전에 '이미 풀었는가'를 스냅샷한다(세션 제출과 동일한 이유).
+        val alreadySolvedBefore = if (outcome.judgement == Judgement.CORRECT) {
+            learningHistory.findSolvedProblemIds(userId)
+        } else {
+            null
+        }
         extraStudy.recordAttempt(outcome.judgement, answer.value, misconceptionShown = outcome.misconceptionHint != null)
 
         // 정답이면 세션 제출과 완전히 같은 호출로 숙련도를 갱신한다(같은 커밋 경계, 결정적).
         if (outcome.judgement == Judgement.CORRECT) {
             val signal = MasterySignal.of(revealed, revealedHintCount, misconceptionHintSeen)
-            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id)
+            val alreadySolved = problem.id in requireNotNull(alreadySolvedBefore)
+            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id, alreadySolved)
         }
 
         return responseMapper.toAttemptResponse(outcome, problem)

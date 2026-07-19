@@ -24,6 +24,11 @@ class ReviewService(
     /**
      * 정답으로 통과한 문제의 **모든** 개념 숙련도를 갱신한다(§3 320~322행). 신규 개념이면 행을 새로 만든다.
      * 세션 제출(SessionService.submitAnswer)의 쓰기 트랜잭션에 합류해, 같은 커밋 경계에서 원자적으로 반영된다(결정적).
+     *
+     * [alreadySolved] — 이 문제를 (이번 정답 이전에) 이미 한 번이라도 정답으로 통과한 적이 있는지(D8).
+     * 세션 소진 시 반복 폴백(도메인 §1.5)으로 **아직 복습 시점이 도래하지 않은** 문제를 재출제해 다시 맞힌 경우엔,
+     * 그 정답으로 개념 숙련도·다음 복습 시점을 갱신하지 않는다 — 재출제 정답이 복습 도래 전 숙련도를 부풀려
+     * 간격 반복을 교란하지 않도록 하기 위함이다. 복습 시점이 도래한 뒤의 정상 재출제(진짜 복습)는 그대로 갱신한다.
      */
     @Transactional
     fun recordSolve(
@@ -32,6 +37,7 @@ class ReviewService(
         signal: MasterySignal,
         solvedOn: LocalDate,
         problemId: Long,
+        alreadySolved: Boolean,
     ) {
         conceptIds.forEach { conceptId ->
             val mastery = conceptMasteryRepository.findByUserIdAndConceptId(userId, conceptId)
@@ -39,7 +45,7 @@ class ReviewService(
                 conceptMasteryRepository.save(
                     ConceptMastery.firstSolve(userId, conceptId, signal, solvedOn, problemId),
                 )
-            } else {
+            } else if (!(alreadySolved && mastery.nextReviewDate.isAfter(solvedOn))) {
                 mastery.applySolve(signal, solvedOn, problemId)
             }
         }

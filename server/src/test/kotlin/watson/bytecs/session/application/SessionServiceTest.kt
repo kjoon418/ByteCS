@@ -10,14 +10,17 @@ import org.mockito.Mockito.verify
 import org.springframework.dao.DataIntegrityViolationException
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
+import watson.bytecs.review.domain.MasterySignal
 import watson.bytecs.session.application.dto.SessionStateResponse
 import watson.bytecs.session.application.dto.StreakResponse
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
+import watson.bytecs.study.LearningHistory
 import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneId
@@ -35,6 +38,7 @@ class SessionServiceTest {
     private val responseMapper: SessionResponseMapper = mock(SessionResponseMapper::class.java)
     private val sessionCreator: SessionCreator = mock(SessionCreator::class.java)
     private val reviewService: ReviewService = mock(ReviewService::class.java)
+    private val learningHistory: LearningHistory = mock(LearningHistory::class.java)
 
     private val zone: ZoneId = ZoneId.of("Asia/Seoul")
     private val today: LocalDate = LocalDate.of(2026, 7, 14)
@@ -47,6 +51,7 @@ class SessionServiceTest {
         responseMapper,
         sessionCreator,
         reviewService,
+        learningHistory,
         clock,
     )
 
@@ -83,6 +88,49 @@ class SessionServiceTest {
 
         assertThatThrownBy { service.getOrCreateToday(1L) }
             .isInstanceOf(DataIntegrityViolationException::class.java)
+    }
+
+    /**
+     * D8: '이미 풀었던 문제인가'는 recordAttempt로 이번 정답이 반영되기 전에 스냅샷해야 한다.
+     * 여기서는 그 스냅샷 값이 정확히 reviewService.recordSolve로 전달되는지만 검증한다
+     * (숙련도 갱신 스킵/정상 갱신 자체의 판정 로직은 ReviewServiceTest가 검증한다).
+     */
+    @Test
+    fun `정답 제출 시 이미 풀었던 문제이면 alreadySolved true로 recordSolve를 호출한다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        val user = User.createGuest()
+
+        given(sessionRepository.findByUserIdAndSessionDate(1L, today)).willReturn(session)
+        given(problemRepository.findById(problem.id)).willReturn(Optional.of(problem))
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+        // 이번 정답 이전에 이미 이 문제를 푼 적이 있다(세션 소진 반복 폴백으로 재출제된 상황을 흉내).
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(setOf(problem.id))
+        // responseMapper는 목이라 이 테스트의 관심사(recordSolve 호출)와 무관 — 굳이 스텁하지 않는다.
+
+        service.submitAnswer(1L, AnswerText("정답"))
+
+        // 값 인자만 쓰므로(매처 없음) equals 비교로 그대로 검증한다 — Mockito 매처(any/eq)는 null을 반환해
+        // Kotlin의 non-null 파라미터 호출부에서 NPE를 일으키므로 여기선 피한다.
+        verify(reviewService).recordSolve(1L, problem.conceptIds(), MasterySignal.UNAIDED, today, problem.id, true)
+    }
+
+    @Test
+    fun `정답 제출 시 처음 푸는 문제이면 alreadySolved false로 recordSolve를 호출한다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        val user = User.createGuest()
+
+        given(sessionRepository.findByUserIdAndSessionDate(1L, today)).willReturn(session)
+        given(problemRepository.findById(problem.id)).willReturn(Optional.of(problem))
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
+        // 이번 정답 이전엔 이 문제를 푼 적이 없다(신규 정답).
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+        // responseMapper는 목이라 이 테스트의 관심사(recordSolve 호출)와 무관 — 굳이 스텁하지 않는다.
+
+        service.submitAnswer(1L, AnswerText("정답"))
+
+        verify(reviewService).recordSolve(1L, problem.conceptIds(), MasterySignal.UNAIDED, today, problem.id, false)
     }
 
     private fun stateResponse(): SessionStateResponse =

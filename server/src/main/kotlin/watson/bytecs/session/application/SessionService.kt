@@ -22,6 +22,7 @@ import watson.bytecs.session.domain.Session
 import watson.bytecs.session.domain.SessionAlreadyCompletedException
 import watson.bytecs.session.domain.SessionNotFoundException
 import watson.bytecs.session.infrastructure.SessionRepository
+import watson.bytecs.study.LearningHistory
 import java.time.Clock
 import java.time.LocalDate
 
@@ -41,6 +42,7 @@ class SessionService(
     private val responseMapper: SessionResponseMapper,
     private val sessionCreator: SessionCreator,
     private val reviewService: ReviewService,
+    private val learningHistory: LearningHistory,
     private val clock: Clock,
 ) {
 
@@ -73,6 +75,13 @@ class SessionService(
         // 정답으로 통과할 칸(= 진입 시점의 현재 칸)의 위치를 미리 잡아, 통과 직후 그 칸의 도움 신호를 읽는다.
         val solvedPosition = session.currentPosition
         val outcome = problem.evaluate(answer)
+        // D8: '이미 풀었던 문제인가'는 recordAttempt로 이번 정답이 반영되기 전에 스냅샷해야 한다 —
+        // recordAttempt 이후 조회하면(플러시 등으로) 방금 통과한 이번 정답이 섞여 '이미 풀었음'으로 오판할 수 있다.
+        val alreadySolvedBefore = if (outcome.judgement == Judgement.CORRECT) {
+            learningHistory.findSolvedProblemIds(userId)
+        } else {
+            null
+        }
         session.recordAttempt(outcome.judgement, answer, misconceptionShown = outcome.misconceptionHint != null)
 
         // 정답이면 그 문제의 모든 개념 숙련도를 같은 트랜잭션에서 갱신한다(기능 3). 도움 신호는 방금 통과한 칸에서 파생한다.
@@ -83,7 +92,8 @@ class SessionService(
                 revealedHintCount = solvedItem.revealedHintCount,
                 misconceptionHintSeen = solvedItem.misconceptionHintSeen,
             )
-            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id)
+            val alreadySolved = problem.id in requireNotNull(alreadySolvedBefore)
+            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id, alreadySolved)
         }
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
