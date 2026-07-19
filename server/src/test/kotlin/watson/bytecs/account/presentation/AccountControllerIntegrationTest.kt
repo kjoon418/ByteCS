@@ -17,6 +17,10 @@ import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.delete
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.report.domain.ContentReport
+import watson.bytecs.report.domain.ReportCategory
+import watson.bytecs.report.infrastructure.ContentReportRepository
+import java.time.Instant
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -25,6 +29,7 @@ class AccountControllerIntegrationTest(
     @Autowired private val objectMapper: ObjectMapper,
     @Autowired private val userRepository: UserRepository,
     @Autowired private val passwordEncoder: PasswordEncoder,
+    @Autowired private val contentReportRepository: ContentReportRepository,
 ) {
 
     private companion object {
@@ -34,6 +39,7 @@ class AccountControllerIntegrationTest(
 
     @BeforeEach
     fun setUp() {
+        contentReportRepository.deleteAll()
         userRepository.deleteAll()
     }
 
@@ -250,6 +256,30 @@ class AccountControllerIntegrationTest(
         }
     }
 
+    @Test
+    fun `탈퇴해도 그 사용자의 신고는 지워지지 않고 userId만 null로 익명화된다`() {
+        // 신고는 학습 상태가 아니라 콘텐츠 품질 운영 데이터라(D10), 계정 삭제와 함께 지우지 않고 보존한다.
+        val token = register(EMAIL, PASSWORD)
+        val userId = requireNotNull(userRepository.findByEmail(EMAIL)).id
+        val report = contentReportRepository.save(
+            ContentReport(
+                userId = userId,
+                problemId = 1L,
+                category = ReportCategory.WRONG_ANSWER,
+                message = null,
+                createdAt = Instant.now(),
+            ),
+        )
+
+        mockMvc.delete("/api/users/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        }.andExpect {
+            status { isNoContent() }
+        }
+
+        val persisted = contentReportRepository.findById(report.id).orElseThrow()
+        assertThat(persisted.userId).isNull()
+    }
 
     /** 가입해 토큰을 반환한다. bearerToken을 주면 그 인증 하에 가입(게스트 승격)한다. */
     private fun register(email: String, password: String, bearerToken: String? = null): String {
