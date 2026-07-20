@@ -65,6 +65,18 @@ class SecurityConfig(
                 authorize(HttpMethod.DELETE, "/api/problems/*/scraps", authenticated)
                 authorize("/api/problems/**", permitAll)
                 authorize("/h2-console/**", permitAll)
+                // 웹 클라이언트 정적 번들(같은 오리진 서빙). GET만 열어 서빙 외 표면을 만들지 않는다.
+                // 루트 레벨 자산(*.js/*.wasm 등)은 번들이 루트에 평평하게 떨어지고(해시 파일명 포함),
+                // 폰트 등 중첩 리소스는 /composeResources/** 로 연다. 광범위 /** permit은 금지 —
+                // /api 보호가 기본값(anyRequest authenticated)으로 유지되어야 한다.
+                authorize(HttpMethod.GET, "/", permitAll)
+                authorize(HttpMethod.GET, "/index.html", permitAll)
+                authorize(HttpMethod.GET, "/*.js", permitAll)
+                authorize(HttpMethod.GET, "/*.wasm", permitAll)
+                authorize(HttpMethod.GET, "/*.css", permitAll)
+                authorize(HttpMethod.GET, "/*.map", permitAll)
+                authorize(HttpMethod.GET, "/composeResources/**", permitAll)
+                authorize(HttpMethod.GET, "/favicon.ico", permitAll)
                 authorize(anyRequest, authenticated)
             }
 

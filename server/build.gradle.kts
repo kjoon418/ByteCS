@@ -1,3 +1,5 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinSpring)
@@ -38,4 +40,22 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// 웹 클라이언트(wasmJs) 번들을 같은 오리진에서 서빙하기 위해 정적 리소스(static/)로 포함한다.
+// ⚠️ -PincludeWeb 게이트 뒤에 둔다. 게이트 없이 processResources에 걸면 일상 서버 개발 루프
+//    (:server:test·:server:bootRun)이 매번 무거운 웹 번들 빌드를 기다리게 된다.
+// 사용법:
+//   gradlew -PincludeWeb :server:bootRun   (웹 포함 통합 확인)
+//   gradlew -PincludeWeb :server:bootJar    (웹+API 단일 배포 아티팩트)
+// 게이트 없는 :server:test·:server:bootRun 은 웹 빌드 없이 기존 속도로 돈다.
+if (project.hasProperty("includeWeb")) {
+    val webDist = project(":app:webApp").layout.buildDirectory
+        .dir("dist/wasmJs/productionExecutable")
+    tasks.named<ProcessResources>("processResources") {
+        dependsOn(":app:webApp:wasmJsBrowserDistribution")
+        from(webDist) {
+            into("static")
+        }
+    }
 }
