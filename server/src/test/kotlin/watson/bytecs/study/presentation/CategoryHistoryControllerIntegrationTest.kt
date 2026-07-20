@@ -18,7 +18,6 @@ import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
-import watson.bytecs.extrastudy.infrastructure.ExtraStudyRepository
 import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Problem
@@ -28,7 +27,7 @@ import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.session.infrastructure.SessionRepository
 
 /**
- * 카테고리별 학습 이력 API의 통합 계약을 검증한다(세션·추가 학습 실제 플로우로 문제를 푼 뒤 그룹핑을 확인한다).
+ * 카테고리별 학습 이력 API의 통합 계약을 검증한다(세션 실제 플로우로 문제를 푼 뒤 그룹핑을 확인한다).
  * 세션 배정 순서는 무작위라 어떤 문제가 먼저 나오든 답을 맞게 찾아 제출한다(answersById 관례).
  */
 @SpringBootTest
@@ -40,7 +39,6 @@ class CategoryHistoryControllerIntegrationTest(
     @Autowired private val conceptRepository: ConceptRepository,
     @Autowired private val problemRepository: ProblemRepository,
     @Autowired private val sessionRepository: SessionRepository,
-    @Autowired private val extraStudyRepository: ExtraStudyRepository,
     @Autowired private val jwtTokenProvider: JwtTokenProvider,
 ) {
 
@@ -52,7 +50,6 @@ class CategoryHistoryControllerIntegrationTest(
     @BeforeEach
     fun setUp() {
         sessionRepository.deleteAll()
-        extraStudyRepository.deleteAll()
         problemRepository.deleteAll()
         conceptRepository.deleteAll()
         userRepository.deleteAll()
@@ -79,36 +76,31 @@ class CategoryHistoryControllerIntegrationTest(
     }
 
     @Test
-    fun `세션과 추가 학습에서 각각 푼 문제가 각 대표 분류로 그룹핑된다`() {
-        // 세션에서 배정된 첫 문제를 정답으로 통과시킨다(배정 순서는 무작위이므로 답을 찾아 제출한다).
-        val sessionSolvedId = solveCurrentSessionItem()
-        // 남은 한 문제는 세션 미해결 칸으로 남고, 추가 학습이 그 문제를 골라 통과시킨다(합집합 밖 후보가 없다).
-        val extraStudySolvedId = solveCurrentExtraStudyItem()
+    fun `세션에서 푼 문제들이 각 대표 분류로 그룹핑되고 그때 제출한 답이 실린다`() {
+        // 한 세션에 배정된 두 문제를 차례로 통과시킨다(배정 순서는 무작위이므로 현재 문제의 답을 찾아 제출한다).
+        val firstSolvedId = solveCurrentSessionItem()
+        val secondSolvedId = solveCurrentSessionItem()
 
-        assertThat(setOf(sessionSolvedId, extraStudySolvedId)).containsExactlyInAnyOrder(p1, p2)
+        assertThat(setOf(firstSolvedId, secondSolvedId)).containsExactlyInAnyOrder(p1, p2)
 
         val result = getCategories(token).andExpect { status { isOk() } }.andReturn()
         val tree = objectMapper.readTree(result.response.contentAsByteArray)
         assertThat(tree.size()).isEqualTo(8)
         val groupsByCategory = tree.associateBy { it.get("category").asText() }
 
-        // 세션에서 통과한 문제는 그때 제출한 답이 그대로 실린다.
-        val sessionGroup = groupsByCategory.getValue(categoryOf(sessionSolvedId).name)
-        assertThat(sessionGroup.get("items").size()).isEqualTo(1)
-        assertThat(sessionGroup.get("items")[0].get("problemId").asLong()).isEqualTo(sessionSolvedId)
-        assertThat(sessionGroup.get("items")[0].get("submittedAnswer").asText()).isEqualTo(answersById.getValue(sessionSolvedId))
-        assertThat(sessionGroup.get("items")[0].get("result").asText()).isEqualTo("CORRECT")
-        assertThat(sessionGroup.get("items")[0].get("representativeAnswer").asText()).isEqualTo(answersById.getValue(sessionSolvedId))
-
-        // 추가 학습에서만 통과한 문제는 제출 답이 보존되지 않아 null이다(graceful — 나머지 정보는 그대로 제공).
-        val extraStudyGroup = groupsByCategory.getValue(categoryOf(extraStudySolvedId).name)
-        assertThat(extraStudyGroup.get("items").size()).isEqualTo(1)
-        assertThat(extraStudyGroup.get("items")[0].get("problemId").asLong()).isEqualTo(extraStudySolvedId)
-        assertThat(extraStudyGroup.get("items")[0].get("submittedAnswer").isNull).isTrue()
+        // 세션에서 통과한 두 문제는 각자의 대표 분류로 그룹핑되고, 그때 제출한 답이 그대로 실린다.
+        listOf(firstSolvedId, secondSolvedId).forEach { solvedId ->
+            val group = groupsByCategory.getValue(categoryOf(solvedId).name)
+            assertThat(group.get("items").size()).isEqualTo(1)
+            assertThat(group.get("items")[0].get("problemId").asLong()).isEqualTo(solvedId)
+            assertThat(group.get("items")[0].get("submittedAnswer").asText()).isEqualTo(answersById.getValue(solvedId))
+            assertThat(group.get("items")[0].get("result").asText()).isEqualTo("CORRECT")
+            assertThat(group.get("items")[0].get("representativeAnswer").asText()).isEqualTo(answersById.getValue(solvedId))
+        }
 
         // 아무도 풀지 않은 나머지 6개 카테고리는 빈 목록이다.
         val untouchedCategories = ProblemCategory.entries.map { it.name } -
-            setOf(categoryOf(sessionSolvedId).name, categoryOf(extraStudySolvedId).name)
+            setOf(categoryOf(firstSolvedId).name, categoryOf(secondSolvedId).name)
         untouchedCategories.forEach { category ->
             assertThat(groupsByCategory.getValue(category).get("items")).isEmpty()
         }
@@ -159,14 +151,6 @@ class CategoryHistoryControllerIntegrationTest(
         return id
     }
 
-    /** 추가 학습의 현재(이어 풀) 문제를 정답으로 통과시키고, 그 문제 id를 돌려준다. */
-    private fun solveCurrentExtraStudyItem(): Long {
-        val tree = objectMapper.readTree(getExtraStudyCurrent(token).andReturn().response.contentAsByteArray)
-        val id = tree.get("problem").get("id").asLong()
-        submitExtraStudy(token, answersById.getValue(id)).andExpect { status { isOk() } }
-        return id
-    }
-
     private fun categoryOf(problemId: Long): ProblemCategory =
         if (problemId == p1) ProblemCategory.DATA_STRUCTURE else ProblemCategory.NETWORK
 
@@ -182,18 +166,6 @@ class CategoryHistoryControllerIntegrationTest(
 
     private fun submitSession(bearer: String, answer: String): ResultActionsDsl =
         mockMvc.post("/api/sessions/today/attempts") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
-            contentType = MediaType.APPLICATION_JSON
-            content = """{"answer":"$answer"}"""
-        }
-
-    private fun getExtraStudyCurrent(bearer: String): ResultActionsDsl =
-        mockMvc.get("/api/extra-study/current") {
-            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
-        }
-
-    private fun submitExtraStudy(bearer: String, answer: String): ResultActionsDsl =
-        mockMvc.post("/api/extra-study/attempts") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
             contentType = MediaType.APPLICATION_JSON
             content = """{"answer":"$answer"}"""

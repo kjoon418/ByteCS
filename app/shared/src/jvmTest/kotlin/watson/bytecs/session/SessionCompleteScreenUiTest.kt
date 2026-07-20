@@ -73,9 +73,10 @@ class SessionCompleteScreenUiTest {
         onNodeWithText("10개").assertIsDisplayed()
     }
 
+    /** 세션 기본 분량(5, D3 오너 결정)과 다른 총량이어도 실제 푼 수를 그대로 보여준다(기본값을 가정하지 않는다). */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 요약은_세션_크기_기본값_10이_아니어도_실제_푼_수를_보여준다() = runComposeUiTest {
+    fun 요약은_세션_기본_분량이_아니어도_실제_푼_수를_보여준다() = runComposeUiTest {
         showScreen(summary = summary.copy(solvedCount = 7, totalCount = 7))
 
         onNodeWithText("7개").assertIsDisplayed()

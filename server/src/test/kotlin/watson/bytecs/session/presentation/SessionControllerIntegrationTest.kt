@@ -216,6 +216,67 @@ class SessionControllerIntegrationTest(
     }
 
     @Test
+    fun `조금 더 풀기는 오늘 세션을 완료한 뒤 새 세션을 시작한다`() {
+        val firstResult = getToday(token).andReturn()
+        completeCurrentSession()
+
+        // 오늘 완료 후 '조금 더 풀기' → 같은 날에 새 세션이 생겨 진행 중으로 시작된다.
+        val nextResult = startNext(token).andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("IN_PROGRESS") }
+            jsonPath("$.solvedCount") { value(0) }
+            jsonPath("$.position") { value(0) }
+            jsonPath("$.currentProblem.id") { exists() }
+        }.andReturn()
+
+        assertThat(sessionId(nextResult)).isNotEqualTo(sessionId(firstResult))
+        assertThat(sessionRepository.count()).isEqualTo(2)
+    }
+
+    @Test
+    fun `조금 더 풀기는 진행 중 세션이 있으면 새로 만들지 않고 그 세션을 200으로 돌려준다`() {
+        val current = getToday(token).andReturn()
+
+        // 아직 완료하지 않은 오늘 세션이 있으면, '조금 더 풀기'는 새 세션을 만들지 않고 그 세션을 그대로 준다.
+        val nextResult = startNext(token).andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("IN_PROGRESS") }
+        }.andReturn()
+
+        assertThat(sessionId(nextResult)).isEqualTo(sessionId(current))
+        assertThat(sessionRepository.count()).isEqualTo(1)
+    }
+
+    @Test
+    fun `조금 더 풀기는 오늘 세션이 없으면 새 세션을 만든다`() {
+        // 오늘 세션을 아직 만들지 않았어도 '조금 더 풀기'는 새 세션을 시작한다(= 오늘 조회와 같은 동작).
+        startNext(token).andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("IN_PROGRESS") }
+            jsonPath("$.currentProblem.id") { value(p1) }
+        }
+
+        assertThat(sessionRepository.count()).isEqualTo(1)
+    }
+
+    @Test
+    fun `둘째 세션을 완료해도 스트릭은 하루 한 번만 오른다`() {
+        // 첫 세션 완료 → 스트릭 1.
+        completeAllThree(token).andExpect {
+            jsonPath("$.streak.count") { value(1) }
+        }
+
+        // 같은 날 '조금 더 풀기'로 둘째 세션을 시작해 완료해도, 스트릭은 하루 멱등이라 1에 머문다.
+        startNext(token)
+        completeCurrentSession().andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("COMPLETED") }
+            jsonPath("$.streak.count") { value(1) }
+            jsonPath("$.streak.lastStudyDate") { value(DAY1.toString()) }
+        }
+    }
+
+    @Test
     fun `오답을 제출하면 200이며 전진하지 않고 개념을 노출하지 않는다`() {
         getToday(token)
 
@@ -706,13 +767,26 @@ class SessionControllerIntegrationTest(
 
     private fun completeAllThree(bearer: String): ResultActionsDsl {
         getToday(bearer)
-        submit(bearer, "정답1")
-        submit(bearer, "정답2")
-        return submit(bearer, "정답3")
+        return completeCurrentSession()
+    }
+
+    /**
+     * 현재(오늘 최신) 세션의 세 문제를 차례로 통과시킨다. 이미 시작된 세션을 전제하며 새로 조회하지 않는다.
+     * 결정적 셔플(FixedClockConfig) 덕분에 배정 순서가 id 오름차순(p1→p2→p3)으로 고정돼, 정답1→2→3으로 통과한다.
+     */
+    private fun completeCurrentSession(): ResultActionsDsl {
+        submit(token, "정답1")
+        submit(token, "정답2")
+        return submit(token, "정답3")
     }
 
     private fun getToday(bearer: String): ResultActionsDsl =
         mockMvc.get("/api/sessions/today") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+        }
+
+    private fun startNext(bearer: String): ResultActionsDsl =
+        mockMvc.post("/api/sessions/today/next") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
 

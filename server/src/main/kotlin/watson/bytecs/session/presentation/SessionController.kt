@@ -36,6 +36,16 @@ class SessionController(
     ): SessionStateResponse =
         sessionService.getOrCreateToday(user.userId)
 
+    /**
+     * '조금 더 풀기': 오늘 최신 세션이 완료됐으면 새 세션을 시작해 돌려준다.
+     * 진행 중 세션이 있으면 새로 만들지 않고 그 세션을 200으로 돌려주고(중복 방지), 오늘 세션이 없으면 새로 만든다(=/today).
+     */
+    @PostMapping("/today/next")
+    fun startNext(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ): SessionStateResponse =
+        sessionService.getOrCreateNext(user.userId)
+
     @PostMapping("/today/attempts")
     fun submitAttempt(
         @Valid @RequestBody request: SessionAttemptRequest,

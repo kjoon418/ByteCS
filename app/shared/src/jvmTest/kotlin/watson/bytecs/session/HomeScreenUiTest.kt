@@ -75,7 +75,11 @@ class HomeScreenUiTest {
 
     // ── 진행 표시(분량 기반) ───────────────────────────────────────────────────
 
-    /** ⭐️ 진행은 **분량**이다(2 / 10). 세션 크기 기본값은 10이고, 카운트다운 타이머는 없다. */
+    /**
+     * ⭐️ 진행은 **분량**이다(2 / 10, 이 화면 픽스처가 고른 임의 값). 세션 기본 분량은 5(D3 오너 결정,
+     * 서버 UserSettings.DEFAULT_DAILY_SESSION_SIZE)이지만 홈은 실제 totalCount를 그대로 보여줄 뿐 기본값을
+     * 가정하지 않는다. 카운트다운 타이머는 없다.
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 진행_중이면_분량_기반_진행과_이어서_하기_CTA를_보여준다() = runComposeUiTest {

@@ -85,6 +85,8 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * @param onCompleted 세션 완료(일회성 이벤트) → 04 완료 화면.
  * @param onExit 부담 없는 나가기 → 홈(언제든 이어서).
+ * @param startNext '조금 더 풀기'로 진입했는지(D6·D9 일원화 — 추가 학습 폐지). true면 `GET /today` 대신
+ * `POST /today/next`로 새 세션을 만들어(오늘 최신이 완료 상태일 때) 재진입한다. 기본(false)은 기존 시작·이어서.
  */
 @Composable
 fun SessionScreen(
@@ -93,13 +95,14 @@ fun SessionScreen(
     onExit: () -> Unit,
     onReport: (Long) -> Unit,
     scrapRepository: ScrapRepository,
+    startNext: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // 화면 진입(홈에서 시작·이어서)마다 오늘 상태를 새로 반영한다(뷰모델이 내비게이션 간 재사용돼도 재개가 정확).
+    // 화면 진입(홈에서 시작·이어서·조금 더 풀기)마다 오늘 상태를 새로 반영한다(뷰모델이 내비게이션 간 재사용돼도 재개가 정확).
     LaunchedEffect(Unit) {
-        viewModel.loadSession()
+        viewModel.loadSession(startNext = startNext)
     }
 
     // 세션 완료는 일회성 이벤트 — 정확히 한 번 04로 넘긴다.

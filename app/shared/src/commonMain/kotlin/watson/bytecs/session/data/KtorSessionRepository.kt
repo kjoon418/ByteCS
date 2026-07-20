@@ -38,6 +38,11 @@ class KtorSessionRepository(
         return dto.toDomain()
     }
 
+    override suspend fun startNextSession(): DailySession {
+        val dto: SessionStateDto = client.post("$baseUrl/api/sessions/today/next").body()
+        return dto.toDomain()
+    }
+
     override suspend fun submitAttempt(answer: String): AttemptOutcome = mapSessionErrors {
         val dto: SessionAttemptResponseDto = client.post("$baseUrl/api/sessions/today/attempts") {
             contentType(ContentType.Application.Json)

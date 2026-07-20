@@ -121,13 +121,13 @@ class CategoryHistoryServiceTest {
     }
 
     @Test
-    fun `추가 학습에서만 푼 문제는 제출한 답이 없어 null이다`() {
+    fun `풀이 이력에 제출 답이 없는 문제는 null로 퇴화한다`() {
         val problem = problemOf("개념1", ProblemCategory.DATA_STRUCTURE)
 
         given(userRepository.existsById(USER_ID)).willReturn(true)
         given(learningHistory.findSolvedProblemIds(USER_ID)).willReturn(setOf(0L))
         given(problemRepository.findAllByIdWithConceptsAndEnrichment(setOf(0L))).willReturn(listOf(problem))
-        // 세션 제출 이력이 비어 있다 — 추가 학습은 열린 항목이 승격되며 제출 답을 보존하지 않는다([ExtraStudyItem]).
+        // 푼 문제로는 잡혔지만 세션 제출 이력에는 그 문제의 '내 답'이 없다(데이터 결손) — graceful하게 null로 퇴화한다.
         given(sessionRepository.findSolvedItemAnswers(USER_ID)).willReturn(emptyList())
 
         val result = service.findByCategory(USER_ID)

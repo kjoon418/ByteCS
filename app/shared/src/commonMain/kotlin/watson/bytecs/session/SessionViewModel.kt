@@ -34,14 +34,26 @@ class SessionViewModel(
     // ⭐️ 로드는 화면 진입([SessionScreen]의 LaunchedEffect)에서만 트리거한다. init 로드를 두면 진입 시 getToday가
     //    두 번 불려, 완료 상태 진입 시 완료 이벤트가 두 번 발사(축하 중복)되는 버그가 생긴다.
 
-    /** 오늘의 세션을 불러온다. 이미 완료됐으면 곧장 완료 이벤트로 넘긴다(막다른 길 방지). 오류 재시도에도 쓰인다. */
-    fun loadSession() = load()
+    // '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지) 재진입 여부. 이 뷰모델 인스턴스는 여러 화면 진입에 걸쳐
+    // 재사용될 수 있어(홈↔세션 왕복) 생성자 파라미터가 아니라 진입마다 [loadSession]으로 갱신한다.
+    // 재시도([onRetry] = loadSession())는 인자 없이 불리므로 마지막 진입 방식을 그대로 재사용한다.
+    private var startNext = false
+
+    /**
+     * 오늘의 세션을 불러온다. 이미 완료됐으면 곧장 완료 이벤트로 넘긴다(막다른 길 방지). 오류 재시도에도 쓰인다.
+     * [startNext]가 true면 `GET /today` 대신 `POST /today/next`로 '조금 더 풀기' 재진입을 수행한다 —
+     * 생략하면(재시도) 직전 진입에서 정한 방식을 그대로 따른다.
+     */
+    fun loadSession(startNext: Boolean = this.startNext) {
+        this.startNext = startNext
+        load()
+    }
 
     private fun load() {
         _uiState.value = SessionUiState.Loading
         viewModelScope.launch {
             try {
-                val session = repository.getToday()
+                val session = if (startNext) repository.startNextSession() else repository.getToday()
                 val problem = session.currentProblem
                 if (session.isCompleted || problem == null) {
                     // 이미 완료 상태로 진입 — 완료 화면으로 넘긴다(스트릭은 read 경로가 주면 함께).

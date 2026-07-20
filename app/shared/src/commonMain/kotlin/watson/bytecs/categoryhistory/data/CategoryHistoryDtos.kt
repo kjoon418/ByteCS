@@ -9,7 +9,7 @@ import watson.bytecs.problem.data.EnrichmentDto
 /**
  * 백엔드 `/api/learning-history/categories` 계약과 1:1 대응하는 유선(wire) DTO. 도메인 모델과 분리해,
  * API 형태가 바뀌어도 매핑 한곳만 고치면 되게 한다. 심화 구조는 공용 [EnrichmentDto]를 재사용한다
- * (계약 §B — session·scrap·extrastudy와 공유).
+ * (계약 §B — session·scrap과 공유).
  */
 
 /** 판정 문자열을 [JudgeResult]로 매핑. 미지값은 명확한 예외로 올려 네트워크 오류와 구분한다(다른 슬라이스와 동일). */

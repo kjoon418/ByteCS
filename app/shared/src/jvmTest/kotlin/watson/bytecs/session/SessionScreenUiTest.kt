@@ -294,7 +294,10 @@ class SessionScreenUiTest {
 
     // ── 진행 인디케이터 ───────────────────────────────────────────────────
 
-    /** ⭐️ 진행은 **분량 기반**이다(시간 카운트다운 아님). 세션 기본 크기는 10. */
+    /**
+     * ⭐️ 진행은 **분량 기반**이다(시간 카운트다운 아님). total=10은 이 화면 픽스처가 고른 임의 값 —
+     * 실제 세션 기본 분량은 5(D3 오너 결정, 서버 UserSettings.DEFAULT_DAILY_SESSION_SIZE)다.
+     */
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 진행_인디케이터는_분량_기반이다() = runScreen(active(position = 1, total = 10)) {

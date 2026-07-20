@@ -65,7 +65,7 @@ import kotlin.random.Random
  *
  * @param summary 완료 요약(푼 문제 수·스트릭). 세션 완료 이벤트로 전달된다.
  * @param onDone [오늘은 여기까지] → 02 홈.
- * @param onMore [조금 더 풀기] → 추가 연습.
+ * @param onMore [조금 더 풀기] → 새 세션으로 03 세션 풀이에 재진입(D6·D9 일원화 — 추가 학습 폐지).
  */
 @Composable
 fun SessionCompleteScreen(

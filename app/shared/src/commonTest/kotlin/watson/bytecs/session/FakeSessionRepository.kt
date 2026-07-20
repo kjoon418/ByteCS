@@ -16,6 +16,11 @@ class FakeSessionRepository(
     var revealError: Throwable? = null
     var pastError: Throwable? = null
     var revealHintError: Throwable? = null
+    var startNextError: Throwable? = null
+
+    /** '조금 더 풀기'가 호출될 때 돌려줄 세션. 기본은 [today]와 같아 별도로 스크립팅하지 않아도 동작한다. */
+    var nextSession: DailySession? = null
+    var startNextCount = 0
 
     var revealResult: Reveal =
         Reveal(concepts = listOf("스택"), explanation = "LIFO 구조", representativeAnswer = "스택 (stack)")
@@ -39,6 +44,12 @@ class FakeSessionRepository(
     override suspend fun getToday(): DailySession {
         getTodayError?.let { throw it }
         return today
+    }
+
+    override suspend fun startNextSession(): DailySession {
+        startNextCount++
+        startNextError?.let { throw it }
+        return nextSession ?: today
     }
 
     override suspend fun submitAttempt(answer: String): AttemptOutcome {

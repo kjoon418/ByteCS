@@ -64,6 +64,51 @@ class SessionViewModelTest {
         assertTrue(viewModel.uiState.value is SessionUiState.Error)
     }
 
+    // ── D6·D9 일원화: '조금 더 풀기'(추가 학습 폐지, 새 세션 재진입) ─────────────
+
+    /** startNext=true면 getToday가 아니라 startNextSession(POST /today/next)으로 진입한다. */
+    @Test
+    fun loadSession_withStartNext_callsStartNextSession_notGetToday() = runTest {
+        val repo = FakeSessionRepository(today = completedSession(total = 3))
+        repo.nextSession = activeSession(position = 0, total = 3, solved = 0, problem = problem(9L))
+        val viewModel = SessionViewModel(repo).apply { loadSession(startNext = true) }
+
+        assertEquals(1, repo.startNextCount, "startNextSession이 호출된다")
+        assertEquals(9L, viewModel.active().problem.id, "새로 만들어진(또는 반환된) 세션으로 진입한다")
+    }
+
+    /** startNext=false(기본)는 기존과 동일하게 getToday만 호출한다 — startNextSession에는 닿지 않는다. */
+    @Test
+    fun loadSession_withoutStartNext_neverCallsStartNextSession() = runTest {
+        val repo = FakeSessionRepository(today = activeSession())
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        assertEquals(0, repo.startNextCount)
+        assertTrue(viewModel.uiState.value is SessionUiState.Active)
+    }
+
+    /**
+     * ⭐️ 재시도(오류 화면의 [onRetry] = `viewModel::loadSession`, 인자 없음)는 직전 진입 방식을 그대로
+     * 재사용한다 — '조금 더 풀기'로 진입했다가 실패했으면, 인자 없는 재시도도 startNextSession으로 간다.
+     * (그렇지 않으면 재시도가 조용히 getToday로 새 완료된 세션을 다시 불러 완료 화면으로 되돌아가 버린다.)
+     */
+    @Test
+    fun retryAfterStartNextFailure_reusesStartNext() = runTest {
+        val repo = FakeSessionRepository(today = completedSession(total = 3)).apply {
+            startNextError = RuntimeException("network")
+        }
+        val viewModel = SessionViewModel(repo).apply { loadSession(startNext = true) }
+        assertTrue(viewModel.uiState.value is SessionUiState.Error)
+        assertEquals(1, repo.startNextCount)
+
+        repo.startNextError = null
+        repo.nextSession = activeSession(position = 0, total = 3, problem = problem(9L))
+        viewModel.loadSession() // 재시도 — 인자 없음
+
+        assertEquals(2, repo.startNextCount, "재시도도 startNextSession으로 간다(getToday로 새지 않는다)")
+        assertEquals(9L, viewModel.active().problem.id)
+    }
+
     @Test
     fun alreadyCompletedOnLoad_emitsCompletedEvent() = runTest {
         val repo = FakeSessionRepository(today = completedSession(total = 5, streak = Streak(3, "2026-07-14")))

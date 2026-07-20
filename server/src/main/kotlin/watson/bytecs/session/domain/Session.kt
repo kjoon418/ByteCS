@@ -13,7 +13,6 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.OrderColumn
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 import jakarta.persistence.Version
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Judgement
@@ -21,17 +20,14 @@ import java.time.LocalDate
 
 /**
  * 일일 학습 세션('오늘의 한입')의 애그리거트 루트.
- * 배정된 본 문제를 순서대로 담고, '첫 미해결 칸'을 커서로 삼아 진행 위치를 도출한다. 하루(userId+날짜)에 하나만 존재한다(유니크 제약).
+ * 배정된 본 문제를 순서대로 담고, '첫 미해결 칸'을 커서로 삼아 진행 위치를 도출한다.
+ * 하루(userId+날짜)에 여러 세션이 존재할 수 있다(D6·D9 일원화 — '조금 더 풀기'가 오늘 완료 후 새 세션을 시작한다).
+ * '오늘의 세션'은 그 날짜의 가장 최근 세션이다(서비스가 id 내림차순 최신으로 해석한다).
  * 진행 규칙(정답을 직접 맞혀야만 다음)·정답 공개(안전판)·완료 전이를 모두 이 애그리거트 안에 캡슐화한다.
  * 칸은 값(@Embeddable)으로 소유하므로, 세션과 함께 저장·로딩되며 별도 생명주기를 갖지 않는다.
  */
 @Entity
-@Table(
-    name = "study_session",
-    uniqueConstraints = [
-        UniqueConstraint(name = "uk_study_session_user_date", columnNames = ["user_id", "session_date"]),
-    ],
-)
+@Table(name = "study_session")
 class Session private constructor(
     // 세션은 게스트/회원 구분 없이 userId 기준으로 격리된다.
     @Column(name = "user_id", nullable = false)
@@ -96,7 +92,7 @@ class Session private constructor(
      *  - 그 외(불일치·근접): 오답 횟수만 올리고 전진하지 않는다(무낙인·정답 직접 입력 원칙).
      * [misconceptionShown]이 참이면(이 비정답에 오답 교정 힌트가 실렸으면) 그 사실을 칸에 마킹한다 —
      * 숙련도 산정(기능 3)이 '오답 교정 힌트 없이 맞힘'(무도움)을 판별할 근거다.
-     * 이미 완료된 세션에는 더 제출할 수 없다(추가 학습은 별도 무상태 API 소관).
+     * 이미 완료된 세션에는 더 제출할 수 없다('조금 더 풀기'는 오늘 완료 후 새 세션을 시작한다).
      */
     fun recordAttempt(judgement: Judgement, answer: AnswerText, misconceptionShown: Boolean = false) {
         if (isCompleted) {

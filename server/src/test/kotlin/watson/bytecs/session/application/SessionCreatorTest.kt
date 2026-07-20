@@ -7,7 +7,6 @@ import org.mockito.Mockito.mock
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserSettings
 import watson.bytecs.account.infrastructure.UserRepository
-import watson.bytecs.extrastudy.infrastructure.ExtraStudyRepository
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.domain.Session
@@ -28,10 +27,9 @@ class SessionCreatorTest {
     private val problemRepository = mock(ProblemRepository::class.java)
     private val userRepository = mock(UserRepository::class.java)
     private val reviewService = mock(ReviewService::class.java)
-    private val extraStudyRepository = mock(ExtraStudyRepository::class.java)
 
-    // 실제 LearningHistory로 세션 ∪ 추가 학습 합집합 경로를 그대로 태워, 추가 학습 solved 제외까지 검증한다.
-    private val learningHistory = LearningHistory(sessionRepository, extraStudyRepository)
+    // 실제 LearningHistory로 세션 이력 경로를 그대로 태운다(D6·D9 일원화 이후 세션 단독 출처).
+    private val learningHistory = LearningHistory(sessionRepository)
 
     private companion object {
         const val USER_ID = 1L
@@ -44,21 +42,6 @@ class SessionCreatorTest {
         val assignedIds = assign(size = 3, all = listOf(1L, 2L, 3L, 4L, 5L), solved = listOf(2L, 4L), reviews = emptyList())
 
         // 이미 푼 2·4는 빠지고, 안 푼 1·3·5만 무작위 순서로 세 칸을 채운다.
-        assertThat(assignedIds).containsExactlyInAnyOrder(1L, 3L, 5L)
-        assertThat(assignedIds).doesNotContain(2L, 4L)
-    }
-
-    @Test
-    fun `추가 학습에서 푼 문제도 새 개념 배정에서 제외된다`() {
-        // 세션에선 아무것도 안 풀었지만 추가 학습에서 2·4를 풀었다면, 세션 새 개념 배정에서도 2·4는 빠진다(합집합).
-        val assignedIds = assign(
-            size = 3,
-            all = listOf(1L, 2L, 3L, 4L, 5L),
-            solved = emptyList(),
-            reviews = emptyList(),
-            extraSolved = listOf(2L, 4L),
-        )
-
         assertThat(assignedIds).containsExactlyInAnyOrder(1L, 3L, 5L)
         assertThat(assignedIds).doesNotContain(2L, 4L)
     }
@@ -127,33 +110,29 @@ class SessionCreatorTest {
         assertThat(sessions.distinct().size).isGreaterThan(1)
     }
 
-    /** 주어진 학습 상태를 stub하고 시드 고정 Random으로 createInNewTransaction을 구동해, 배정된 본 문제 id를 순서대로 돌려준다. */
+    /** 주어진 학습 상태를 stub하고 시드 고정 Random으로 create를 구동해, 배정된 본 문제 id를 순서대로 돌려준다. */
     private fun assign(
         size: Int,
         all: List<Long>,
         solved: List<Long>,
         reviews: List<Long>,
-        extraSolved: List<Long> = emptyList(),
         seed: Long = SEED,
     ): List<Long> {
         val user = User.createGuest().apply { updateSettings(UserSettings(size)) }
 
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user))
         given(problemRepository.findApprovedIdsOrderByIdAsc()).willReturn(all)
-        // 배정·풀이 이력은 세션 ∪ 추가 학습 합집합(LearningHistory)을 본다. 세션 이력과 추가 학습 이력을 각각 stub한다.
+        // 배정·풀이 이력은 [LearningHistory](세션 단독 출처)를 본다.
         given(sessionRepository.findAssignedProblemIds(user.id)).willReturn(solved)
         given(sessionRepository.findSolvedProblemIds(user.id)).willReturn(solved)
-        given(extraStudyRepository.findSolvedProblemIds(user.id)).willReturn(extraSolved)
-        given(extraStudyRepository.findOpenProblemId(user.id)).willReturn(null)
-        val unionSolved = (solved + extraSolved).toSet()
-        given(reviewService.selectDueReviewProblemIds(user.id, TODAY, unionSolved, all.toSet()))
+        given(reviewService.selectDueReviewProblemIds(user.id, TODAY, solved.toSet(), all.toSet()))
             .willReturn(reviews)
-        given(sessionRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(Session::class.java)))
+        given(sessionRepository.save(org.mockito.ArgumentMatchers.any(Session::class.java)))
             .willAnswer { it.getArgument(0) }
 
         val creator =
             SessionCreator(sessionRepository, problemRepository, userRepository, reviewService, learningHistory, Random(seed))
-        val session = creator.createInNewTransaction(USER_ID, TODAY)
+        val session = creator.create(USER_ID, TODAY)
         return session.items.map { it.problemId }
     }
 }

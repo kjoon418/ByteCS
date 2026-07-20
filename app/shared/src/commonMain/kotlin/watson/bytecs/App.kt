@@ -42,11 +42,7 @@ import watson.bytecs.categoryhistory.CategoryHistoryListScreen
 import watson.bytecs.categoryhistory.CategoryHistoryListViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryRepository
 import watson.bytecs.categoryhistory.data.KtorCategoryHistoryRepository
-import watson.bytecs.extrastudy.ExtraStudyRepository
-import watson.bytecs.extrastudy.ExtraStudyScreen
-import watson.bytecs.extrastudy.ExtraStudyViewModel
 import io.ktor.http.Url
-import watson.bytecs.extrastudy.data.KtorExtraStudyRepository
 import watson.bytecs.problem.data.platformApiBaseUrl
 import watson.bytecs.session.CompletionSummary
 import watson.bytecs.session.HomeScreen
@@ -183,8 +179,9 @@ private fun AppNavHost(dependencies: AppDependencies) {
             val viewModel = viewModel { HomeViewModel(dependencies.sessionRepository, dependencies.sessionManager) }
             HomeScreen(
                 viewModel = viewModel,
-                onStartOrContinue = { navigate(Screen.Session) },
-                onExtraPractice = { navigate(Screen.ExtraStudy) },
+                onStartOrContinue = { navigate(Screen.Session()) },
+                // '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지) — 새 세션으로 같은 풀이 흐름에 재진입한다.
+                onExtraPractice = { navigate(Screen.Session(startNext = true)) },
                 onOpenAccount = { navigate(Screen.Account) },
                 onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
                 onOpenScrapList = { navigate(Screen.ScrapList) },
@@ -192,10 +189,11 @@ private fun AppNavHost(dependencies: AppDependencies) {
             )
         }
 
-        Screen.Session -> {
+        is Screen.Session -> {
             val viewModel = viewModel { SessionViewModel(dependencies.sessionRepository) }
             SessionScreen(
                 viewModel = viewModel,
+                startNext = screen.startNext,
                 onCompleted = { summary ->
                     // 세션을 백스택에서 걷어내고 완료 화면으로(완료→뒤로가면 홈).
                     back()
@@ -211,17 +209,8 @@ private fun AppNavHost(dependencies: AppDependencies) {
             SessionCompleteScreen(
                 summary = screen.summary,
                 onDone = { back() },
-                onMore = { navigate(Screen.ExtraStudy) },
-            )
-        }
-
-        Screen.ExtraStudy -> {
-            val viewModel = viewModel { ExtraStudyViewModel(dependencies.extraStudyRepository) }
-            ExtraStudyScreen(
-                viewModel = viewModel,
-                onBack = { back() },
-                onReport = { problemId -> navigate(Screen.Report(problemId)) },
-                scrapRepository = dependencies.scrapRepository,
+                // '조금 더 풀기'(D6·D9 일원화) — 새 세션으로 같은 세션 풀이 화면에 재진입한다.
+                onMore = { navigate(Screen.Session(startNext = true)) },
             )
         }
 
@@ -397,11 +386,12 @@ sealed interface Screen {
     /** 02 홈('오늘의 한입') — 기본 진입점. */
     data object Home : Screen
 
-    /** 03 세션 풀이. */
-    data object Session : Screen
-
-    /** 추가 학습('조금 더 풀기') — 세션 밖 자유 풀이(목표 분량·완결 없음, 한 번에 한 문제). */
-    data object ExtraStudy : Screen
+    /**
+     * 03 세션 풀이. [startNext]가 true면 '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지)로 진입한 것이라,
+     * 오늘 최신 세션이 완료 상태일 때 새 세션을 만들어(`POST /today/next`) 같은 풀이 흐름에 재진입한다.
+     * 기본(false)은 기존 시작·이어서(`GET /today`)와 동일하다.
+     */
+    data class Session(val startNext: Boolean = false) : Screen
 
     data object Account : Screen
 
@@ -432,7 +422,6 @@ sealed interface Screen {
  * 프리뷰·테스트는 Fake 저장소로 직접 구성할 수 있다.
  */
 class AppDependencies(
-    val extraStudyRepository: ExtraStudyRepository,
     val accountRepository: AccountRepository,
     val sessionRepository: SessionRepository,
     val contentReportRepository: ContentReportRepository,
@@ -461,7 +450,6 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
         tokenProvider = { tokenStore.get() },
         apiHost = Url(platformApiBaseUrl()).host,
     )
-    val extraStudyRepository = KtorExtraStudyRepository(client)
     val accountRepository = KtorAccountRepository(client)
     val sessionRepository = KtorSessionRepository(client)
     val contentReportRepository = KtorContentReportRepository(client)
@@ -469,7 +457,6 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     val categoryHistoryRepository = KtorCategoryHistoryRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
-        extraStudyRepository = extraStudyRepository,
         accountRepository = accountRepository,
         sessionRepository = sessionRepository,
         contentReportRepository = contentReportRepository,

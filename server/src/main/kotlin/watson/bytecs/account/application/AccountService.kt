@@ -17,7 +17,6 @@ import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.domain.UserSettings
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
-import watson.bytecs.extrastudy.infrastructure.ExtraStudyRepository
 import watson.bytecs.report.infrastructure.ContentReportRepository
 import watson.bytecs.review.infrastructure.ConceptMasteryRepository
 import watson.bytecs.scrap.infrastructure.ScrapRepository
@@ -37,7 +36,6 @@ class AccountService(
     private val responseMapper: AccountResponseMapper,
     private val scrapRepository: ScrapRepository,
     private val sessionRepository: SessionRepository,
-    private val extraStudyRepository: ExtraStudyRepository,
     private val conceptMasteryRepository: ConceptMasteryRepository,
     private val contentReportRepository: ContentReportRepository,
 ) {
@@ -124,10 +122,9 @@ class AccountService(
         // 먼저 조회해 없으면 404(UserNotFound)로 일관되게 응답한다(중복 삭제에도 500 없이).
         val user = userRepository.findById(userId)
             .orElseThrow { UserNotFoundException.byId(userId) }
-        // 스크랩·세션·추가 학습·개념 숙련도는 학습 상태의 일부라 계정과 함께 삭제한다(도메인 [결정]). 사용자 삭제 전에 지운다.
+        // 스크랩·세션·개념 숙련도는 학습 상태의 일부라 계정과 함께 삭제한다(도메인 [결정]). 사용자 삭제 전에 지운다.
         scrapRepository.deleteByUserId(userId)
         sessionRepository.deleteByUserId(userId)
-        extraStudyRepository.deleteByUserId(userId)
         conceptMasteryRepository.deleteByUserId(userId)
         // 신고는 학습 상태가 아니라 콘텐츠 품질 운영 데이터라 삭제하지 않고 익명화만 한다(D10).
         contentReportRepository.anonymizeByUserId(userId)

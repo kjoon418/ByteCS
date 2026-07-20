@@ -12,8 +12,8 @@ import watson.bytecs.study.application.dto.CategoryHistoryResponse
 
 /**
  * 카테고리별 학습 이력을 조율한다(명세 §7 '카테고리별 학습 이력').
- * '푼 문제'는 [LearningHistory]가 정의하는 세션 ∪ 추가 학습 합집합을 그대로 쓴다 — 선정 통일과 같은 출처를 공유해
- * "추가 학습에서 푼 문제 = 세션에서 푼 문제"라는 학습 데이터 의미론이 조회에서도 어긋나지 않는다.
+ * '푼 문제'는 [LearningHistory]가 정의하는 세션 풀이 이력을 그대로 쓴다 — 세션 배정 선정과 같은 출처를 공유해
+ * '푼 문제'의 정의가 배정과 조회에서 어긋나지 않는다(D6·D9 일원화 이후 세션 단독 출처).
  */
 @Service
 @Transactional(readOnly = true)

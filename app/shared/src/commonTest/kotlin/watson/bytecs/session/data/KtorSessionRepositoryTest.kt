@@ -75,6 +75,32 @@ class KtorSessionRepositoryTest {
         assertNull(session.streak, "streak 필드가 없으면 null(그레이스풀)")
     }
 
+    /**
+     * '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지). 오늘 최신이 완료 상태면 새 세션을, 진행 중이면 그 세션을
+     * 그대로 돌려주는 계약이라 응답 형태는 `GET /today`와 동일하다(재사용).
+     */
+    @Test
+    fun startNextSession_postsToNextEndpoint_andMapsState() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Post, request.method)
+            assertEquals("http://test/api/sessions/today/next", request.url.toString())
+            respond(
+                content = """
+                    {"sessionId":2,"sessionDate":"2026-07-20","status":"IN_PROGRESS","solvedCount":0,
+                     "totalCount":5,"position":0,
+                     "currentProblem":{"id":11,"question":"새 세션 문제?","difficulty":"EASY","codeSnippet":null}}
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val session = KtorSessionRepository(client("t", engine), baseUrl).startNextSession()
+
+        assertEquals(2, session.sessionId)
+        assertEquals(SessionStatus.IN_PROGRESS, session.status)
+        assertEquals(11L, session.currentProblem?.id)
+    }
+
     @Test
     fun submitAttempt_postsAnswer_andMapsCorrect() = runTest {
         val engine = MockEngine { request ->

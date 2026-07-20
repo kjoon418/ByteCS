@@ -53,7 +53,8 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * ⚠️ 사용자 대면 카피에 '세션'을 쓰지 않는다 — 시스템 용어다. 화면에도, 스크린리더 문구에도 '오늘의 한입'.
  *
  * @param onStartOrContinue 시작/이어서 풀기 → 03 세션 풀이.
- * @param onExtraPractice 오늘 완료 후 '조금 더 풀어보기' → 추가 연습(세션 밖).
+ * @param onExtraPractice 오늘 완료 후 '조금 더 풀어보기' → 새 세션으로 03 세션 풀이에 재진입(D6·D9 일원화 —
+ * 추가 학습 폐지, 세션 밖 별도 화면 없음).
  * @param onOpenAccount 계정·설정(06).
  * @param onUpgrade 게스트 가입 유도 → 05.
  * @param onOpenScrapList 스크랩 목록 진입점(리뷰 반영, 2026-07-16 오너 결정) → 스크랩 목록.

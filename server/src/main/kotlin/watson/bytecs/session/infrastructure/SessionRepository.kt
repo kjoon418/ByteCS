@@ -7,8 +7,12 @@ import java.time.LocalDate
 
 interface SessionRepository : JpaRepository<Session, Long> {
 
-    /** 하루 1세션 get-or-create의 조회 축. (user_id, session_date) 유니크 제약과 짝을 이룬다. */
-    fun findByUserIdAndSessionDate(userId: Long, sessionDate: LocalDate): Session?
+    /**
+     * '오늘의 세션' 조회 축. 하루에 여러 세션이 있을 수 있으므로(D6·D9 일원화),
+     * 그 날짜의 가장 최근 세션(id 내림차순 첫 행)을 오늘의 세션으로 본다.
+     * 없으면 null — 서비스가 새 세션을 만든다('조금 더 풀기'도 이 최신 세션의 완료 여부로 새 세션 여부를 정한다).
+     */
+    fun findTopByUserIdAndSessionDateOrderByIdDesc(userId: Long, sessionDate: LocalDate): Session?
 
     /**
      * 사용자가 지금까지 어떤 세션에서든 '정답으로 통과한' 본 문제 id들(중복 제거).
@@ -41,7 +45,7 @@ interface SessionRepository : JpaRepository<Session, Long> {
     /**
      * 사용자가 세션에서 정답으로 통과한 본 문제의 (id, 그때 제출한 정답) 쌍(카테고리별 학습 이력의 '내 답' 복원용).
      * 세션 날짜 오름차순으로 정렬해, 같은 문제를 복습으로 여러 날 다시 풀었다면 호출부가 마지막 통과 값으로 덮어써 최신 제출을 취하게 한다.
-     * 추가 학습은 열린 항목이 solved로 승격되며 제출 답을 보존하지 않으므로([ExtraStudyItem]), 이 쌍은 세션 출처만 담당한다 — 그 결손은 카테고리별 이력 응답에서 null로 graceful 처리한다.
+     * 이제 모든 풀이는 세션에서 나오므로(D6·D9 일원화) 이 쌍이 통과한 문제의 '내 답'을 전부 담는다.
      */
     @Query(
         "select item.problemId as problemId, item.submittedAnswer as submittedAnswer from Session s join s.mutableItems item " +

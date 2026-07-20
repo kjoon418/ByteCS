@@ -1,6 +1,5 @@
 package watson.bytecs.session.application
 
-import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.User
@@ -29,8 +28,10 @@ import java.time.LocalDate
 /**
  * 오늘의 한입(일일 세션)을 조율한다.
  * 판정은 콘텐츠(Problem.judge)에, 진행·완료·정답 공개 규칙은 세션(Session)에, 스트릭은 사용자(User)에 위임하고,
- * 서비스는 하루 1세션 get-or-create·배정·조회·응답 변환만 담당한다.
- * 세션 생성은 오직 '오늘 조회(getOrCreateToday)'에서만 일어난다. 제출·공개·지난 문제는 이미 시작한 세션을 전제하며, 없으면 404다.
+ * 서비스는 '오늘 세션' get-or-create·배정·조회·응답 변환만 담당한다.
+ * 하루에 여러 세션이 있을 수 있고(D6·D9 일원화), '오늘의 세션'은 그 날짜의 가장 최근 세션이다.
+ * 세션 생성은 '오늘 조회(getOrCreateToday)'와 '조금 더 풀기(getOrCreateNext)'에서만 일어난다.
+ * 제출·공개·지난 문제는 이미 시작한 세션을 전제하며, 없으면 404다.
  * 기본 읽기 전용이되, 세션을 만들거나 상태를 바꾸는 메서드만 쓰기 트랜잭션으로 재정의한다.
  */
 @Service
@@ -47,13 +48,31 @@ class SessionService(
 ) {
 
     /**
-     * 오늘의 세션을 가져오거나(없으면) 새로 배정해 시작 상태를 돌려준다. 하루 경계·중단 재개의 진입점이다.
-     * 생성(INSERT)은 [SessionCreator]가 REQUIRES_NEW로 격리하므로, 이 메서드는 조회만 하는 읽기 전용 트랜잭션(클래스 기본)으로 둔다.
+     * 오늘의 세션(그 날짜의 최신 세션)을 가져오거나(없으면) 새로 배정해 시작 상태를 돌려준다. 하루 경계·중단 재개의 진입점이다.
+     * 진행/완료 무관하게 오늘 최신 세션이 있으면 그대로 돌려준다(홈이 '이어서'·'오늘 완료'를 이 상태로 판단한다).
+     * 조회 후 없을 때만 만들므로 쓰기 트랜잭션으로 둔다(생성과 조회가 한 트랜잭션에서 원자적으로 일어나게).
      */
+    @Transactional
     fun getOrCreateToday(userId: Long): SessionStateResponse {
         val session = findOrCreateToday(userId)
+        return toStateResponse(userId, session)
+    }
+
+    /**
+     * '조금 더 풀기': 오늘 최신 세션이 완료됐으면 새 세션을 시작해 돌려준다.
+     *  - 오늘 세션이 없으면 새로 만든다(= getOrCreateToday와 같은 동작).
+     *  - 오늘 최신이 진행 중이면 새로 만들지 않고 그 세션을 그대로 돌려준다(중복 세션 방지 — 클라는 200으로 이어서 푼다).
+     * 새 세션을 만들 수 있으므로 쓰기 트랜잭션으로 둔다.
+     */
+    @Transactional
+    fun getOrCreateNext(userId: Long): SessionStateResponse {
+        val session = advanceOrCreateToday(userId)
+        return toStateResponse(userId, session)
+    }
+
+    /** 세션 상태 응답을 만든다. 홈 화면이 로드 시점에 바로 스트릭을 보여주도록 현재 스트릭을 함께 싣는다. */
+    private fun toStateResponse(userId: Long, session: Session): SessionStateResponse {
         val currentProblem = session.currentItemProblemId()?.let { loadProblem(it) }
-        // 홈 화면이 로드 시점에 바로 스트릭을 보여주도록, 오늘 상태에 사용자의 현재 스트릭을 함께 싣는다.
         val streak = loadUser(userId).streak
 
         return responseMapper.toStateResponse(session, currentProblem, streak)
@@ -66,7 +85,7 @@ class SessionService(
     @Transactional
     fun submitAnswer(userId: Long, answer: AnswerText): SessionAttemptResponse {
         val session = loadTodayOrThrow(userId)
-        // 완료된 세션엔 현재 본 문제가 없다. 도메인 규칙과 같은 의미의 예외로 일관되게 막는다(추가 학습 유도).
+        // 완료된 세션엔 현재 본 문제가 없다. 도메인 규칙과 같은 의미의 예외로 일관되게 막는다('조금 더 풀기'로 새 세션을 시작한다).
         val currentProblemId = session.currentItemProblemId()
             ?: throw SessionAlreadyCompletedException.forAttempt()
         val problem = loadProblem(currentProblemId)
@@ -147,26 +166,35 @@ class SessionService(
     }
 
     /**
-     * 오늘 세션을 찾거나, 없으면 만든다. (user_id, session_date) 유니크 제약의 경합을 여기서 멱등하게 흡수한다.
-     * 생성은 [SessionCreator]가 REQUIRES_NEW로 격리하므로, 저장이 유니크 제약으로 실패해도 이 트랜잭션은 오염되지 않는다.
-     * 동시에 두 요청이 함께 만들려 하면 하나만 성공하고, 진 쪽은 DataIntegrityViolationException을 받아 이미 만들어진 세션을 재조회한다.
-     * 재조회가 비면(우리가 아는 경합이 아니면) DIV를 그대로 흘려보낸다 — 전역 핸들러가 중립 CONFLICT(409)로 매핑하므로,
-     * 계정 슬라이스의 EMAIL_DUPLICATED로 오분류되지 않는다.
+     * 오늘 최신 세션을 찾거나, 없으면 만든다.
+     * 유니크 제약을 제거한 뒤(D6·D9)의 동시성은 '본인 한정 경합'이다 — 조회와 생성을 한 쓰기 트랜잭션에 담아,
+     * 흔한 순차 재요청(같은 사용자가 두 번 조회)은 최신 세션을 그대로 재사용해 중복을 만들지 않는다.
      */
     private fun findOrCreateToday(userId: Long): Session {
         val today = today()
-        sessionRepository.findByUserIdAndSessionDate(userId, today)?.let { return it }
+        return findLatestToday(userId, today) ?: sessionCreator.create(userId, today)
+    }
 
-        return try {
-            sessionCreator.createInNewTransaction(userId, today)
-        } catch (e: DataIntegrityViolationException) {
-            sessionRepository.findByUserIdAndSessionDate(userId, today) ?: throw e
+    /**
+     * '조금 더 풀기'의 세션 선택: 오늘 최신이 완료면 새 세션을, 진행 중이면 그 세션을, 없으면 새 세션을 돌려준다.
+     * 진행 중 세션이 있으면 새로 만들지 않는 것으로 '완료 전 중복 세션'을 막는다(트랜잭션 내 진행 중 세션 검사).
+     */
+    private fun advanceOrCreateToday(userId: Long): Session {
+        val today = today()
+        val latest = findLatestToday(userId, today)
+        return when {
+            latest == null || latest.isCompleted -> sessionCreator.create(userId, today)
+            else -> latest
         }
     }
 
-    /** 오늘 세션을 로드하되, 아직 시작하지 않았으면 404다(제출·공개·지난 문제는 세션을 만들지 않는다). */
+    /** 오늘 날짜의 가장 최근 세션(id 내림차순 첫 행). 없으면 null. */
+    private fun findLatestToday(userId: Long, today: LocalDate): Session? =
+        sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(userId, today)
+
+    /** 오늘 최신 세션을 로드하되, 아직 시작하지 않았으면 404다(제출·공개·지난 문제는 세션을 만들지 않는다). */
     private fun loadTodayOrThrow(userId: Long): Session =
-        sessionRepository.findByUserIdAndSessionDate(userId, today())
+        findLatestToday(userId, today())
             ?: throw SessionNotFoundException.forToday()
 
     private fun loadProblem(problemId: Long): Problem =

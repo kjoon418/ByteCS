@@ -1,8 +1,6 @@
 package watson.bytecs.session.application
 
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
@@ -16,13 +14,11 @@ import java.time.LocalDate
 import kotlin.random.Random
 
 /**
- * 오늘 세션의 '생성(INSERT)'만 별도 트랜잭션으로 격리해 책임지는 협력자.
+ * 오늘 세션의 '생성(INSERT)'(배정 선정 + 저장)만 책임지는 협력자.
  *
- * get-or-create의 경합에서, 저장 실패(유니크 제약 위반)의 롤백이 호출자(get) 트랜잭션을 오염시키면 안 된다.
- * 같은 트랜잭션 안에서 flush가 실패하면 그 트랜잭션이 rollback-only로 표시되어, 이후 재조회가 성공해도
- * 최종 커밋이 UnexpectedRollbackException으로 터진다(→ 500). 그래서 INSERT를 REQUIRES_NEW로 분리해,
- * 실패 시 '이 새 트랜잭션만' 롤백되고 호출자 트랜잭션은 깨끗이 유지되게 한다(호출자가 잡아 재조회 가능).
- * 자기호출은 프록시를 타지 않으므로, 반드시 별도 빈으로 분리해 주입받아 호출해야 REQUIRES_NEW가 적용된다.
+ * 배정 선정(복습 인터리빙·새 개념 무작위 셔플)이 서비스의 조회·응답 변환과 분리되도록 별도 빈으로 둔다.
+ * 호출자([SessionService])의 쓰기 트랜잭션에 합류해(REQUIRED), 조회-없으면-생성이 한 트랜잭션에서 원자적으로 일어난다.
+ * (유니크 제약을 제거한 D6·D9 이후, 저장 실패 격리를 위한 REQUIRES_NEW는 더 필요하지 않다 — 동시성은 '본인 한정 경합'뿐이다.)
  */
 @Component
 class SessionCreator(
@@ -30,7 +26,7 @@ class SessionCreator(
     private val problemRepository: ProblemRepository,
     private val userRepository: UserRepository,
     private val reviewService: ReviewService,
-    // 푼/배정 문제 풀은 세션 단독이 아니라 세션 ∪ 추가 학습의 합집합을 본다(설계 §1.2).
+    // 푼/배정 문제 풀은 [LearningHistory]로 조회한다(D6·D9 일원화 이후 세션 단독 출처).
     private val learningHistory: LearningHistory,
     // 새 개념 문제를 무작위로 뽑는 데 쓴다. 기본은 Random.Default이고, 테스트에서 시드 고정 Random을 주입해
     // 셔플 결과를 결정적으로 검증한다(운영에선 사용자마다·매일 다른 세션을 위해 매번 새 순서를 뽑는다).
@@ -38,17 +34,15 @@ class SessionCreator(
 ) {
 
     /**
-     * 오늘 세션을 새 트랜잭션에서 배정·저장한다.
-     * saveAndFlush로 유니크 제약 위반을 이 트랜잭션 경계 안에서 즉시 표출해,
-     * 경합 시 호출자가 DataIntegrityViolationException을 받아 재조회로 복구할 수 있게 한다.
+     * 오늘 세션을 배정·저장한다(호출자의 쓰기 트랜잭션에 합류).
+     * 배정 문제가 즉시 확정되도록 save로 영속화한다.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    fun createInNewTransaction(userId: Long, today: LocalDate): Session {
+    fun create(userId: Long, today: LocalDate): Session {
         val user = userRepository.findById(userId)
             .orElseThrow { UserNotFoundException.byId(userId) }
         val problemIds = assignProblemIds(user, today)
 
-        return sessionRepository.saveAndFlush(Session.assign(userId, today, problemIds))
+        return sessionRepository.save(Session.assign(userId, today, problemIds))
     }
 
     /**
@@ -67,12 +61,12 @@ class SessionCreator(
         val allProblemIds = problemRepository.findApprovedIdsOrderByIdAsc()
         val poolIds = allProblemIds.toSet()
 
-        // 1) 복습 편입: 도래 개념의 복습 문제(회수된 후보는 건너뜀). 배정 이력은 유도형 예외 판정에 쓴다(세션 ∪ 추가 학습).
+        // 1) 복습 편입: 도래 개념의 복습 문제(회수된 후보는 건너뜀). 배정 이력은 유도형 예외 판정에 쓴다.
         val assignedProblemIds = learningHistory.findAssignedProblemIds(user.id)
         val reviewProblemIds = reviewService.selectDueReviewProblemIds(user.id, today, assignedProblemIds, poolIds)
 
         // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백. 두 경우 모두 무작위로 셔플한다.
-        //    이미 푼 문제 판단도 세션 ∪ 추가 학습 합집합으로 본다 — 추가 학습에서 푼 문제를 세션이 새 개념으로 다시 내지 않게.
+        //    이미 푼 문제는 새 개념으로 다시 내지 않는다(같은 문제가 새 개념 배정으로 반복되지 않게).
         val solvedProblemIds = learningHistory.findSolvedProblemIds(user.id)
         val unseenProblemIds = allProblemIds.filter { it !in solvedProblemIds }
         val newConceptCandidates =

@@ -8,6 +8,13 @@ interface SessionRepository {
     /** 오늘의 세션을 가져오거나(없으면) 새로 배정해 시작 상태를 받는다. `GET /api/sessions/today`. */
     suspend fun getToday(): DailySession
 
+    /**
+     * '조금 더 풀기' — 오늘 최신 세션이 완료 상태면 새 세션을 만들어 재진입하고, 아직 진행 중이면 그 세션을
+     * 그대로 받는다(멱등, 항상 200). `POST /api/sessions/today/next`. 추가 학습(폐지, D6·D9)을 대체한다 —
+     * '조금 더 풀기'는 이제 별도 화면이 아니라 새 세션으로 같은 풀이 흐름에 재진입하는 것이다.
+     */
+    suspend fun startNextSession(): DailySession
+
     /** 현재 본 문제에 답을 제출하고 결과를 받는다. `POST /api/sessions/today/attempts`. */
     suspend fun submitAttempt(answer: String): AttemptOutcome
 
