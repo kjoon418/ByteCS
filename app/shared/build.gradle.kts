@@ -124,6 +124,8 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.ktor.client.okhttp)
+            // 하드웨어/제스처 뒤로가기를 앱 백스택에 연결하는 SystemBackHandler(안드로이드 actual)용.
+            implementation(libs.androidx.activity.compose)
         }
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)

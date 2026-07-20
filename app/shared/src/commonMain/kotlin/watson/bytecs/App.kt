@@ -163,17 +163,18 @@ private fun AppNavHost(dependencies: AppDependencies) {
     }
     val current = backStack.last()
 
-    fun navigate(screen: Screen) {
-        // 같은 화면 중복 push 방지.
-        if (backStack.last() != screen) backStack.add(screen)
-    }
-    fun back() {
-        if (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-    }
+    fun navigate(screen: Screen) = backStack.pushDistinct(screen)
+    fun back() = backStack.popScreen()
     fun resetTo(screen: Screen) {
         backStack.clear()
         backStack.add(screen)
     }
+
+    // ⭐️ [실기기 QA] 안드로이드 하드웨어/제스처 뒤로가기를 앱의 명시적 백스택에 연결한다. 홈만 남았을
+    //    때(size==1)는 비활성화해 시스템 기본 동작(앱 종료)에 위임한다. BackHandler가 없으면 커스텀
+    //    백스택과 무관하게 액티비티가 곧장 종료돼, 여러 화면을 쌓아둔 상태에서도 뒤로가기 한 번에 앱이
+    //    닫혔다 — 사용자는 이전 화면으로의 이동을 기대한다.
+    SystemBackHandler(enabled = backStack.size > 1) { back() }
 
     when (val screen = current) {
         Screen.Home -> {
@@ -210,8 +211,14 @@ private fun AppNavHost(dependencies: AppDependencies) {
             SessionCompleteScreen(
                 summary = screen.summary,
                 onDone = { back() },
-                // '조금 더 풀기'(D6·D9 일원화) — 새 세션으로 같은 세션 풀이 화면에 재진입한다.
-                onMore = { navigate(Screen.Session(startNext = true)) },
+                // '조금 더 풀기'(D6·D9 일원화) — 완료 화면을 먼저 걷어낸 뒤 새 세션으로 재진입한다.
+                // ⭐️ [실기기 QA] 걷어내지 않으면 완료→조금 더 풀기→완료를 반복할 때마다 완료 화면이 백스택에
+                //    누적돼, '오늘은 여기까지'·뒤로가기 한 번으로 홈에 닿지 못하고 이전 완료 화면이 다시 보인다.
+                //    완료 화면은 항상 홈 바로 위 하나만 유지된다(back → 완료 pop → 세션 push).
+                onMore = {
+                    back()
+                    navigate(Screen.Session(startNext = true))
+                },
             )
         }
 
@@ -428,6 +435,20 @@ sealed interface Screen {
 
     /** 카테고리별 학습 이력 상세(읽기 전용). 선택한 카테고리([category], 서버 enum name)를 실어 넘긴다. */
     data class CategoryHistoryDetail(val category: String) : Screen
+}
+
+/**
+ * 명시적 백스택(내비 라이브러리 없음) 조작을 순수 함수로 빼 둔다 — '조금 더 풀기' 재진입 시 완료 화면이
+ * 누적되지 않는다는 불변식을 Compose 트리 밖에서 결정적으로 테스트하기 위함([rootPhase] 가드와 같은 결).
+ */
+internal fun MutableList<Screen>.pushDistinct(screen: Screen) {
+    // 같은 화면 중복 push 방지.
+    if (lastOrNull() != screen) add(screen)
+}
+
+/** 맨 위 화면을 pop. 홈(밑바닥)은 남긴다 — 막다른 길 방지. */
+internal fun MutableList<Screen>.popScreen() {
+    if (size > 1) removeAt(lastIndex)
 }
 
 /**
