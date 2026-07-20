@@ -176,3 +176,56 @@ dependencies {
     implementation(libs.my.awesome.lib)
 }
 ```
+
+## 🌐 6. 웹(Wasm/Canvas) 클라이언트
+
+CS한입은 모바일(Android/iOS)과 **웹(Compose Multiplatform wasmJs)** 을 같은 `commonMain` UI로 굴린다.
+웹은 별도 이식이 아니라 같은 화면을 브라우저 캔버스에 렌더링하는 타깃이다. 상세 배경·결정은
+`docs/plan/웹 클라이언트(wasmJs) 구현 계획.md` 참고.
+
+### 타깃·모듈 구조
+
+```
+:core          → wasmJs 타깃 추가(:app:shared가 api로 물어서 필수)
+:app:shared    → wasmJs 타깃 추가: commonMain 전체 + wasmJsMain actual 3파일
+:app:webApp    → 웹 런처(신규): wasmJs main() + ComposeViewport { App() } + index.html
+:server        → :app:webApp 산출물(정적 번들)을 static/으로 포함해 같은 오리진 서빙
+```
+
+- `:app:webApp`이 웹 엔트리포인트다(안드로이드의 `:app:androidApp`에 대응). `:app:shared`는 순수
+  라이브러리로 남긴다 — `binaries.executable()`은 `:app:webApp`에만 둔다.
+
+### actual 작성 규칙 (wasmJsMain)
+
+플랫폼 의존은 expect/actual 3파일로만 격리돼 있다. 웹 actual은 다음 규칙을 따른다:
+
+- `platformApiBaseUrl()` = `window.location.origin`. **같은 오리진 서빙**이 전제라 origin이 곧 API 서버다
+  (레포지토리가 `"$baseUrl/api/..."`로 URL을 만들고 `App.kt`가 `Url(...).host`로 토큰 스코프를 잡으므로 절대 URL이 필요).
+- `defaultHttpClientEngine()` = `Js.create()` (Ktor JS 엔진).
+- `SystemBackHandler` = no-op(iOS/JVM과 동일). 브라우저 뒤로가기↔앱 백스택 연동은 백로그.
+- `Settings()`(multiplatform-settings no-arg)는 wasmJs에서 자동으로 localStorage에 매핑된다(토큰·온보딩·테마).
+
+### 적응형 레이아웃 (웹/데스크톱)
+
+넓은 화면은 모바일 화면의 단순 확대가 아니라 **너비 클래스로 구조를 분기**한다.
+
+- `ui/layout/WindowWidthClass`(COMPACT<600 / MEDIUM<840 / EXPANDED≥840dp)를 `App` 최상위에서
+  측정해 `LocalWindowWidthClass`로 전 화면에 전파한다. 기본값 COMPACT라 **모바일 렌더는 무변화**다.
+- 화면 코드는 `LocalWindowWidthClass.current`만 읽어 EXPANDED에서만 재배치한다(홈 2컬럼, 스크랩·카테고리
+  리스트-디테일 2패널 `TwoPaneListDetail`). 몰입 화면(문제 풀이)은 재배치 대신 가독폭만 넓힌다
+  (`BcsScaffold(maxWidth = readableMax)`). "넓다고 더 채우지 않는다" — 여백·가독폭 유지가 원칙이다.
+
+### 개발 루프 vs 배포 루프
+
+- **개발**: `gradlew :app:webApp:wasmJsBrowserDevelopmentRun` (webpack dev server, 포트 8081)
+  + `/api` 프록시 → 로컬 Spring(8080). 핫 리로드 유지. dev server 포트는 반드시 8080과 다르게 둔다.
+- **배포**: `gradlew -PincludeWeb :server:bootRun`(웹 포함 통합 확인) / `gradlew -PincludeWeb :server:bootJar`
+  (웹+API 단일 아티팩트). `-PincludeWeb` 게이트가 없으면 `:server:test`·`:server:bootRun`은 웹 번들
+  빌드 없이 기존 속도로 돈다(일상 서버 개발 루프 보호). 웹 프로덕션 번들 빌드(Binaryen 최적화)는 수 분 걸린다.
+
+### ⚠️ 한글 IME 확인 의무
+
+주관식 한글 답변이 서비스의 핵심 입력이다. 웹 관련 변경 후에는 실제 브라우저(Chrome + 가능하면 Safari)에서
+문제 풀이 `TextField`에 **한글 조합 입력**(받침·조합 중 백스페이스 포함)이 정상 동작하는지 확인한다.
+캔버스 기반 텍스트 입력의 IME는 헤드리스 테스트로 잡히지 않으므로 브라우저 스모크가 필수다
+(`docs/dev/웹 테스트 가이드.md`).
