@@ -38,6 +38,7 @@ object BcsDimens {
     val buttonHeight = 56.dp
     val minTouchTarget = 48.dp
     val contentMax = 600.dp // 태블릿/웹 콘텐츠 최대 폭(중앙 제한)
+    val contentMaxWide = 960.dp // 웹 EXPANDED 2컬럼/2패널 컨테이너 최대 폭(과폭 방지)
     val progressDot = 8.dp
     val accentStripe = 4.dp // 넛지 좌측 액센트 스트라이프 폭
     val iconCheck = 22.dp // 정답 체크 표시

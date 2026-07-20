@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,6 +52,8 @@ import watson.bytecs.ui.components.GhostButton
 import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.streakTone
+import watson.bytecs.ui.layout.LocalWindowWidthClass
+import watson.bytecs.ui.layout.WindowWidthClass
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.LocalBcsColors
 
@@ -218,6 +221,25 @@ private fun HomeReady(
     onOpenScrapList: () -> Unit,
     onOpenCategoryHistory: () -> Unit,
 ) {
+    // 웹/데스크톱(EXPANDED)에서는 세로 나열 대신 주 영역(오늘의 한입 카드)과 보조 컬럼(스트릭·진입점)으로
+    // 2분할해 이동·스크롤을 줄인다(계획 §4-2). COMPACT/MEDIUM은 기존 단일 컬럼 그대로라 모바일 회귀가 없다.
+    if (LocalWindowWidthClass.current == WindowWidthClass.EXPANDED) {
+        HomeReadyExpanded(state, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory)
+    } else {
+        HomeReadyColumn(state, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory)
+    }
+}
+
+/** COMPACT/MEDIUM(모바일·세로) — 세로 스크롤 단일 컬럼(기존 렌더 그대로). */
+@Composable
+private fun HomeReadyColumn(
+    state: HomeUiState.Ready,
+    onStartOrContinue: () -> Unit,
+    onExtraPractice: () -> Unit,
+    onUpgrade: () -> Unit,
+    onOpenScrapList: () -> Unit,
+    onOpenCategoryHistory: () -> Unit,
+) {
     val session = state.session
 
     Column(
@@ -258,6 +280,65 @@ private fun HomeReady(
         }
 
         Spacer(Modifier.height(BcsDimens.space6))
+    }
+}
+
+/**
+ * EXPANDED(웹/데스크톱, ≥840dp) — 2컬럼. 히어로인 '오늘의 한입' 카드를 주 영역(좌, 더 넓게)에 두고,
+ * 스트릭·진입점·가입 유도를 보조 컬럼(우)으로 뺀다. 컨테이너 폭을 [BcsDimens.contentMaxWide]로 제한하고
+ * 중앙 정렬해 과폭(가독성 저하)을 막는다 — "넓다고 더 채우지 않는다"는 UX 원칙(과밀 금지).
+ */
+@Composable
+private fun HomeReadyExpanded(
+    state: HomeUiState.Ready,
+    onStartOrContinue: () -> Unit,
+    onExtraPractice: () -> Unit,
+    onUpgrade: () -> Unit,
+    onOpenScrapList: () -> Unit,
+    onOpenCategoryHistory: () -> Unit,
+) {
+    val session = state.session
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = BcsDimens.contentMaxWide)
+                .fillMaxWidth()
+                .padding(horizontal = BcsDimens.space6, vertical = BcsDimens.space6),
+            horizontalArrangement = Arrangement.spacedBy(BcsDimens.space6),
+        ) {
+            // 주 영역(좌): 인사 + 오늘의 한입 히어로 카드. 시선이 먼저 닿는 곳에 시작 CTA를 둔다.
+            Column(
+                modifier = Modifier.weight(1.4f),
+                verticalArrangement = Arrangement.spacedBy(BcsDimens.space5),
+            ) {
+                Greeting()
+                TodayBiteCard(
+                    state = state,
+                    onStartOrContinue = onStartOrContinue,
+                    onExtraPractice = onExtraPractice,
+                )
+            }
+            // 보조 컬럼(우): 스트릭 + 진입점 + 가입 유도. 히어로를 방해하지 않는 부차 정보만 모은다.
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(BcsDimens.space5),
+            ) {
+                session.streak?.let { streak ->
+                    StreakCard(days = streak.count)
+                }
+                ScrapEntryRow(onOpenScrapList = onOpenScrapList)
+                CategoryHistoryEntryRow(onOpenCategoryHistory = onOpenCategoryHistory)
+                if (!state.isMember) {
+                    GuestUpgradeBanner(onUpgrade = onUpgrade)
+                }
+            }
+        }
     }
 }
 

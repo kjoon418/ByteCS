@@ -1,5 +1,8 @@
 package watson.bytecs.session
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
@@ -8,9 +11,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import watson.bytecs.ui.layout.ProvideWindowWidthClass
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -72,6 +77,58 @@ class HomeScreenUiTest {
                 onRetry = onRetry,
             )
         }
+    }
+
+    /** 폭을 강제해 EXPANDED(웹/데스크톱, ≥840dp) 렌더를 재현한다. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun androidx.compose.ui.test.ComposeUiTest.setHomeExpanded(
+        state: HomeUiState,
+    ) = setContent {
+        BcsTheme(darkTheme = false) {
+            Box(Modifier.size(width = 1000.dp, height = 900.dp)) {
+                ProvideWindowWidthClass {
+                    HomeScreenContent(
+                        state = state,
+                        onStartOrContinue = {},
+                        onExtraPractice = {},
+                        onOpenAccount = {},
+                        onUpgrade = {},
+                        onOpenScrapList = {},
+                        onRetry = {},
+                    )
+                }
+            }
+        }
+    }
+
+    // ── 적응형 레이아웃(웹 EXPANDED 2컬럼) ─────────────────────────────────────
+
+    /**
+     * EXPANDED에서는 '오늘의 한입' 카드(주 컬럼)와 스크랩·카테고리 진입점(보조 컬럼)이 위아래로 쌓이지 않고
+     * **나란히** 놓인다(계획 §4-2). COMPACT였다면 스크랩 진입점이 CTA 아래로 내려가 세로로 겹치지 않는데,
+     * EXPANDED 2컬럼이면 두 요소가 같은 세로 구간을 공유한다 — 그 세로 겹침으로 2컬럼 배치를 못박는다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun EXPANDED에서_시작_CTA와_스크랩_진입점이_2컬럼으로_나란히_놓인다() = runComposeUiTest {
+        setHomeExpanded(ready(solved = 2, total = 10))
+
+        onNodeWithText("학습 이어서 하기").assertIsDisplayed()
+        onNodeWithText("스크랩한 문제").assertIsDisplayed()
+
+        val ctaBounds = onNodeWithText("학습 이어서 하기").getBoundsInRoot()
+        val scrapBounds = onNodeWithText("스크랩한 문제").getBoundsInRoot()
+
+        // 보조 컬럼(스크랩)은 주 컬럼(CTA)의 오른쪽에 있어야 한다.
+        assertTrue(
+            scrapBounds.left > ctaBounds.right,
+            "EXPANDED 2컬럼: 스크랩 진입점(left=${scrapBounds.left})은 CTA(right=${ctaBounds.right}) 오른쪽에 있어야 한다",
+        )
+        // 세로로는 같은 구간을 공유한다(쌓이지 않음) — 스크랩 상단이 CTA 하단보다 위.
+        assertTrue(
+            scrapBounds.top < ctaBounds.bottom,
+            "EXPANDED 2컬럼: 스크랩 진입점(top=${scrapBounds.top})은 CTA(bottom=${ctaBounds.bottom})와 세로로 겹쳐야 한다",
+        )
     }
 
     // ── 진행 표시(분량 기반) ───────────────────────────────────────────────────
