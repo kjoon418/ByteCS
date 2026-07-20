@@ -35,6 +35,20 @@ class ProblemDataLoaderTest {
     private val problemRepository = mock(ProblemRepository::class.java)
     private val problemDataLoader = ProblemDataLoader(conceptRepository, problemRepository, jacksonObjectMapper())
 
+    /**
+     * 로더의 조립·판정 동작을 검증하는 앵커 픽스처(`loader-fixture.json`).
+     * 운영/테스터용 메인 시드([problemDataLoader])는 흥미 카테고리 위주로 큐레이션되어 알고리즘·자료구조 문제가 없다.
+     * 그래서 유도형 근접 억제(시간 복잡도)·정의 재생형 근접(해시 충돌)·한 글자 허용답(큐)·복수 개념 공유(스레드+스택) 같은
+     * 대표 동작은, 콘텐츠 큐레이션에 흔들리지 않도록 이 전용 픽스처에 고정해 검증한다.
+     * 반대로 no-leak·대표 정답 불변식·승인 상태처럼 "실제 시드 콘텐츠가 요건을 지키는가"는 메인 시드로 전수 검증한다.
+     */
+    private val fixtureLoader = ProblemDataLoader(
+        conceptRepository,
+        problemRepository,
+        jacksonObjectMapper(),
+        resourcePath = "seed/loader-fixture.json",
+    )
+
     private companion object {
         const val TIME_COMPLEXITY = "시간 복잡도"
         const val HASH_COLLISION = "해시 충돌"
@@ -48,14 +62,14 @@ class ProblemDataLoaderTest {
 
         @Test
         fun 유형이_유도형으로_태깅된다() {
-            val timeComplexityProblem = loadedProblemOf(TIME_COMPLEXITY)
+            val timeComplexityProblem = fixtureProblemOf(TIME_COMPLEXITY)
 
             assertThat(timeComplexityProblem.type).isEqualTo(ProblemType.DERIVATION)
         }
 
         @Test
         fun 제곱_기호만_쓴_표기도_정답이다() {
-            val timeComplexityProblem = loadedProblemOf(TIME_COMPLEXITY)
+            val timeComplexityProblem = fixtureProblemOf(TIME_COMPLEXITY)
 
             assertThat(timeComplexityProblem.judge(AnswerText("n²"))).isEqualTo(Judgement.CORRECT)
         }
@@ -63,7 +77,7 @@ class ProblemDataLoaderTest {
         @Test
         fun 유도를_틀린_답은_근접이_아니라_불일치다() {
             // 이중 반복문을 하나로 잘못 센 전형적인 오답. 편집거리는 1이지만 오타가 아니다.
-            val timeComplexityProblem = loadedProblemOf(TIME_COMPLEXITY)
+            val timeComplexityProblem = fixtureProblemOf(TIME_COMPLEXITY)
 
             assertThat(timeComplexityProblem.judge(AnswerText("o(n)"))).isEqualTo(Judgement.MISMATCH)
         }
@@ -74,14 +88,14 @@ class ProblemDataLoaderTest {
 
         @Test
         fun 유형이_정의_재생형으로_태깅된다() {
-            val hashCollisionProblem = loadedProblemOf(HASH_COLLISION)
+            val hashCollisionProblem = fixtureProblemOf(HASH_COLLISION)
 
             assertThat(hashCollisionProblem.type).isEqualTo(ProblemType.DEFINITION_RECALL)
         }
 
         @Test
         fun 개념명의_오타는_근접이다() {
-            val hashCollisionProblem = loadedProblemOf(HASH_COLLISION)
+            val hashCollisionProblem = fixtureProblemOf(HASH_COLLISION)
 
             assertThat(hashCollisionProblem.judge(AnswerText("collsion"))).isEqualTo(Judgement.NEAR_MISS)
         }
@@ -89,7 +103,7 @@ class ProblemDataLoaderTest {
         @Test
         fun 한_글자_허용답에는_근접_판정을_하지_않는다() {
             // "큐"(길이 1)에 "규" — 정의 재생형이어도 근접이 돌면 정답의 길이·모양이 새어 나간다.
-            val queueProblem = loadedProblemOf(QUEUE)
+            val queueProblem = fixtureProblemOf(QUEUE)
 
             assertThat(queueProblem.judge(AnswerText("규"))).isEqualTo(Judgement.MISMATCH)
         }
@@ -101,14 +115,15 @@ class ProblemDataLoaderTest {
         @Test
         fun 힌트가_0개인_문제를_최소_하나_남긴다() {
             // 진입점 미노출 분기(hintCount==0)가 시드로도 실행되게 하려면 힌트 0개 문제가 반드시 있어야 한다.
-            val problems = allLoadedProblems()
+            // 앵커 픽스처의 큐 문제가 힌트 0개를 보장한다(메인 시드 큐레이션에 흔들리지 않도록 픽스처로 고정).
+            val problems = allFixtureProblems()
 
             assertThat(problems.any { it.hintCount == 0 }).isTrue()
         }
 
         @Test
         fun 힌트가_있는_문제는_약에서_강_순서로_담긴다() {
-            val hashCollisionProblem = loadedProblemOf(HASH_COLLISION)
+            val hashCollisionProblem = fixtureProblemOf(HASH_COLLISION)
 
             assertThat(hashCollisionProblem.hintCount).isGreaterThanOrEqualTo(2)
             // 앞에서 자를수록 부분집합이어야 한다(순서 보존).
@@ -144,14 +159,14 @@ class ProblemDataLoaderTest {
 
         @Test
         fun 해시_충돌_문제는_심화_정보를_가진다() {
-            val hashCollisionProblem = loadedProblemOf(HASH_COLLISION)
+            val hashCollisionProblem = fixtureProblemOf(HASH_COLLISION)
 
             assertThat(hashCollisionProblem.enrichment).isNotNull()
         }
 
         @Test
         fun 스레드_문제는_심화_정보를_가진다() {
-            val threadProblem = loadedProblemOf(PROCESS_AND_THREAD)
+            val threadProblem = fixtureProblemOf(PROCESS_AND_THREAD)
 
             assertThat(threadProblem.enrichment).isNotNull()
         }
@@ -159,7 +174,7 @@ class ProblemDataLoaderTest {
         @Test
         fun 해시_충돌_심화_정보는_시안_구조를_순서대로_따른다() {
             // 질문형 제목 + 리드 문단 + 해결책 항목(순서 보존) + 인용의 시안 원형.
-            val enrichment = loadedProblemOf(HASH_COLLISION).enrichment!!
+            val enrichment = fixtureProblemOf(HASH_COLLISION).enrichment!!
 
             assertThat(enrichment.title).isEqualTo("왜 충돌이 발생할까요?")
             assertThat(enrichment.body).isNotBlank()
@@ -191,14 +206,14 @@ class ProblemDataLoaderTest {
 
         @Test
         fun 한영_병기가_자연스러운_문제는_병기_표기를_대표로_둔다() {
-            val threadProblem = loadedProblemOf(PROCESS_AND_THREAD)
+            val threadProblem = fixtureProblemOf(PROCESS_AND_THREAD)
 
             assertThat(threadProblem.representativeAnswer).isEqualTo("스레드 (thread)")
         }
 
         @Test
         fun 유도형은_표준_수식_표기를_대표로_둔다() {
-            val timeComplexityProblem = loadedProblemOf(TIME_COMPLEXITY)
+            val timeComplexityProblem = fixtureProblemOf(TIME_COMPLEXITY)
 
             assertThat(timeComplexityProblem.representativeAnswer).isEqualTo("O(n²)")
         }
@@ -225,7 +240,7 @@ class ProblemDataLoaderTest {
 
         @Test
         fun 스레드_문제는_프로세스_오답에_교정_힌트를_준다() {
-            val threadProblem = loadedProblemOf(PROCESS_AND_THREAD)
+            val threadProblem = fixtureProblemOf(PROCESS_AND_THREAD)
 
             val outcome = threadProblem.evaluate(AnswerText("프로세스"))
 
@@ -248,7 +263,7 @@ class ProblemDataLoaderTest {
         @Test
         fun 스레드_문제는_대표_개념을_앞에_둔_복수_개념을_가진다() {
             // 태깅 순서는 대표 개념(프로세스와 스레드)이 먼저, 그다음 각자 갖는 자원인 스택.
-            val threadProblem = loadedProblemOf(PROCESS_AND_THREAD)
+            val threadProblem = fixtureProblemOf(PROCESS_AND_THREAD)
 
             assertThat(threadProblem.conceptNames()).containsExactly(PROCESS_AND_THREAD, STACK)
         }
@@ -264,11 +279,11 @@ class ProblemDataLoaderTest {
             given(conceptRepository.findByName(anyString())).willReturn(null)
             given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
 
-            problemDataLoader.run()
+            fixtureLoader.run()
 
-            // 시드 JSON의 고유 개념 이름은 45개(초기 7개 + 테스트용 100문제의 신규 38개) —
-            // "스택"처럼 여러 문제에 재사용되는 개념이 있으므로, 개념 저장 횟수는 문제 태깅 총량이 아니라 고유 이름 수와 같아야 한다.
-            verify(conceptRepository, times(45)).save(any(Concept::class.java))
+            // 앵커 픽스처의 고유 개념 이름은 5개(프로세스와 스레드·스택·큐·해시 충돌·시간 복잡도) —
+            // "스택"이 스레드 문제와 스택 문제에 함께 태깅되므로, 개념 저장 횟수는 태깅 총량(6)이 아니라 고유 이름 수(5)와 같아야 한다.
+            verify(conceptRepository, times(5)).save(any(Concept::class.java))
         }
 
         @Test
@@ -281,7 +296,7 @@ class ProblemDataLoaderTest {
             }
             given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
 
-            problemDataLoader.run()
+            fixtureLoader.run()
 
             val loadedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
             verify(problemRepository).saveAll(loadedProblems.capture())
@@ -418,21 +433,22 @@ class ProblemDataLoaderTest {
         return loadedProblems.value
     }
 
-    /**
-     * 로더를 실제로 구동해, 지정한 개념에 대해 로드된 문제를 꺼낸다.
-     * 개념 저장은 인자를 그대로 돌려주는 것으로 대체해, 로더가 만든 [Concept]을 그대로 관찰한다.
-     */
+    /** 앵커 픽스처([fixtureLoader])를 구동해, 로드된 전체 문제를 꺼낸다. */
     @Suppress("UNCHECKED_CAST")
-    private fun loadedProblemOf(conceptName: String): Problem {
+    private fun allFixtureProblems(): List<Problem> {
         given(problemRepository.count()).willReturn(0L)
         given(conceptRepository.findByName(anyString())).willReturn(null)
         given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
 
-        problemDataLoader.run()
+        fixtureLoader.run()
 
         val loadedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
         verify(problemRepository).saveAll(loadedProblems.capture())
-
-        return loadedProblems.value.single { it.conceptNames().contains(conceptName) }
+        return loadedProblems.value
     }
+
+    /** 앵커 픽스처([fixtureLoader])를 구동해, 지정한 개념에 대해 로드된 문제를 꺼낸다. */
+    @Suppress("UNCHECKED_CAST")
+    private fun fixtureProblemOf(conceptName: String): Problem =
+        allFixtureProblems().single { it.conceptNames().contains(conceptName) }
 }
