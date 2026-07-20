@@ -1,0 +1,62 @@
+# 테스터 배포 파이프라인: main 푸시 → 서버 테스트 → 웹 포함 단일 jar 빌드 →
+# GHCR에 컨테이너 이미지 푸시 → Render 배포 훅 호출(시크릿 설정 시).
+# Gradle+wasm 빌드가 무거워(힙 4GB급) Render가 아닌 Actions 러너(7GB)에서 빌드한다.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/bytecs-server
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # 클라이언트 UI 테스트(:app:shared:jvmTest)는 배포 게이트에서 제외한다 —
+      # 서버 아티팩트 배포에 직접 관련된 검증(:server:test)만 게이트로 둔다.
+      - name: Test and build bootJar (web included)
+        run: ./gradlew -PincludeWeb :server:test :server:bootJar
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+      # Render 서비스 생성 후 배포 훅 URL을 시크릿 RENDER_DEPLOY_HOOK_URL로 등록하면 자동 배포된다.
+      # 미설정 상태에서는 이미지 푸시까지만 하고 조용히 생략한다.
+      - name: Trigger Render deploy
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -n "$RENDER_DEPLOY_HOOK_URL" ]; then
+            curl -fsS "$RENDER_DEPLOY_HOOK_URL"
+            echo "Render 배포 훅 호출 완료"
+          else
+            echo "RENDER_DEPLOY_HOOK_URL 미설정 — 배포 트리거 생략"
+          fi

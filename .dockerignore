@@ -1,0 +1,3 @@
+# 이미지에는 bootJar 하나만 들어간다(Dockerfile COPY 참고) — 빌드 컨텍스트도 그것만 보낸다.
+*
+!server/build/libs/server-1.0.0.jar
