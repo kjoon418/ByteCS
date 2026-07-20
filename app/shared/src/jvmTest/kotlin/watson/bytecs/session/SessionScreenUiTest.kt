@@ -1,5 +1,8 @@
 package watson.bytecs.session
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -10,12 +13,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
 import watson.bytecs.report.ReportCategory
+import watson.bytecs.ui.layout.ProvideWindowWidthClass
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -102,6 +107,59 @@ class SessionScreenUiTest {
             }
         }
         body()
+    }
+
+    /** 폭을 1000dp로 강제해 EXPANDED(웹/데스크톱) 렌더를 재현한다. */
+    @OptIn(ExperimentalTestApi::class)
+    private fun runScreenExpanded(
+        state: SessionUiState,
+        body: suspend ComposeUiTest.() -> Unit,
+    ) = runComposeUiTest {
+        setContent {
+            BcsTheme(darkTheme = false) {
+                Box(Modifier.size(width = 1000.dp, height = 900.dp)) {
+                    ProvideWindowWidthClass {
+                        SessionScreenContent(
+                            state = state,
+                            onInputChange = {},
+                            onSubmit = {},
+                            onAdvance = {},
+                            onFinish = {},
+                            onReveal = {},
+                            onOpenPast = {},
+                            onClosePast = {},
+                            onRetry = {},
+                            onExit = {},
+                        )
+                    }
+                }
+            }
+        }
+        body()
+    }
+
+    // ── 적응형 레이아웃(웹 EXPANDED 가독폭) ────────────────────────────────
+
+    /**
+     * EXPANDED에서는 재배치 대신 가독폭만 넓힌다(계획 §4-2). 1000dp 폭이어도 CTA·본문은 readableMax(720dp)로
+     * 중앙 제한돼야 한다 — 데스크톱에서 입력·버튼이 화면 끝까지 늘어지지 않게. CTA 폭이 720 이하이고,
+     * 좌우 여백이 존재(중앙 정렬)함을 좌표로 못박는다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun EXPANDED에서_본문과_CTA가_가독폭_720dp로_중앙_제한된다() = runScreenExpanded(active()) {
+        val cta = onNodeWithText("제출하기").getBoundsInRoot()
+        val width = cta.right - cta.left
+        // readableMax(720) - 좌우 패딩 범위 안. 720을 넘지 않아야 한다(1000dp까지 늘어지면 실패).
+        assertTrue(
+            width.value <= 720f,
+            "EXPANDED 가독폭: CTA 폭(${width.value}dp)은 readableMax(720dp) 이하여야 한다",
+        )
+        // 1000dp 컨테이너 안에서 중앙 정렬 — 좌측 여백이 실질적으로 존재.
+        assertTrue(
+            cta.left.value > 80f,
+            "EXPANDED 가독폭: CTA 좌측 여백(${cta.left.value}dp)이 있어 중앙 정렬돼야 한다(끝까지 늘어지지 않음)",
+        )
     }
 
     // ── 가드레일: 정답 비노출 ──────────────────────────────────────────────

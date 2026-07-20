@@ -805,6 +805,9 @@ fun BcsScaffold(
     modifier: Modifier = Modifier,
     topBar: @Composable (() -> Unit)? = null,
     bottomBar: @Composable (() -> Unit)? = null,
+    // 콘텐츠 중앙 제한 폭. 기본은 모바일 기준 [BcsDimens.contentMax](600dp)이며, 웹 EXPANDED에서
+    // 더 넓은 가독폭이 필요한 화면(문제 풀이 등)이 이 값만 키워 슬롯 전체 정렬을 유지한 채 넓힐 수 있다.
+    maxWidth: androidx.compose.ui.unit.Dp = BcsDimens.contentMax,
     content: @Composable (androidx.compose.foundation.layout.ColumnScope.() -> Unit),
 ) {
     Box(
@@ -816,7 +819,7 @@ fun BcsScaffold(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                .widthIn(max = BcsDimens.contentMax)
+                .widthIn(max = maxWidth)
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
         ) {

@@ -73,6 +73,8 @@ import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.TypeAlongField
 import watson.bytecs.ui.components.categoryLabel
 import watson.bytecs.ui.components.difficultyLabel
+import watson.bytecs.ui.layout.LocalWindowWidthClass
+import watson.bytecs.ui.layout.WindowWidthClass
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.LocalBcsColors
@@ -177,8 +179,18 @@ internal fun SessionScreenContent(
 ) {
     val active = state as? SessionUiState.Active
 
+    // 웹/데스크톱(EXPANDED)에서는 문제 풀이 몰입을 위해 재배치 대신 가독폭만 넓힌다(계획 §4-2):
+    // 본문·입력·피드백·CTA를 readableMax(720dp)로 중앙 유지한다(기본 600dp보다 약간 넓게).
+    // COMPACT/MEDIUM은 기존 contentMax(600dp) 그대로라 모바일 회귀가 없다.
+    val contentMaxWidth = if (LocalWindowWidthClass.current == WindowWidthClass.EXPANDED) {
+        BcsDimens.readableMax
+    } else {
+        BcsDimens.contentMax
+    }
+
     BcsScaffold(
         modifier = modifier,
+        maxWidth = contentMaxWidth,
         topBar = {
             Row(
                 modifier = Modifier
