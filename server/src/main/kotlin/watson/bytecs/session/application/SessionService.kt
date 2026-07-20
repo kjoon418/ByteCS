@@ -54,6 +54,7 @@ class SessionService(
      */
     @Transactional
     fun getOrCreateToday(userId: Long): SessionStateResponse {
+        lockUser(userId)
         val session = findOrCreateToday(userId)
         return toStateResponse(userId, session)
     }
@@ -66,6 +67,7 @@ class SessionService(
      */
     @Transactional
     fun getOrCreateNext(userId: Long): SessionStateResponse {
+        lockUser(userId)
         val session = advanceOrCreateToday(userId)
         return toStateResponse(userId, session)
     }
@@ -168,9 +170,19 @@ class SessionService(
     }
 
     /**
+     * 세션 생성 경합(본인 한정)을 사용자 행 비관적 잠금으로 직렬화한다(M1, H2·PostgreSQL 공통).
+     * 유니크 제약을 제거한 뒤(D6·D9)라 같은 사용자의 동시 요청 두 개가 조회에서 모두 '없음'을 보고
+     * 각자 세션을 만들 수 있는데, 진입부에서 사용자 행을 잠가 두 요청을 직렬화하면 뒤 요청은 앞 요청이
+     * 만든 세션을 조회하게 되어 중복 생성을 막는다. 존재하지 않는 사용자는 조회 전용 경로와 같은 404다.
+     */
+    private fun lockUser(userId: Long) {
+        userRepository.findWithLockById(userId)
+            .orElseThrow { UserNotFoundException.byId(userId) }
+    }
+
+    /**
      * 오늘 최신 세션을 찾거나, 없으면 만든다.
-     * 유니크 제약을 제거한 뒤(D6·D9)의 동시성은 '본인 한정 경합'이다 — 조회와 생성을 한 쓰기 트랜잭션에 담아,
-     * 흔한 순차 재요청(같은 사용자가 두 번 조회)은 최신 세션을 그대로 재사용해 중복을 만들지 않는다.
+     * 조회와 생성을 한 쓰기 트랜잭션에 담고, 진입부([lockUser])에서 사용자 행을 잠가 생성 경합을 직렬화한다.
      */
     private fun findOrCreateToday(userId: Long): Session {
         val today = today()

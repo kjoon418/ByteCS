@@ -5,7 +5,7 @@ import watson.bytecs.common.error.ErrorCode
 
 /**
  * 이미 완료된 세션에 답 제출·정답 공개를 시도했을 때 던지는 예외.
- * 완료된 세션은 더 이상 진행할 수 없고, 추가 학습은 별도의 무상태 연습 API 소관이다(→ 409 Conflict).
+ * 완료된 세션은 더 이상 진행할 수 없고, 더 풀려면 '조금 더 풀기'로 새 세션을 시작한다(D6·D9 일원화 → 409 Conflict).
  */
 class SessionAlreadyCompletedException private constructor(
     message: String,
@@ -13,7 +13,7 @@ class SessionAlreadyCompletedException private constructor(
 
     companion object {
         fun forAttempt(): SessionAlreadyCompletedException =
-            SessionAlreadyCompletedException("이미 완료된 세션입니다. 추가 학습을 이용하세요.")
+            SessionAlreadyCompletedException("이미 완료된 세션입니다. '조금 더 풀기'로 새 세션을 시작해 보세요.")
 
         fun forReveal(): SessionAlreadyCompletedException =
             SessionAlreadyCompletedException("이미 완료된 세션이라 공개할 본 문제가 없습니다.")

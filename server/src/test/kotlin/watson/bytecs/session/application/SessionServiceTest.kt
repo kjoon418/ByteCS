@@ -204,11 +204,13 @@ class SessionServiceTest {
         given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()))
     }
 
-    /** 상태 응답 변환이 로드하는 현재 문제·사용자를 스텁한다(responseMapper는 목이라 반환값은 관심사가 아니다). */
+    /** 상태 응답 변환이 로드하는 현재 문제·사용자와, M1 진입부의 사용자 행 잠금 조회를 스텁한다(responseMapper는 목이라 반환값은 관심사가 아니다). */
     private fun stubProblemAndUser(problemId: Long) {
         val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
         given(problemRepository.findById(problemId)).willReturn(Optional.of(problem))
         given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()))
+        // M1: getOrCreateToday·getOrCreateNext 진입부가 사용자 행을 잠금 조회한다(생성 경합 직렬화).
+        given(userRepository.findWithLockById(1L)).willReturn(Optional.of(User.createGuest()))
     }
 
     /** 단일 문제를 정답으로 통과시켜 완료 상태가 된 세션을 만든다. */
