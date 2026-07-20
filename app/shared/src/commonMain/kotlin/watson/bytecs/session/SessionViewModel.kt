@@ -267,7 +267,9 @@ class SessionViewModel(
 
     /**
      * 비정답(불일치·근접) 응답 반영. 서버는 정답에만 커서를 전진시키므로 보통 같은 칸이 돌아온다 —
-     * 그때는 피드백만 얹는다(입력은 고칠 수 있게 남긴다).
+     * 그때는 피드백을 얹고 문제 데이터도 서버 응답으로 갱신한다(입력은 고칠 수 있게 남긴다). 갱신이
+     * 필요한 이유(D2): 같은 칸이어도 [SessionProblem.wrongAttemptCount]는 이 제출로 늘었으므로, 서버가
+     * 준 최신 값을 반영해야 재시도 안내("표기가 달라 인식 못 했을 수 있어요")가 즉시 정확해진다.
      *
      * 다른 칸이 돌아왔다면 클라이언트가 낡은 것이므로 서버 쪽 칸으로 되맞춘다(서버가 진실). 응답의
      * position·currentProblem을 버리면 낡은 문제를 계속 그리게 되고, 그 사이 다음 문제는 화면에 한 번도
@@ -278,9 +280,9 @@ class SessionViewModel(
         outcome: AttemptOutcome,
         feedback: SessionFeedback,
     ): SessionUiState.Active {
-        val serverProblem = outcome.currentProblem
-        if (serverProblem == null || serverProblem.id == problem.id) {
-            return copy(feedback = feedback, isSubmitting = false)
+        val serverProblem = outcome.currentProblem ?: return copy(feedback = feedback, isSubmitting = false)
+        if (serverProblem.id == problem.id) {
+            return copy(problem = serverProblem, feedback = feedback, isSubmitting = false)
         }
         return SessionUiState.Active(
             problem = serverProblem,

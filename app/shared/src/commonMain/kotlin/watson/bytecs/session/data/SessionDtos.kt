@@ -43,6 +43,8 @@ internal data class SessionProblemDto(
     val revealedHints: List<HintDto> = emptyList(),
     // 대표 분류(명세 §7). 개념명과 달리 no-leak 대상이 아니라 풀기 전부터 실린다. 미분류면 null.
     val category: String? = null,
+    // 이 칸에 누적된 비정답 횟수(D2 — 재시도 안내의 근거). 서버가 원천이라 재진입해도 정확하다.
+    val wrongAttemptCount: Int = 0,
 ) {
     fun toDomain(): SessionProblem = SessionProblem(
         id = id,
@@ -52,6 +54,7 @@ internal data class SessionProblemDto(
         hintCount = hintCount,
         revealedHints = revealedHints.map { it.toDomain() },
         category = category,
+        wrongAttemptCount = wrongAttemptCount,
     )
 }
 

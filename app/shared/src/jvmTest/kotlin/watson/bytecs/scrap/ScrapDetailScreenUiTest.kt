@@ -9,6 +9,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import watson.bytecs.problem.Enrichment
+import watson.bytecs.report.ReportCategory
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -34,7 +35,7 @@ class ScrapDetailScreenUiTest {
     private fun androidx.compose.ui.test.ComposeUiTest.setScreen(
         state: ScrapDetailUiState,
         onToggleScrap: () -> Unit = {},
-        onReport: (Long) -> Unit = {},
+        onReport: (Long, ReportCategory?) -> Unit = { _, _ -> },
         onBack: () -> Unit = {},
         onRetry: () -> Unit = {},
     ) = setContent {
@@ -101,11 +102,22 @@ class ScrapDetailScreenUiTest {
     @Test
     fun 콘텐츠_오류_신고_진입점이_문제_id로_신고를_연다() = runComposeUiTest {
         var reported = -1L
-        setScreen(ready, onReport = { reported = it })
+        setScreen(ready, onReport = { id, _ -> reported = id })
 
         onNodeWithText("콘텐츠 오류 신고").assertIsDisplayed().performClick()
 
         assertEquals(7L, reported)
+    }
+
+    /** 재열람의 신고 진입점은 프리셋 유형 없이 연다(D2 프리셋은 세션 정답 공개 패널 전용). */
+    @Test
+    fun 콘텐츠_오류_신고_진입점은_프리셋_유형_없이_연다() = runComposeUiTest {
+        var presetCategory: ReportCategory? = ReportCategory.OTHER
+        setScreen(ready, onReport = { _, category -> presetCategory = category })
+
+        onNodeWithText("콘텐츠 오류 신고").assertIsDisplayed().performClick()
+
+        assertEquals(null, presetCategory)
     }
 
     /** §5.12: 로드 실패는 막다른 길 없이 재시도 경로를 준다. */

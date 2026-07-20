@@ -134,6 +134,49 @@ class SessionViewModelTest {
         assertFalse(state.solved)
     }
 
+    // ── D2: 재시도 안내 근거(wrongAttemptCount) ─────────────────────────────────
+
+    /**
+     * ⭐️ 같은 칸(같은 problem.id)이 돌아와도 서버가 준 최신 문제 데이터로 갱신해야 한다 — 특히
+     * wrongAttemptCount는 이 제출로 늘어난 값이므로, feedback만 얹고 problem을 그대로 두면(예전 동작)
+     * 재시도 안내가 한 박자 늦게 반영된다(다음 로드까지 갱신 안 됨).
+     */
+    @Test
+    fun mismatch_updatesWrongAttemptCount_onSameProblem() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(problem = problem(1L, wrongAttemptCount = 0)))
+        repo.onSubmit = { mismatchOutcome().copy(currentProblem = problem(1L, wrongAttemptCount = 1)) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("오답")
+        viewModel.submit()
+
+        assertEquals(1, viewModel.active().problem.wrongAttemptCount, "서버가 갱신한 오답 수를 즉시 반영한다")
+
+        repo.onSubmit = { mismatchOutcome().copy(currentProblem = problem(1L, wrongAttemptCount = 2)) }
+        viewModel.onInputChange("또 오답")
+        viewModel.submit()
+
+        assertEquals(2, viewModel.active().problem.wrongAttemptCount, "거듭될수록 누적치가 그대로 갱신된다")
+    }
+
+    /**
+     * 정답으로 전진([advance])하면 새 칸의 wrongAttemptCount는 서버가 준 값(보통 0, 아직 시도 안 함)을
+     * 그대로 따른다 — 방금 통과한 칸의 누적치를 물려받지 않는다.
+     */
+    @Test
+    fun correct_thenAdvance_carriesFreshWrongAttemptCount_forNextProblem() = runTest {
+        val next = problem(2L, wrongAttemptCount = 0)
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L, wrongAttemptCount = 2)))
+        repo.onSubmit = { correctOutcome(next = next, position = 1, solved = 1, total = 3) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("정답")
+        viewModel.submit()
+        viewModel.advance()
+
+        assertEquals(0, viewModel.active().problem.wrongAttemptCount, "새 칸은 아직 시도한 적이 없다")
+    }
+
     @Test
     fun nearMiss_yieldsInfoFeedback() = runTest {
         val repo = FakeSessionRepository().apply { onSubmit = { nearMissOutcome() } }

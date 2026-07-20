@@ -55,6 +55,7 @@ import watson.bytecs.onboarding.OnboardingScreen
 import watson.bytecs.onboarding.OnboardingStore
 import watson.bytecs.onboarding.createOnboardingStore
 import watson.bytecs.report.ContentReportRepository
+import watson.bytecs.report.ReportCategory
 import watson.bytecs.report.ReportScreen
 import watson.bytecs.report.ReportViewModel
 import watson.bytecs.report.data.KtorContentReportRepository
@@ -200,7 +201,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
                     navigate(Screen.SessionComplete(summary))
                 },
                 onExit = { back() },
-                onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                onReport = { problemId, presetCategory -> navigate(Screen.Report(problemId, presetCategory)) },
                 scrapRepository = dependencies.scrapRepository,
             )
         }
@@ -241,7 +242,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
 
         is Screen.Report -> {
             val viewModel = viewModel {
-                ReportViewModel(dependencies.contentReportRepository, screen.problemId)
+                ReportViewModel(dependencies.contentReportRepository, screen.problemId, screen.presetCategory)
             }
             ReportScreen(
                 viewModel = viewModel,
@@ -264,7 +265,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
             }
             ScrapDetailScreen(
                 viewModel = viewModel,
-                onReport = { problemId -> navigate(Screen.Report(problemId)) },
+                onReport = { problemId, presetCategory -> navigate(Screen.Report(problemId, presetCategory)) },
                 onBack = { back() },
             )
         }
@@ -401,8 +402,13 @@ sealed interface Screen {
     /** 로그인·가입. 진입 모드([initialMode])로 가입/로그인 중 무엇을 먼저 보일지 정한다. */
     data class Login(val initialMode: AuthMode) : Screen
 
-    /** 07 콘텐츠 오류 신고. 신고 대상 문제([problemId])를 실어 넘긴다. */
-    data class Report(val problemId: Long) : Screen
+    /**
+     * 07 콘텐츠 오류 신고. 신고 대상 문제([problemId])를 실어 넘긴다.
+     * [presetCategory](D2)가 있으면 신고 화면이 그 유형을 미리 선택해 진입한다 — 정답 공개 패널의
+     * '내 답이 맞았던 것 같아요'가 [watson.bytecs.report.ReportCategory.WRONG_ANSWER]를 프리셋으로 넘긴다.
+     * 일반 '오류 신고' 진입점은 null(프리셋 없음, 사용자가 직접 유형을 고른다).
+     */
+    data class Report(val problemId: Long, val presetCategory: ReportCategory? = null) : Screen
 
     /** 스크랩 목록(기능 5). */
     data object ScrapList : Screen

@@ -119,6 +119,45 @@ class ReportViewModelTest {
         assertFalse(viewModel.uiState.value.submitFailed, "입력을 고치면 다음 제출을 깨끗이 시작한다")
     }
 
+    // ── D2: 프리셋 유형('내 답이 맞았던 것 같아요') ──────────────────────────────
+
+    /** 정답 공개 패널의 프리셋 진입은 유형을 미리 선택한 채로 시작해, 바로 제출할 수 있다. */
+    @Test
+    fun 프리셋_유형으로_진입하면_해당_유형이_이미_선택돼_있다() = runTest {
+        val repository = FakeContentReportRepository()
+        val viewModel = ReportViewModel(repository, problemId = 7L, presetCategory = ReportCategory.WRONG_ANSWER)
+
+        assertEquals(ReportCategory.WRONG_ANSWER, viewModel.uiState.value.category)
+
+        viewModel.submit()
+
+        assertEquals(1, repository.submitted.size)
+        val (_, category, _) = repository.submitted[0]
+        assertEquals(ReportCategory.WRONG_ANSWER, category)
+    }
+
+    /** 프리셋은 기본값일 뿐 고정이 아니다 — 사용자가 여전히 다른 유형으로 바꿀 수 있다. */
+    @Test
+    fun 프리셋_유형이_있어도_다른_유형으로_바꿀_수_있다() = runTest {
+        val repository = FakeContentReportRepository()
+        val viewModel = ReportViewModel(repository, problemId = 7L, presetCategory = ReportCategory.WRONG_ANSWER)
+
+        viewModel.onCategorySelect(ReportCategory.HINT_ERROR)
+        viewModel.submit()
+
+        val (_, category, _) = repository.submitted[0]
+        assertEquals(ReportCategory.HINT_ERROR, category)
+    }
+
+    /** 프리셋이 없는 일반 진입(기존 '오류 신고')은 그대로 유형 미선택 상태로 시작한다(회귀 방지). */
+    @Test
+    fun 프리셋이_없으면_유형_미선택_상태로_시작한다() = runTest {
+        val repository = FakeContentReportRepository()
+        val viewModel = ReportViewModel(repository, problemId = 7L)
+
+        assertNull(viewModel.uiState.value.category)
+    }
+
     @Test
     fun 유형을_다시_고르면_직전_전송_실패_표시가_사라진다() = runTest {
         val repository = FakeContentReportRepository(failWith = RuntimeException("network"))

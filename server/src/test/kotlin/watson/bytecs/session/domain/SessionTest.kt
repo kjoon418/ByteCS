@@ -87,6 +87,31 @@ class SessionTest {
             assertThat(session.solvedCount).isEqualTo(0)
         }
 
+        /** D2: 재시도 안내는 [Session.currentWrongAttemptCount]가 지금 칸의 누적 오답 수를 그대로 반영해야 성립한다. */
+        @Test
+        fun 현재_칸의_누적_오답_수를_그대로_돌려준다() {
+            val session = sessionOf(10L, 20L)
+            assertThat(session.currentWrongAttemptCount()).isEqualTo(0)
+
+            session.recordAttempt(Judgement.MISMATCH, AnswerText("틀림"))
+            session.recordAttempt(Judgement.NEAR_MISS, AnswerText("근접"))
+            assertThat(session.currentWrongAttemptCount()).isEqualTo(2)
+
+            // 정답으로 전진하면 새 칸은 아직 시도한 적이 없으므로 0으로 되돌아간다(칸이 바뀌는 것만으로 리셋).
+            session.recordAttempt(Judgement.CORRECT, AnswerText("정답"))
+            assertThat(session.currentWrongAttemptCount()).isEqualTo(0)
+        }
+
+        /** 모든 칸을 마치면 안내할 현재 문제가 없으므로 0이다(존재하지 않는 칸에 안내를 붙이지 않는다). */
+        @Test
+        fun 세션이_완료되면_현재_칸의_오답_수는_0이다() {
+            val session = sessionOf(10L)
+            session.recordAttempt(Judgement.CORRECT, AnswerText("정답"))
+
+            assertThat(session.isCompleted).isTrue()
+            assertThat(session.currentWrongAttemptCount()).isEqualTo(0)
+        }
+
         @Test
         fun 이미_완료된_세션에_제출하면_예외를_던진다() {
             val session = sessionOf(10L)

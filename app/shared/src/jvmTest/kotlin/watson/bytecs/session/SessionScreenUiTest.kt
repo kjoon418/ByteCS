@@ -15,6 +15,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import watson.bytecs.problem.Enrichment
 import watson.bytecs.problem.JudgeResult
+import watson.bytecs.report.ReportCategory
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -74,7 +75,7 @@ class SessionScreenUiTest {
         onReveal: () -> Unit = {},
         onOpenPast: (Int) -> Unit = {},
         onClosePast: () -> Unit = {},
-        onReport: (Long) -> Unit = {},
+        onReport: (Long, ReportCategory?) -> Unit = { _, _ -> },
         scrappedProblemIds: Set<Long> = emptySet(),
         onToggleScrap: (Long) -> Unit = {},
         body: suspend ComposeUiTest.() -> Unit,
@@ -597,6 +598,71 @@ class SessionScreenUiTest {
         onNodeWithText("실행 흐름의 단위를 다시 떠올려 봐요").assertDoesNotExist()
     }
 
+    // ── D2: 거짓 오답 완충 ③ 재시도 안내 ──────────────────────────────────────
+
+    /**
+     * ⭐️ 재시도 N회(임계 2)째도 어긋나면 "표기가 달라 인식 못 했을 수 있어요" 안내를 보탠다 — 순화 문구×
+     * 허용답 누락이 겹칠 때의 신뢰 붕괴를 완화한다(D2). wrongAttemptCount는 서버가 원천이다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 재시도_2회째_어긋나면_표기_차이_안내를_보여준다() = runScreen(
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch())
+            .copy(problem = problem.copy(wrongAttemptCount = 2)),
+    ) {
+        onNodeWithText("표기가 달라 인식 못 했을 수 있어요").assertIsDisplayed()
+    }
+
+    /** 임계 미만(1회)이면 아직 안내하지 않는다 — 첫 오답부터 안내가 뜨면 소음이다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 재시도_1회로는_표기_차이_안내를_보여주지_않는다() = runScreen(
+        active(inputText = "해싱", feedback = SessionFeedback.Mismatch())
+            .copy(problem = problem.copy(wrongAttemptCount = 1)),
+    ) {
+        onNodeWithText("표기가 달라 인식 못 했을 수 있어요").assertDoesNotExist()
+    }
+
+    /**
+     * ⭐️ 재진입 정확: wrongAttemptCount는 서버가 원천이라, 이번 방문에서 아직 제출(feedback=null)하지
+     * 않았어도(재진입 직후) 누적치가 임계를 넘었으면 안내가 그대로 보인다 — 로컬 feedback 유무와 무관하다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 이번_방문에_제출이_없어도_누적된_재시도_횟수면_안내를_보여준다() = runScreen(
+        active().copy(problem = problem.copy(wrongAttemptCount = 3)),
+    ) {
+        onNodeWithText("표기가 달라 인식 못 했을 수 있어요").assertIsDisplayed()
+    }
+
+    // ── D2: 거짓 오답 완충 ② '내 답이 맞았던 것 같아요' ─────────────────────────
+
+    /**
+     * ⭐️ 정답 공개 패널(따라 입력 칸 아래)에 '내 답이 맞았던 것 같아요' 링크가 있다 — 기존 신고 유형
+     * (WRONG_ANSWER)을 재사용해, 순화 문구×허용답 누락이 겹친 신뢰 붕괴를 신고 경로로 완화한다(D2).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_공개_패널에_내_답이_맞았던_것_같아요_링크가_있다() {
+        var reportedId: Long? = null
+        var reportedCategory: ReportCategory? = null
+        runScreen(
+            active(reveal = revealOf()),
+            onReport = { id, category -> reportedId = id; reportedCategory = category },
+        ) {
+            onNodeWithText("내 답이 맞았던 것 같아요").assertIsDisplayed().performClick()
+        }
+        assertEquals(1L, reportedId)
+        assertEquals(ReportCategory.WRONG_ANSWER, reportedCategory)
+    }
+
+    /** 공개 전에는 이 링크가 없다 — 아직 따라 입력할 정답 자체가 없어 성립하지 않는 진입점이다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 공개_전에는_내_답이_맞았던_것_같아요_링크가_없다() = runScreen(active()) {
+        onNodeWithText("내 답이 맞았던 것 같아요").assertDoesNotExist()
+    }
+
     // ── 콘텐츠 오류 신고(07) 진입점 ──────────────────────────────────────────
 
     /**
@@ -607,10 +673,21 @@ class SessionScreenUiTest {
     @Test
     fun 문제_풀이_중에도_오류_신고로_들어갈_수_있다() {
         val reported = mutableListOf<Long>()
-        runScreen(active(), onReport = { reported += it }) {
+        runScreen(active(), onReport = { id, _ -> reported += id }) {
             onNodeWithText("오류 신고").assertIsDisplayed().performClick()
         }
         assertEquals(listOf(1L), reported)
+    }
+
+    /** 상단 바의 일반 '오류 신고' 진입점은 프리셋 유형 없이(null) 신고 화면으로 넘긴다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 오류_신고_진입점은_프리셋_유형_없이_연다() {
+        var presetCategory: ReportCategory? = ReportCategory.OTHER
+        runScreen(active(), onReport = { _, category -> presetCategory = category }) {
+            onNodeWithText("오류 신고").assertIsDisplayed().performClick()
+        }
+        assertEquals(null, presetCategory)
     }
 
     // ── 스크랩 토글: 난이도 행에 상시 노출(풀이 중에도 허용) ──────────────────────

@@ -292,6 +292,47 @@ class SessionControllerIntegrationTest(
         }
     }
 
+    // ── D2: 오답 재시도 안내 근거(wrongAttemptCount) ────────────────────────────
+
+    @Test
+    fun `오답을 거듭 제출하면 현재 문제의 wrongAttemptCount가 누적된다`() {
+        getToday(token)
+
+        submit(token, "완전히 다른 답").andExpect {
+            jsonPath("$.currentProblem.wrongAttemptCount") { value(1) }
+        }
+        submit(token, "또 다른 오답").andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.wrongAttemptCount") { value(2) }
+        }
+    }
+
+    @Test
+    fun `정답으로 전진하면 다음 문제의 wrongAttemptCount는 0으로 되돌아간다`() {
+        getToday(token)
+        submit(token, "완전히 다른 답")
+
+        submit(token, "정답1").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("CORRECT") }
+            jsonPath("$.currentProblem.id") { value(p2) }
+            // 새 칸은 아직 시도한 적이 없으므로 방금 통과한 칸의 오답 수를 물려받지 않는다.
+            jsonPath("$.currentProblem.wrongAttemptCount") { value(0) }
+        }
+    }
+
+    @Test
+    fun `재진입(GET today)해도 누적된 wrongAttemptCount가 그대로 보인다`() {
+        getToday(token)
+        submit(token, "완전히 다른 답")
+
+        // 재진입 정확: 새로 오늘 세션을 조회해도(제출 없이) 서버가 기억한 오답 수가 그대로 실린다.
+        getToday(token).andExpect {
+            status { isOk() }
+            jsonPath("$.currentProblem.wrongAttemptCount") { value(1) }
+        }
+    }
+
     @Test
     fun `정답을 제출하면 전진하고 개념과 해설을 공개하며 다음 문제를 노낙인으로 준다`() {
         getToday(token)

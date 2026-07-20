@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import watson.bytecs.report.ReportCategory
 import watson.bytecs.scrap.ScrapRepository
 import watson.bytecs.ui.components.AnswerTextField
 import watson.bytecs.ui.components.BcsHint
@@ -77,6 +78,9 @@ import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
 import kotlin.coroutines.cancellation.CancellationException
 
+/** D2: 이 횟수 이상 같은 칸에서 비정답이 누적되면 "표기가 달라 인식 못 했을 수 있어요" 안내를 보탠다. */
+private const val RETRY_HINT_THRESHOLD = 2
+
 /**
  * 03 문제 풀이(세션 연동). 오늘의 한입 중 문제 하나를 푼다. 서비스의 히어로 화면.
  *
@@ -85,6 +89,8 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * @param onCompleted 세션 완료(일회성 이벤트) → 04 완료 화면.
  * @param onExit 부담 없는 나가기 → 홈(언제든 이어서).
+ * @param onReport 신고 화면으로 이동(문제 id + 프리셋 유형). 상단 바 '오류 신고'는 프리셋 없이(null) 부르고,
+ * 정답 공개 패널의 '내 답이 맞았던 것 같아요'는 [ReportCategory.WRONG_ANSWER]를 프리셋으로 넘긴다(D2).
  * @param startNext '조금 더 풀기'로 진입했는지(D6·D9 일원화 — 추가 학습 폐지). true면 `GET /today` 대신
  * `POST /today/next`로 새 세션을 만들어(오늘 최신이 완료 상태일 때) 재진입한다. 기본(false)은 기존 시작·이어서.
  */
@@ -93,7 +99,7 @@ fun SessionScreen(
     viewModel: SessionViewModel,
     onCompleted: (CompletionSummary) -> Unit,
     onExit: () -> Unit,
-    onReport: (Long) -> Unit,
+    onReport: (Long, ReportCategory?) -> Unit,
     scrapRepository: ScrapRepository,
     startNext: Boolean = false,
     modifier: Modifier = Modifier,
@@ -164,7 +170,7 @@ internal fun SessionScreenContent(
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
     onRevealHint: () -> Unit = {},
-    onReport: (Long) -> Unit = {},
+    onReport: (Long, ReportCategory?) -> Unit = { _, _ -> },
     scrappedProblemIds: Set<Long> = emptySet(),
     onToggleScrap: (Long) -> Unit = {},
 ) {
@@ -191,7 +197,7 @@ internal fun SessionScreenContent(
                 if (active != null && active.past == null) {
                     TextLink(
                         text = "오류 신고",
-                        onClick = { onReport(active.problem.id) },
+                        onClick = { onReport(active.problem.id, null) },
                         color = LocalBcsColors.current.textTertiary,
                         contentDescription = "이 문제의 콘텐츠 오류 신고",
                     )
@@ -328,7 +334,7 @@ private fun ActiveContent(
     onFinish: () -> Unit,
     onReveal: () -> Unit,
     onRevealHint: () -> Unit,
-    onReport: (Long) -> Unit,
+    onReport: (Long, ReportCategory?) -> Unit,
     scrappedProblemIds: Set<Long>,
     onToggleScrap: (Long) -> Unit,
     modifier: Modifier = Modifier,
@@ -466,6 +472,18 @@ private fun ActiveContent(
                     FeedbackCard(feedback, problemId = state.problem.id)
                 }
 
+                // D2: 거짓 오답 완충 ③ — 재시도 N회(임계 RETRY_HINT_THRESHOLD)째도 계속 어긋나면, 큐레이션
+                // 여부와 무관하게 "표기 차이일 수 있음"을 안내한다. wrongAttemptCount는 서버가 원천이라
+                // 재진입해도(이 화면을 나갔다 돌아와도) 안내가 그대로 정확하다 — 이번 방문의 feedback 유무와 무관.
+                if (state.problem.wrongAttemptCount >= RETRY_HINT_THRESHOLD) {
+                    Spacer(Modifier.height(BcsDimens.space3))
+                    Text(
+                        text = "표기가 달라 인식 못 했을 수 있어요",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                    )
+                }
+
                 // 힌트(pull) — 요청해야만 하나씩 열린다. 정답을 맞힌 뒤에는 더 볼 이유가 없어 감춘다
                 // (§9 정보 위계 정돈). hintCount 0이면 HintStepper가 진입점을 그리지 않는다.
                 if (state.problem.hintCount > 0) {
@@ -493,6 +511,16 @@ private fun ActiveContent(
                 value = state.inputText,
                 onValueChange = onInputChange,
                 onImeSubmit = onImeSubmit,
+            )
+
+            // D2: 거짓 오답 완충 ② — 순화 문구("아직이에요")×허용답 누락이 겹치면 맞았는지 틀렸는지 알 수
+            // 없는 신뢰 붕괴가 생긴다. 정답 공개 후에도 여전히 안 맞았다면 "사실 내 답이 맞았을 수도 있다"는
+            // 의심을 곧장 신고로 잇는다 — 기존 신고 유형(WRONG_ANSWER)을 재사용하므로 서버 계약 변경이 없다.
+            Spacer(Modifier.height(BcsDimens.space2))
+            TextLink(
+                text = "내 답이 맞았던 것 같아요",
+                onClick = { onReport(state.problem.id, ReportCategory.WRONG_ANSWER) },
+                color = colors.textTertiary,
             )
 
             // 따라 적다 어긋나도 처벌이 아니다 — 같은 비처벌 넛지를 그대로 쓴다.

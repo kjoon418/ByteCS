@@ -86,6 +86,13 @@ class Session private constructor(
     fun currentRevealedHintCount(): Int = mutableItems.getOrNull(currentPosition)?.revealedHintCount ?: 0
 
     /**
+     * 지금 풀어야 할 본 문제에서 누적된 비정답(불일치·근접) 횟수(D2 — 재시도 안내의 근거).
+     * 모두 마쳤으면 0(안내할 현재 문제가 없다). 정답으로 전진해 새 칸에 들어섰다면 그 칸은 아직 시도한 적이
+     * 없으므로 자연히 0이다 — 별도 초기화 로직 없이 칸이 바뀌는 것만으로 재시도 카운트가 리셋된다.
+     */
+    fun currentWrongAttemptCount(): Int = mutableItems.getOrNull(currentPosition)?.wrongAttemptCount ?: 0
+
+    /**
      * 현재 본 문제에 대한 판정 결과를 반영한다. 판정(허용답 대조)은 콘텐츠(Problem.judge)의 책임이므로,
      * 애그리거트는 '이미 산출된 판정'을 현재 칸에 적용하는 역할만 한다.
      *  - CORRECT: 현재 칸을 통과 처리하고, 마지막 칸이었다면 세션을 완료로 전이한다(커서는 자연히 다음으로 이동).

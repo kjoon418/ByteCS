@@ -62,6 +62,62 @@ class KtorSessionRepositoryTest {
         assertEquals(3, session.streak?.count)
     }
 
+    // ── D2: 재시도 안내 근거(wrongAttemptCount) ────────────────────────────────
+
+    /** 오답 재시도 안내는 서버가 원천인 wrongAttemptCount를 그대로 신뢰해야 한다. */
+    @Test
+    fun getToday_mapsWrongAttemptCount_onCurrentProblem() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """
+                    {"sessionId":1,"sessionDate":"2026-07-14","status":"IN_PROGRESS","solvedCount":0,
+                     "totalCount":5,"position":0,
+                     "currentProblem":{"id":1,"question":"Q","difficulty":null,"codeSnippet":null,"wrongAttemptCount":2}}
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val session = KtorSessionRepository(client(null, engine), baseUrl).getToday()
+
+        assertEquals(2, session.currentProblem?.wrongAttemptCount, "재진입해도 서버가 기억한 누적 오답 수가 그대로 실린다")
+    }
+
+    /** 필드가 없는(구버전 서버 등) 응답도 그레이스풀하게 0으로 떨어진다 — 하위호환. */
+    @Test
+    fun getToday_withoutWrongAttemptCountField_defaultsToZero() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"sessionId":1,"sessionDate":"2026-07-14","status":"IN_PROGRESS","solvedCount":0,"totalCount":5,"position":0,"currentProblem":{"id":1,"question":"Q","difficulty":null,"codeSnippet":null}}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val session = KtorSessionRepository(client(null, engine), baseUrl).getToday()
+
+        assertEquals(0, session.currentProblem?.wrongAttemptCount, "필드 부재는 하위호환으로 0")
+    }
+
+    /** POST /attempts 응답의 currentProblem도 같은 필드를 같은 방식으로 매핑한다. */
+    @Test
+    fun submitAttempt_mapsWrongAttemptCount_onCurrentProblem() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """
+                    {"result":"MISMATCH","status":"IN_PROGRESS","solvedCount":0,"totalCount":3,"position":0,
+                     "concepts":null,"explanation":null,
+                     "currentProblem":{"id":1,"question":"Q","difficulty":null,"codeSnippet":null,"wrongAttemptCount":1},
+                     "streak":null}
+                """.trimIndent(),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val outcome = KtorSessionRepository(client("t", engine), baseUrl).submitAttempt("오답")
+
+        assertEquals(1, outcome.currentProblem?.wrongAttemptCount)
+    }
+
     @Test
     fun getToday_withoutStreakField_mapsStreakNull() = runTest {
         val engine = MockEngine {

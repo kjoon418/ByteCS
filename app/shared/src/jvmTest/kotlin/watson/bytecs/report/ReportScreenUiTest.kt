@@ -4,6 +4,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -75,6 +77,23 @@ class ReportScreenUiTest {
         onNodeWithText("힌트에 오류가 있어요").assertIsDisplayed().performClick()
 
         assertEquals(ReportCategory.HINT_ERROR, selected)
+    }
+
+    // ── D2: 프리셋 유형('내 답이 맞았던 것 같아요') ──────────────────────────────
+
+    /**
+     * ⭐️ 정답 공개 패널의 '내 답이 맞았던 것 같아요'로 진입하면(프리셋 WRONG_ANSWER) 그 옵션이
+     * 클릭 없이 이미 선택된 채로 보인다 — [ReportViewModel]이 초기 상태에 채워 넣은 [ReportUiState.category]를
+     * 화면이 그대로 반영할 뿐이므로, 화면 쪽은 프리셋인지 사용자가 고른 것인지 구분하지 않는다.
+     */
+    @Test
+    fun 프리셋_유형이_있으면_해당_옵션이_클릭_없이_이미_선택돼_보인다() = runComposeUiTest {
+        setScreen(ReportUiState(category = ReportCategory.WRONG_ANSWER))
+
+        onNodeWithText("정답이 틀려요").assertIsSelected()
+        onNodeWithText("기타").assertIsNotSelected()
+        // 프리셋만으로도 제출 가능 조건(유형 선택)이 충족된다 — 사용자가 따로 고르지 않아도 된다.
+        onNodeWithText("신고 보내기").assertIsEnabled()
     }
 
     /** 유형이 선택된 상태에서 보내기를 누르면 제출 콜백이 호출된다. */

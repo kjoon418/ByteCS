@@ -14,13 +14,18 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * ⭐️ 제출 가능 조건은 **유형 선택**([ReportUiState.category] != null)뿐이다 — 상세 내용은 선택이라
  * 비어 있어도 제출된다. 전송 실패는 오답과 무관한 시스템 오류이므로 입력을 유지한 채 재시도 경로를 남긴다(§5.12).
+ *
+ * @param presetCategory 진입 시 미리 선택된 유형(D2). 정답 공개 패널의 '내 답이 맞았던 것 같아요'가
+ * [ReportCategory.WRONG_ANSWER]를 넘겨, 사용자가 유형을 다시 고르지 않고 바로 제출할 수 있게 한다.
+ * 여전히 자유롭게 바꿀 수 있다([onCategorySelect]) — 프리셋은 기본값일 뿐 고정이 아니다.
  */
 class ReportViewModel(
     private val repository: ContentReportRepository,
     private val problemId: Long,
+    presetCategory: ReportCategory? = null,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ReportUiState())
+    private val _uiState = MutableStateFlow(ReportUiState(category = presetCategory))
     val uiState: StateFlow<ReportUiState> = _uiState.asStateFlow()
 
     /** 유형 선택(단일 선택, 필수). 고르는 순간 직전 전송 실패 표시를 지운다. */

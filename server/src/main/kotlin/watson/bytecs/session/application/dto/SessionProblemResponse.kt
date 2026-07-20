@@ -10,6 +10,9 @@ package watson.bytecs.session.application.dto
  *
  * category는 대표 분류(명세 §7)로, 개념명과 달리 정답을 스포일하는 위험이 낮아 **풀기 전부터** 싣는다(no-leak 규칙과 독립된 필드).
  * 대표 개념이 미분류(null)면 category도 null이며, 클라는 배지를 표시하지 않는다.
+ *
+ * wrongAttemptCount(D2)는 이 칸에 누적된 비정답(불일치·근접) 횟수 — 개념·정답을 담지 않는 단순 카운트라
+ * no-leak 대상이 아니다. GET /today·POST /attempts 양쪽 응답에 실려, 재진입해도 재시도 안내가 정확하다.
  */
 data class SessionProblemResponse(
     val id: Long,
@@ -19,4 +22,5 @@ data class SessionProblemResponse(
     val hintCount: Int,
     val revealedHints: List<RevealedHintResponse>,
     val category: String?,
+    val wrongAttemptCount: Int,
 )

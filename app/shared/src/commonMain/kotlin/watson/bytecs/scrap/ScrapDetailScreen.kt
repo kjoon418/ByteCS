@@ -19,6 +19,7 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import watson.bytecs.report.ReportCategory
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.CodeSnippetBlock
 import watson.bytecs.ui.components.ConceptChips
@@ -40,7 +41,7 @@ import watson.bytecs.ui.theme.LocalBcsColors
 @Composable
 fun ScrapDetailScreen(
     viewModel: ScrapDetailViewModel,
-    onReport: (Long) -> Unit,
+    onReport: (Long, ReportCategory?) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -59,7 +60,7 @@ fun ScrapDetailScreen(
 internal fun ScrapDetailScreenContent(
     state: ScrapDetailUiState,
     onToggleScrap: () -> Unit,
-    onReport: (Long) -> Unit,
+    onReport: (Long, ReportCategory?) -> Unit,
     onBack: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -123,7 +124,7 @@ internal fun ScrapDetailScreenContent(
 @Composable
 private fun ReadyContent(
     detail: ScrapDetail,
-    onReport: (Long) -> Unit,
+    onReport: (Long, ReportCategory?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -154,10 +155,10 @@ private fun ReadyContent(
         // '더 알아보기'(§5.7) — 재열람은 이미 정답 접근이 가능한 맥락이라 바로 보인다.
         EnrichmentBlock(enrichment = detail.enrichment)
 
-        // 콘텐츠 오류 신고 진입점(07).
+        // 콘텐츠 오류 신고 진입점(07). 재열람은 프리셋 없이 진입한다(사용자가 직접 유형을 고른다).
         TextLink(
             text = "콘텐츠 오류 신고",
-            onClick = { onReport(detail.problemId) },
+            onClick = { onReport(detail.problemId, null) },
             color = colors.textSecondary,
         )
 

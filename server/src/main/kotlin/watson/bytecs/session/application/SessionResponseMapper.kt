@@ -28,8 +28,9 @@ class SessionResponseMapper {
     /**
      * 지금 풀 문제를 무낙인 형태로 변환한다(개념·허용답·해설 제외).
      * 힌트는 개수만 항상 싣고, 본문은 이 칸에서 이미 공개한 수([revealedHintCount])만큼만 잘라 싣는다(no-leak·재진입 복원).
+     * [wrongAttemptCount](D2)는 이 칸에 누적된 비정답 횟수 — 재시도 안내의 근거로 그대로 싣는다.
      */
-    fun toProblemResponse(problem: Problem, revealedHintCount: Int): SessionProblemResponse =
+    fun toProblemResponse(problem: Problem, revealedHintCount: Int, wrongAttemptCount: Int): SessionProblemResponse =
         SessionProblemResponse(
             id = problem.id,
             question = problem.questionText,
@@ -38,6 +39,7 @@ class SessionResponseMapper {
             hintCount = problem.hintCount,
             revealedHints = toRevealedHints(problem, revealedHintCount),
             category = problem.representativeCategory()?.name,
+            wrongAttemptCount = wrongAttemptCount,
         )
 
     fun toStateResponse(session: Session, currentProblem: Problem?, streak: StudyStreak): SessionStateResponse =
@@ -48,7 +50,9 @@ class SessionResponseMapper {
             solvedCount = session.solvedCount,
             totalCount = session.totalCount,
             position = session.currentPosition,
-            currentProblem = currentProblem?.let { toProblemResponse(it, session.currentRevealedHintCount()) },
+            currentProblem = currentProblem?.let {
+                toProblemResponse(it, session.currentRevealedHintCount(), session.currentWrongAttemptCount())
+            },
             streak = toStreakResponse(streak),
         )
 
@@ -78,8 +82,10 @@ class SessionResponseMapper {
             enrichment = if (correct) attemptedProblem.enrichment?.let(EnrichmentResponse::from) else null,
             representativeAnswer = if (correct) attemptedProblem.representativeAnswer else null,
             misconceptionHint = outcome.misconceptionHint,
-            // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수로 복원한다(새 문제라면 0).
-            currentProblem = nextProblem?.let { toProblemResponse(it, session.currentRevealedHintCount()) },
+            // 전진 후의 현재 칸이므로, 그 칸의 공개 힌트 수·누적 오답 수로 복원한다(새 문제라면 둘 다 0).
+            currentProblem = nextProblem?.let {
+                toProblemResponse(it, session.currentRevealedHintCount(), session.currentWrongAttemptCount())
+            },
             streak = streak?.let { toStreakResponse(it) },
         )
     }

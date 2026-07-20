@@ -41,6 +41,8 @@ data class SessionHint(
  *  - [revealedHints]: 이미 공개한 힌트 본문(약→강, 재진입 복원용). 아직 안 연 것은 포함되지 않는다.
  *  - [category]: 대표 분류(도메인 명세 §7, 8개 고정 대분류 enum name). 개념명과 달리 정답을 스포일하는
  *    위험이 낮아 **풀기 전부터** 실린다(no-leak 규칙과 독립). 대표 개념이 미분류면 null(=배지 미표시).
+ *  - [wrongAttemptCount]: 이 칸에 누적된 비정답(불일치·근접) 횟수(D2 — 재시도 안내의 근거). 서버가
+ *    원천이라 재진입해도 정확하다(GET /today·POST /attempts 응답 모두에 실린다).
  */
 data class SessionProblem(
     val id: Long,
@@ -50,6 +52,7 @@ data class SessionProblem(
     val hintCount: Int = 0,
     val revealedHints: List<SessionHint> = emptyList(),
     val category: String? = null,
+    val wrongAttemptCount: Int = 0,
 )
 
 /**

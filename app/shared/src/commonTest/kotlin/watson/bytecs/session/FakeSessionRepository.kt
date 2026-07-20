@@ -88,6 +88,7 @@ class FakeSessionRepository(
             id: Long = 1L,
             hintCount: Int = 0,
             revealedHints: List<SessionHint> = emptyList(),
+            wrongAttemptCount: Int = 0,
         ) = SessionProblem(
             id = id,
             question = "Q$id",
@@ -95,6 +96,7 @@ class FakeSessionRepository(
             codeSnippet = null,
             hintCount = hintCount,
             revealedHints = revealedHints,
+            wrongAttemptCount = wrongAttemptCount,
         )
 
         fun activeSession(
