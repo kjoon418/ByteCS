@@ -76,6 +76,7 @@ import watson.bytecs.ui.theme.LocalBcsColors
 import watson.bytecs.ui.theme.ThemeController
 import watson.bytecs.ui.theme.ThemeMode
 import watson.bytecs.ui.theme.createThemeController
+import watson.bytecs.ui.layout.ProvideWindowWidthClass
 
 /**
  * 앱 루트. 앱 수명 동안 유지되는 싱글턴(토큰 저장소·인증 HTTP 클라이언트·저장소·세션·테마)을 한 번만 만들고,
@@ -106,7 +107,9 @@ fun App(
     }
 
     BcsTheme(darkTheme = darkTheme) {
-        AppNavHost(dependencies)
+        ProvideWindowWidthClass {
+            AppNavHost(dependencies)
+        }
     }
 }
 
