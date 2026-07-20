@@ -1,18 +1,14 @@
 package watson.bytecs.session
 
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
-import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -369,44 +365,11 @@ class SessionScreenUiTest {
         assertEquals(1, advanced)
     }
 
-    /**
-     * ⭐️ [웹·데스크톱] 정답 후 물리 Enter는 하단 CTA와 같은 곳으로 간다 — '다음 문제'. 정답 순간 편집
-     * 입력칸이 확정 표시로 교체돼 IME 액션을 받을 곳이 사라지므로, 확정 영역(solved-enter-catcher)이
-     * 포커스를 받아 Enter를 잇는다. 모바일은 물리 키가 없어 무해하다.
-     */
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 정답_후_엔터로_다음_문제로_넘어간다() {
-        var advanced = 0
-        runScreen(
-            active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
-            onAdvance = { advanced++ },
-        ) {
-            onNodeWithTag("solved-enter-catcher").performKeyInput { pressKey(Key.Enter) }
-        }
-        assertEquals(1, advanced)
-    }
-
-    /** 마지막 문제를 맞힌 뒤의 Enter는 '한입 마치기'(onFinish)로 가고, 다음 문제로 넘기지 않는다. */
-    @OptIn(ExperimentalTestApi::class)
-    @Test
-    fun 마지막_문제_정답_후_엔터는_마치기로_간다() {
-        var finished = 0
-        var advanced = 0
-        runScreen(
-            active(
-                inputText = answer,
-                feedback = SessionFeedback.Correct(listOf(answer), "해설"),
-                pendingCompletion = CompletionSummary(solvedCount = 10, totalCount = 10, streak = null),
-            ),
-            onAdvance = { advanced++ },
-            onFinish = { finished++ },
-        ) {
-            onNodeWithTag("solved-enter-catcher").performKeyInput { pressKey(Key.Enter) }
-        }
-        assertEquals(1, finished)
-        assertEquals(0, advanced, "마지막 문제에서 Enter는 진행이 아니라 완료 전환이어야 한다")
-    }
+    // ⭐️ 정답 후 물리 Enter로 다음 문제/마치기로 넘어가는 동작은 웹(wasmJs)의 window 레벨 Enter
+    //    리스너([PhysicalEnterKey])가 담당한다 — 정답 순간 편집 입력칸이 사라져 IME 액션을 받을 곳이
+    //    없어지는 웹 특유의 문제를 우회한다. 플랫폼 위임(SystemBackHandler와 동형)이라 JVM 테스트
+    //    실행기에서는 no-op이며, Enter가 부르는 동작(다음 문제/마치기)의 분기 자체는 위의 CTA 클릭
+    //    테스트가 이미 못박고 있다. 웹 실제 동작은 브라우저 스모크로 검증한다.
 
     /**
      * [결정 2026-07-16] 세션의 마지막 본 문제를 맞히면 CTA가 [다음 문제] 대신 [한입 마치기]로 바뀐다 —

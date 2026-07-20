@@ -8,7 +8,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -38,14 +37,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -54,6 +47,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import watson.bytecs.PhysicalEnterKey
 import watson.bytecs.report.ReportCategory
 import watson.bytecs.scrap.ScrapRepository
 import watson.bytecs.ui.components.AnswerTextField
@@ -359,6 +353,13 @@ private fun ActiveContent(
         else -> onSubmit
     }
 
+    // ⭐️ 정답 후 물리 Enter를 하단 CTA와 같은 동작(다음 문제 / 마지막이면 마치기)으로 잇는다.
+    //    정답 순간 편집 입력칸이 확정 표시로 교체돼 IME 액션(Enter)을 받을 곳이 사라진다. 웹에서는
+    //    Compose 포커스만으론 캔버스가 브라우저 키를 못 받아(클릭 전까지 무반응) window 레벨 Enter
+    //    리스너로 우회한다(모바일은 물리 키가 없어 no-op). solved 동안만 활성 — 정답을 제출한 그 Enter는
+    //    리스너 등록 이전 이벤트라 곧장 다음 문제로 건너뛰는 이중 발화가 없다.
+    PhysicalEnterKey(enabled = state.solved, onEnter = onImeSubmit)
+
     // 새 문제가 오면 입력에 자동 포커스. 공개 후에는 따라 입력 칸으로 바뀌어 이 requester가 붙을 곳이 없다.
     LaunchedEffect(state.problem.id) {
         if (state.reveal == null) focusRequester.requestFocus()
@@ -443,47 +444,24 @@ private fun ActiveContent(
         val reveal = state.reveal
         if (reveal == null) {
             if (state.solved) {
-                // ⭐️ 정답 후 물리 Enter를 하단 CTA와 같은 동작(다음 문제 / 마지막이면 마치기)으로 잇는다.
-                //    정답 순간 편집 입력칸이 확정 표시로 교체돼 IME 액션을 받을 곳이 사라지므로, 확정 영역이
-                //    포커스를 받아 Enter를 잡는다. KeyDown만 처리해 — 정답을 제출한 바로 그 Enter의 잔여
-                //    이벤트가 곧장 다음 문제로 건너뛰는 이중 발화를 막는다. (웹·데스크톱에서 유효, 물리 키가
-                //    없는 모바일에는 무해.)
-                val advanceFocus = remember { FocusRequester() }
-                LaunchedEffect(state.problem.id) { advanceFocus.requestFocus() }
                 // ⭐️ 정답 입력란의 확정 전환(시안 55-60행) — 더 이상 편집 대상이 아니므로 입력칸 대신
                 //    확정 표시로 바꾼다. 은은한 축하 연출(§2.2): 짧게 페이드·스케일 인 되고, 04 세션 완료의
                 //    컨페티보다 약하게 절제한다(위계: 문제 정답 < 세션 완료).
                 val celebrate = remember(state.problem.id) {
                     MutableTransitionState(false).apply { targetState = true }
                 }
-                Column(
-                    modifier = Modifier
-                        .testTag("solved-enter-catcher")
-                        .focusRequester(advanceFocus)
-                        .onKeyEvent { event ->
-                            val isEnter = event.key == Key.Enter || event.key == Key.NumPadEnter
-                            if (event.type == KeyEventType.KeyDown && isEnter) {
-                                onImeSubmit()
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        .focusable(),
+                AnimatedVisibility(
+                    visibleState = celebrate,
+                    enter = fadeIn(tween(BcsMotion.durBase)) + scaleIn(tween(BcsMotion.durBase), initialScale = 0.97f),
                 ) {
-                    AnimatedVisibility(
-                        visibleState = celebrate,
-                        enter = fadeIn(tween(BcsMotion.durBase)) + scaleIn(tween(BcsMotion.durBase), initialScale = 0.97f),
-                    ) {
-                        Column {
-                            // 확정 입력란은 제출 텍스트가 아니라 대표 정답을 보여준다([2026-07-16] 오너 결정).
-                            val representativeAnswer =
-                                (state.feedback as? SessionFeedback.Correct)?.representativeAnswer ?: state.inputText
-                            ConfirmedAnswerField(representativeAnswer = representativeAnswer)
-                            state.feedback?.let { feedback ->
-                                Spacer(Modifier.height(BcsDimens.space4))
-                                FeedbackCard(feedback, problemId = state.problem.id)
-                            }
+                    Column {
+                        // 확정 입력란은 제출 텍스트가 아니라 대표 정답을 보여준다([2026-07-16] 오너 결정).
+                        val representativeAnswer =
+                            (state.feedback as? SessionFeedback.Correct)?.representativeAnswer ?: state.inputText
+                        ConfirmedAnswerField(representativeAnswer = representativeAnswer)
+                        state.feedback?.let { feedback ->
+                            Spacer(Modifier.height(BcsDimens.space4))
+                            FeedbackCard(feedback, problemId = state.problem.id)
                         }
                     }
                 }
