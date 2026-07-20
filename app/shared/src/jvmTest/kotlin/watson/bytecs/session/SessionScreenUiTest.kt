@@ -1,14 +1,18 @@
 package watson.bytecs.session
 
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -363,6 +367,45 @@ class SessionScreenUiTest {
             onNodeWithText("다음 문제").performClick()
         }
         assertEquals(1, advanced)
+    }
+
+    /**
+     * ⭐️ [웹·데스크톱] 정답 후 물리 Enter는 하단 CTA와 같은 곳으로 간다 — '다음 문제'. 정답 순간 편집
+     * 입력칸이 확정 표시로 교체돼 IME 액션을 받을 곳이 사라지므로, 확정 영역(solved-enter-catcher)이
+     * 포커스를 받아 Enter를 잇는다. 모바일은 물리 키가 없어 무해하다.
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답_후_엔터로_다음_문제로_넘어간다() {
+        var advanced = 0
+        runScreen(
+            active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+            onAdvance = { advanced++ },
+        ) {
+            onNodeWithTag("solved-enter-catcher").performKeyInput { pressKey(Key.Enter) }
+        }
+        assertEquals(1, advanced)
+    }
+
+    /** 마지막 문제를 맞힌 뒤의 Enter는 '한입 마치기'(onFinish)로 가고, 다음 문제로 넘기지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 마지막_문제_정답_후_엔터는_마치기로_간다() {
+        var finished = 0
+        var advanced = 0
+        runScreen(
+            active(
+                inputText = answer,
+                feedback = SessionFeedback.Correct(listOf(answer), "해설"),
+                pendingCompletion = CompletionSummary(solvedCount = 10, totalCount = 10, streak = null),
+            ),
+            onAdvance = { advanced++ },
+            onFinish = { finished++ },
+        ) {
+            onNodeWithTag("solved-enter-catcher").performKeyInput { pressKey(Key.Enter) }
+        }
+        assertEquals(1, finished)
+        assertEquals(0, advanced, "마지막 문제에서 Enter는 진행이 아니라 완료 전환이어야 한다")
     }
 
     /**
