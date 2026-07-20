@@ -61,8 +61,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
-import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.LocalBcsType
 
 /**
  * DESIGN_SYSTEM.md §5 컴포넌트. 03 문제 풀이 슬라이스가 쓰는 것만 구현한다.
@@ -397,7 +397,7 @@ fun CodeSnippetBlock(
             .horizontalScroll(rememberScrollState())
             .padding(BcsDimens.space4),
     ) {
-        Text(text = code, style = BcsType.codeBlock, color = colors.textBody)
+        Text(text = code, style = LocalBcsType.current.codeBlock, color = colors.textBody)
     }
 }
 

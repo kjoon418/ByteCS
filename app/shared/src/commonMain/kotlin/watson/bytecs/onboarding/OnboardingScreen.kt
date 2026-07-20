@@ -25,8 +25,8 @@ import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
-import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.LocalBcsType
 
 /**
  * 01 온보딩 시작 화면(`docs/design/01 온보딩 시작 화면 디자인.html`). 최초 실행 1회만 노출된다
@@ -100,7 +100,7 @@ fun OnboardingScreen(
             // 가치 제안 — 화면의 주인공.
             Text(
                 text = "5분이면 CS 한입,\n오늘도 가볍게 채워보세요.",
-                style = BcsType.question,
+                style = LocalBcsType.current.question,
                 color = colors.textPrimary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),

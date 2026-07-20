@@ -29,8 +29,8 @@ import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
-import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.LocalBcsType
 
 /**
  * 카테고리 이력에서 고른 한 문제의 읽기 전용 상세(도메인 명세 §7, 1차 · 레벨3). 스크랩 상세
@@ -129,7 +129,7 @@ private fun ReadyContent(
         // 문제 질문.
         Text(
             text = item.question,
-            style = BcsType.question,
+            style = LocalBcsType.current.question,
             color = colors.textPrimary,
         )
 

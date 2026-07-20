@@ -29,8 +29,8 @@ import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.ScrapToggle
 import watson.bytecs.ui.components.TextLink
 import watson.bytecs.ui.theme.BcsDimens
-import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.LocalBcsType
 
 /**
  * 스크랩한 문제의 읽기 전용 재열람(기능 5). 전용 시안이 없어 DESIGN_SYSTEM.md와 기존 화면 관례를 따른다.
@@ -137,7 +137,7 @@ private fun ReadyContent(
         // 문제 질문.
         Text(
             text = detail.question,
-            style = BcsType.question,
+            style = LocalBcsType.current.question,
             color = colors.textPrimary,
         )
 

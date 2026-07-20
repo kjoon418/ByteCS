@@ -4,6 +4,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 
 /**
  * DESIGN_SYSTEM.md §0 구현 진입점.
@@ -28,10 +29,19 @@ fun BcsTheme(
     val colorScheme = if (darkTheme) BcsDarkColorScheme else BcsLightColorScheme
     val bcsColors = if (darkTheme) BcsDarkColors else BcsLightColors
 
-    CompositionLocalProvider(LocalBcsColors provides bcsColors) {
+    // Pretendard 패밀리는 컴포지션 안에서만 만들 수 있어(리소스 Font가 @Composable) 여기서 조립해
+    // 타이포그래피와 커스텀 스타일에 함께 주입한다.
+    val fontFamily = rememberBcsFontFamily()
+    val typography = remember(fontFamily) { bcsTypography(fontFamily) }
+    val typeStyles = remember(fontFamily) { bcsTypeStyles(fontFamily) }
+
+    CompositionLocalProvider(
+        LocalBcsColors provides bcsColors,
+        LocalBcsType provides typeStyles,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = BcsTypography,
+            typography = typography,
             content = content,
         )
     }

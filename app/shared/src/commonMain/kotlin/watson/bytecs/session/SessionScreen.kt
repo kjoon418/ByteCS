@@ -74,8 +74,8 @@ import watson.bytecs.ui.components.categoryLabel
 import watson.bytecs.ui.components.difficultyLabel
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
-import watson.bytecs.ui.theme.BcsType
 import watson.bytecs.ui.theme.LocalBcsColors
+import watson.bytecs.ui.theme.LocalBcsType
 import kotlin.coroutines.cancellation.CancellationException
 
 /** D2: 이 횟수 이상 같은 칸에서 비정답이 누적되면 "표기가 달라 인식 못 했을 수 있어요" 안내를 보탠다. */
@@ -423,7 +423,7 @@ private fun ActiveContent(
             }
             Spacer(Modifier.height(BcsDimens.space2))
 
-            Text(text = state.problem.question, style = BcsType.question, color = colors.textPrimary)
+            Text(text = state.problem.question, style = LocalBcsType.current.question, color = colors.textPrimary)
 
             state.problem.codeSnippet?.let { snippet ->
                 Spacer(Modifier.height(BcsDimens.space4))
@@ -658,7 +658,7 @@ private fun PastItemView(
                         onToggle = { onToggleScrap(item.problemId) },
                     )
                 }
-                Text(item.question, style = BcsType.question, color = colors.textPrimary)
+                Text(item.question, style = LocalBcsType.current.question, color = colors.textPrimary)
                 item.codeSnippet?.let { CodeSnippetBlock(code = it) }
                 LabeledBlock("내가 쓴 답", item.submittedAnswer ?: "—")
                 LabeledBlock("모범답안", item.representativeAnswer)
