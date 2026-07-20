@@ -19,8 +19,10 @@ import watson.bytecs.problem.domain.ProblemType
 
 /**
  * 애플리케이션 기동 시, 문제가 하나도 없을 때만 리소스 JSON([resourcePath])의 CS 문제를 시딩한다.
- * **local 프로파일 전용이다** — 시딩분은 승인(APPROVED)으로 들어가므로, 운영에서 동작하면 미검수 콘텐츠가
+ * **local·tester 프로파일 전용이다** — 시딩분은 승인(APPROVED)으로 들어가므로, 운영에서 동작하면 미검수 콘텐츠가
  * 즉시 서빙되어 "검수 전 실서비스 투입 금지" 가드레일을 깬다(운영 유입은 관리자 검수 경로만).
+ * tester는 테스터 피드백용 배포 환경(실서비스 아님)이고 메인 시드가 테스터용으로 큐레이션된 콘텐츠이므로,
+ * 즉시 승인 투입을 허용한다(오너 결정 2026-07-20, application-tester.yml 참고).
  * 테스트는 각자 필요한 데이터를 직접 준비한다(이 로더의 단위 테스트는 빈을 직접 생성한다).
  *
  * 이 로더는 곧 검증기다: JSON을 DTO로 파싱한 뒤 반드시 도메인 생성자([Problem]·[Concept]·[MisconceptionHint]·
@@ -33,7 +35,7 @@ import watson.bytecs.problem.domain.ProblemType
  * 위반이 있으면 [watson.bytecs.problem.domain.InvalidApprovalStateException]으로 기동이 실패한다.
  */
 @Component
-@Profile("local")
+@Profile("local", "tester")
 class ProblemDataLoader(
     private val conceptRepository: ConceptRepository,
     private val problemRepository: ProblemRepository,

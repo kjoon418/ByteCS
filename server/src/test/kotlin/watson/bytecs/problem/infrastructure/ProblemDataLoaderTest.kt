@@ -236,6 +236,22 @@ class ProblemDataLoaderTest {
     }
 
     @Nested
+    inner class 시딩_허용_프로파일을_제한한다 {
+
+        @Test
+        fun 로더는_local과_tester_프로파일에서만_활성화된다() {
+            // 시드는 검수 없이 승인(APPROVED)으로 들어가므로, 허용 프로파일이 늘어나면
+            // "검수 전 실서비스 투입 금지" 가드레일이 뚫린다. 운영(기본 프로파일) 활성화를 여기서 막는다.
+            // tester는 테스터 피드백용 배포 환경(실서비스 아님) — 오너 결정 2026-07-20.
+            val profiles = ProblemDataLoader::class.java
+                .getAnnotation(org.springframework.context.annotation.Profile::class.java)
+
+            assertThat(profiles).isNotNull()
+            assertThat(profiles!!.value).containsExactlyInAnyOrder("local", "tester")
+        }
+    }
+
+    @Nested
     inner class 오답_교정_힌트를_로드한다 {
 
         @Test

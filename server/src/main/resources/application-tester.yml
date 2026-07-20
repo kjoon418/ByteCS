@@ -1,0 +1,11 @@
+# tester 프로파일: 테스터 피드백용 무료 배포(Render 웹 서비스 + Neon Postgres) 환경.
+# 실서비스가 아니다 — 시드 즉시 승인(APPROVED) 투입이 허용되는 유일한 배포 환경(오너 결정 2026-07-20).
+#
+# datasource·JWT·관리자 부트스트랩은 기본(application.yml)의 환경변수 주입을 그대로 쓴다.
+#   - DB_URL 예(Neon): jdbc:postgresql://<host>/<db>?sslmode=require
+#   - JWT_SECRET: 반드시 강한 키를 새로 주입한다(yml 기본값은 로컬 개발 전용).
+# 스키마는 운영과 동일하게 Flyway 마이그레이션이 만들고, ddl-auto=validate(기본)로 검증만 한다.
+#
+# ProblemDataLoader(@Profile("local", "tester"))가 기동 시 문제 0건일 때
+# 테스터용 큐레이션 시드(seed/problems-generated.json)를 채운다. 이 파일의 존재 이유는
+# 그 활성화 자체이며, 기본 설정과 달라지는 프로퍼티는 없다.
