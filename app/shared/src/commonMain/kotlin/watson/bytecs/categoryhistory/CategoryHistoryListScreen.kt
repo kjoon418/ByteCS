@@ -32,8 +32,8 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * 카테고리별 학습 이력(도메인 명세 §7, 1차) 목록 화면 — 8개 고정 대분류와 각 카테고리에 푼 문제 수.
  * 스크랩 목록([watson.bytecs.scrap.ScrapListScreen])과 같은 관례를 따른다(전용 시안 없음).
  *
- * ⭐️ 문제가 없는 카테고리도 목록에서 빠지지 않는다 — '준비 중'으로 표시하고(§7 수용 기준), 눌러도 상세
- * 화면에서 같은 톤의 긍정 빈 상태로 이어진다(오류처럼 보이지 않게, UX 가이드 9).
+ * ⭐️ 문제가 없는 카테고리도 목록에서 빠지지 않는다 — 푼 문제 수를 '0문제'로 그대로 표시하고(§7 수용
+ * 기준), 눌러도 상세 화면에서 같은 톤의 긍정 빈 상태로 이어진다(오류처럼 보이지 않게, UX 가이드 9).
  */
 @Composable
 fun CategoryHistoryListScreen(
@@ -118,8 +118,8 @@ internal fun CategoryHistoryListScreenContent(
 }
 
 /**
- * 카테고리 한 줄 — 한글 라벨 + 문제 수. 0개면 '준비 중'으로(§7 수용 기준, 오류처럼 보이지 않게).
- * 모르는 카테고리 코드는 코드 그대로 라벨로 쓴다(막다른 길 방지 — 서버가 8개를 항상 주므로 실제로는
+ * 카테고리 한 줄 — 한글 라벨 + 푼 문제 수. 0개도 '0문제'로 그대로 표시한다(§7 수용 기준, 오류처럼 보이지
+ * 않게). 모르는 카테고리 코드는 코드 그대로 라벨로 쓴다(막다른 길 방지 — 서버가 8개를 항상 주므로 실제로는
  * 일어나지 않지만, 방어적으로 화면이 비지 않게 한다).
  */
 @Composable
@@ -140,9 +140,9 @@ private fun CategoryRow(group: CategoryHistoryGroup, onOpenCategory: (String) ->
                 modifier = Modifier.weight(1f),
             )
             Text(
-                text = if (count > 0) "${count}문제" else "준비 중",
+                text = "${count}문제",
                 style = MaterialTheme.typography.labelMedium,
-                color = if (count > 0) colors.textSecondary else colors.textTertiary,
+                color = colors.textSecondary,
             )
         }
     }

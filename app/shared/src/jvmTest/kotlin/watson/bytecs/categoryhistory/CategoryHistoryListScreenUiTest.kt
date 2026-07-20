@@ -24,7 +24,6 @@ class CategoryHistoryListScreenUiTest {
         question = question,
         codeSnippet = null,
         difficulty = "MEDIUM",
-        submittedAnswer = "내가 쓴 답",
         result = JudgeResult.CORRECT,
         concepts = listOf("해시 충돌"),
         explanation = "해설",
@@ -90,18 +89,18 @@ class CategoryHistoryListScreenUiTest {
     }
 
     /**
-     * ⭐️ [기능 7 수용 기준] 푼 문제가 0개인 카테고리는 '준비 중'으로 표시한다 — 빈 목록이 오류로
+     * ⭐️ [기능 7 수용 기준] 푼 문제가 0개인 카테고리는 '0문제'로 그대로 표시한다 — 빈 목록이 오류로
      * 보이지 않게(UX 가이드 9 긍정 빈 상태).
      */
     @Test
-    fun 푼_문제가_없으면_준비_중으로_보여준다() = runComposeUiTest {
+    fun 푼_문제가_없으면_0문제로_보여준다() = runComposeUiTest {
         setScreen(
             CategoryHistoryListUiState.Ready(
                 groups = listOf(CategoryHistoryGroup("SECURITY", emptyList())),
             ),
         )
 
-        onNodeWithText("준비 중").assertIsDisplayed()
+        onNodeWithText("0문제").assertIsDisplayed()
         onNodeWithText("불러오지 못했어요", substring = true).assertDoesNotExist()
     }
 

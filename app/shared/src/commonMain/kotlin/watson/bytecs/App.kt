@@ -40,6 +40,8 @@ import watson.bytecs.categoryhistory.CategoryHistoryDetailScreen
 import watson.bytecs.categoryhistory.CategoryHistoryDetailViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryListScreen
 import watson.bytecs.categoryhistory.CategoryHistoryListViewModel
+import watson.bytecs.categoryhistory.CategoryHistoryProblemDetailScreen
+import watson.bytecs.categoryhistory.CategoryHistoryProblemDetailViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryRepository
 import watson.bytecs.categoryhistory.data.KtorCategoryHistoryRepository
 import io.ktor.http.Url
@@ -300,8 +302,18 @@ private fun AppNavHost(dependencies: AppDependencies) {
             CategoryHistoryDetailScreen(
                 viewModel = viewModel,
                 category = screen.category,
+                onOpenProblem = { problemId ->
+                    navigate(Screen.CategoryHistoryProblemDetail(screen.category, problemId))
+                },
                 onBack = { back() },
             )
+        }
+
+        is Screen.CategoryHistoryProblemDetail -> {
+            val viewModel = viewModel(key = "category-history-problem:${screen.category}:${screen.problemId}") {
+                CategoryHistoryProblemDetailViewModel(dependencies.categoryHistoryRepository, screen.category, screen.problemId)
+            }
+            CategoryHistoryProblemDetailScreen(viewModel = viewModel, onBack = { back() })
         }
     }
 }
@@ -435,6 +447,9 @@ sealed interface Screen {
 
     /** 카테고리별 학습 이력 상세(읽기 전용). 선택한 카테고리([category], 서버 enum name)를 실어 넘긴다. */
     data class CategoryHistoryDetail(val category: String) : Screen
+
+    /** 카테고리 이력의 한 문제 상세(읽기 전용, 레벨3). 카테고리([category])와 문제([problemId])를 실어 넘긴다. */
+    data class CategoryHistoryProblemDetail(val category: String, val problemId: Long) : Screen
 }
 
 /**

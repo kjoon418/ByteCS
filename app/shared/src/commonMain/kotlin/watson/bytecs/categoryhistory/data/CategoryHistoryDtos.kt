@@ -18,8 +18,7 @@ private fun String.toJudgeResult(): JudgeResult =
         ?: throw IllegalStateException("알 수 없는 판정 결과: $this")
 
 /**
- * 카테고리별 이력의 한 항목. submittedAnswer는 추가 학습에서만 푼 문제면 null이 정상이다(서버 [결정]).
- * concepts는 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
+ * 카테고리별 이력의 한 항목. concepts는 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
  */
 @Serializable
 internal data class CategoryHistoryItemDto(
@@ -27,6 +26,8 @@ internal data class CategoryHistoryItemDto(
     val question: String,
     val codeSnippet: String? = null,
     val difficulty: String? = null,
+    // '내가 쓴 답'은 화면에서 제거됐으나(오너 결정) 유선 호환을 위해 필드는 남기고 매핑하지 않는다 —
+    // 서버가 계속 내려주므로 삭제하면 역직렬화가 깨질 수 있다.
     val submittedAnswer: String? = null,
     val result: String,
     val concepts: List<String>,
@@ -39,7 +40,6 @@ internal data class CategoryHistoryItemDto(
         question = question,
         codeSnippet = codeSnippet,
         difficulty = difficulty,
-        submittedAnswer = submittedAnswer,
         result = result.toJudgeResult(),
         concepts = concepts,
         explanation = explanation,

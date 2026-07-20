@@ -13,8 +13,6 @@ import watson.bytecs.problem.JudgeResult
 
 /**
  * 카테고리별 이력의 한 항목.
- *  - [submittedAnswer]: 세션 출처만 보존된다 — 추가 학습에서만 푼 문제는 null이 정상(서버 [결정], 도메인
- *    구조상 열린 항목이 승격되며 제출 답을 남기지 않는다). null이어도 나머지 정보는 그대로 제공된다.
  *  - [result]: '정답으로 통과한' 문제만 담으므로 항상 CORRECT다(PastItem·ScrapDetail과 같은 규약).
  *  - [concepts]: 태깅 순서를 보존한 개념 목록(첫 번째가 대표 개념).
  */
@@ -23,7 +21,6 @@ data class CategoryHistoryItem(
     val question: String,
     val codeSnippet: String?,
     val difficulty: String?,
-    val submittedAnswer: String?,
     val result: JudgeResult,
     val concepts: List<String>,
     val explanation: String?,
