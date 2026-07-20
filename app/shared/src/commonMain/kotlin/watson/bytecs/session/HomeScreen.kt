@@ -17,6 +17,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Bookmarks
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Eco
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -190,10 +200,11 @@ private fun AccountEntry(
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = "👤",
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (isMember) colors.onInfoContainer else colors.textTertiary,
+        Icon(
+            imageVector = Icons.Rounded.Person,
+            contentDescription = null,
+            tint = if (isMember) colors.onInfoContainer else colors.textTertiary,
+            modifier = Modifier.size(BcsDimens.iconLg),
         )
     }
 }
@@ -362,15 +373,26 @@ private fun TodayBiteBadge() {
 @Composable
 private fun CompletedBadge() {
     val colors = LocalBcsColors.current
-    Text(
-        text = "✓ 완료",
-        style = MaterialTheme.typography.labelMedium,
-        color = colors.onSuccess,
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(BcsDimens.radiusFull))
             .background(colors.success)
             .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space1),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Check,
+            contentDescription = null,
+            tint = colors.onSuccess,
+            modifier = Modifier.size(BcsDimens.iconSm),
+        )
+        Text(
+            text = "완료",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSuccess,
+        )
+    }
 }
 
 /**
@@ -417,7 +439,7 @@ private fun ProgressBar(
 private fun StreakCard(days: Int) {
     val colors = LocalBcsColors.current
     val tone = streakTone(days, colors)
-    val icon = if (days > 0) "🔥" else "🌱"
+    val icon = if (days > 0) Icons.Rounded.LocalFireDepartment else Icons.Rounded.Eco
     val label = if (days > 0) "${days}일째 꾸준히 한입!" else "오늘 한입으로 연속 학습을 시작해요"
 
     BcsCard {
@@ -433,7 +455,15 @@ private fun StreakCard(days: Int) {
                     .background(tone.background),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = icon, style = MaterialTheme.typography.titleLarge, color = tone.accent)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tone.accent,
+                    // 불꽃(살아 있음)과 새싹(끊김)을 테스트에서 구분하기 위한 태그.
+                    modifier = Modifier
+                        .size(BcsDimens.iconLg)
+                        .testTag(if (days > 0) "streak-fire" else "streak-sprout"),
+                )
             }
             Text(
                 text = label,
@@ -458,7 +488,12 @@ private fun ScrapEntryRow(onOpenScrapList: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
         ) {
-            Text(text = "🔖", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = Icons.Rounded.Bookmarks,
+                contentDescription = null,
+                tint = colors.textSecondary,
+                modifier = Modifier.size(BcsDimens.iconMd),
+            )
             Text(
                 text = "스크랩한 문제",
                 style = MaterialTheme.typography.labelLarge,
@@ -483,7 +518,12 @@ private fun CategoryHistoryEntryRow(onOpenCategoryHistory: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
         ) {
-            Text(text = "📚", style = MaterialTheme.typography.titleMedium)
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+                contentDescription = null,
+                tint = colors.textSecondary,
+                modifier = Modifier.size(BcsDimens.iconMd),
+            )
             Text(
                 text = "카테고리별 학습 이력",
                 style = MaterialTheme.typography.labelLarge,
@@ -566,8 +606,13 @@ private fun HomeError(onRetry: () -> Unit) {
                 .background(colors.surfaceSubtle),
             contentAlignment = Alignment.Center,
         ) {
-            // 경고 삼각형·빨강 대신 중립 글리프. '연결이 잠깐 안 됐다'지 '무언가 잘못됐다'가 아니다.
-            Text(text = "☁", style = MaterialTheme.typography.displaySmall, color = colors.textTertiary)
+            // 경고 삼각형·빨강 대신 중립 아이콘. '연결이 잠깐 안 됐다'지 '무언가 잘못됐다'가 아니다.
+            Icon(
+                imageVector = Icons.Rounded.CloudOff,
+                contentDescription = null,
+                tint = colors.textTertiary,
+                modifier = Modifier.size(BcsDimens.iconXl),
+            )
         }
         Text(
             text = "오늘의 한입을 불러오지 못했어요",

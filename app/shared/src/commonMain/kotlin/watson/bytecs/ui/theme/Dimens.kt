@@ -41,6 +41,11 @@ object BcsDimens {
     val progressDot = 8.dp
     val accentStripe = 4.dp // 넛지 좌측 액센트 스트라이프 폭
     val iconCheck = 22.dp // 정답 체크 표시
+    // vector 아이콘 표준 크기(이모지 대체 — DESIGN_SYSTEM.md §아이콘). raw dp 대신 이 토큰을 쓴다.
+    val iconSm = 16.dp // 인라인 아이콘(작은 배지 텍스트 옆)
+    val iconMd = 20.dp // 표준 아이콘(목록 진입 행·힌트 등)
+    val iconLg = 24.dp // 강조 아이콘(카드 타일·토글·프로필)
+    val iconXl = 32.dp // 빈 상태 큰 장식 아이콘
     val loaderSize = 20.dp // 버튼 인라인 로딩 스피너
     val loaderStroke = 2.dp
     val skeletonLine = 24.dp // 스켈레톤 텍스트 줄 높이

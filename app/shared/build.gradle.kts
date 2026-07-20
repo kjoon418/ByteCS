@@ -156,6 +156,10 @@ kotlin {
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
+            // 아이콘은 웹폰트(이모지) 의존을 피해 vector로 그린다(DESIGN_SYSTEM.md §아이콘).
+            // 웹(skiko 캔버스)엔 이모지 폰트가 없어 이모지 아이콘이 렌더되지 않으므로 Material vector로 대체.
+            // wasmJs 포함 전 타깃에서 해소되며, 미사용 아이콘은 Kotlin/Wasm DCE가 번들에서 제거한다.
+            implementation(compose.materialIconsExtended)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
             implementation(libs.compose.uiToolingPreview)

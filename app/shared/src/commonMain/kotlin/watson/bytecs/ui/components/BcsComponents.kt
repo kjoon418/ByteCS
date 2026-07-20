@@ -38,7 +38,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -50,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -721,7 +727,8 @@ internal fun categoryLabel(category: String?): String? = when (category) {
 
 /**
  * §5.16 ScrapToggle — 문제를 개인 북마크에 저장/해제. 켜짐=primary, 꺼짐=textTertiary.
- * 아이콘 폰트 의존을 피해 별 글리프(★/☆)로 그린다. 최소 터치 타깃 48dp를 보장한다(§7).
+ * 별 vector 아이콘(채움/외곽선)으로 그린다 — 이모지는 웹(skiko)에 폰트가 없어 렌더되지 않는다.
+ * 최소 터치 타깃 48dp를 보장한다(§7).
  */
 @Composable
 fun ScrapToggle(
@@ -731,17 +738,16 @@ fun ScrapToggle(
 ) {
     val colors = LocalBcsColors.current
     val label = if (scrapped) "스크랩 해제" else "스크랩"
-    Text(
-        text = if (scrapped) "★" else "☆",
-        style = MaterialTheme.typography.titleMedium,
-        color = if (scrapped) MaterialTheme.colorScheme.primary else colors.textTertiary,
+    Icon(
+        imageVector = if (scrapped) Icons.Rounded.Star else Icons.Rounded.StarBorder,
+        // 아이콘 자체가 상태(채움/외곽선)를 보이지만, 스크린리더에는 동작을 말로 실어 준다.
+        contentDescription = label,
+        tint = if (scrapped) MaterialTheme.colorScheme.primary else colors.textTertiary,
         modifier = modifier
             .clip(RoundedCornerShape(BcsDimens.radiusFull))
             .clickable { onToggle(!scrapped) }
             .sizeIn(minWidth = BcsDimens.minTouchTarget, minHeight = BcsDimens.minTouchTarget)
-            .wrapContentSize(Alignment.Center)
-            // 글리프 자체는 의미를 전달하지 못하므로 상태를 말로 실어 준다.
-            .semantics { contentDescription = label },
+            .wrapContentSize(Alignment.Center),
     )
 }
 
@@ -757,18 +763,31 @@ fun StreakBadge(
     modifier: Modifier = Modifier,
 ) {
     val tone = streakTone(days, LocalBcsColors.current)
-    // 불꽃은 스트릭이 살아 있을 때만. 꺼진 불꽃을 보여 주는 연출은 금지다.
-    val label = if (days > 0) "🔥 ${days}일 연속 학습 중" else "오늘 한입으로 연속 학습을 시작해요"
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelLarge,
-        color = tone.content,
+    val text = if (days > 0) "${days}일 연속 학습 중" else "오늘 한입으로 연속 학습을 시작해요"
+    Row(
         modifier = modifier
             .clip(RoundedCornerShape(BcsDimens.radiusFull))
             .background(tone.background)
             .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space1)
-            .semantics { contentDescription = label },
-    )
+            .semantics { contentDescription = text },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space1),
+    ) {
+        // 불꽃은 스트릭이 살아 있을 때만. 꺼진 불꽃을 보여 주는 연출은 금지다.
+        if (days > 0) {
+            Icon(
+                imageVector = Icons.Rounded.LocalFireDepartment,
+                contentDescription = null,
+                tint = tone.content,
+                modifier = Modifier.size(BcsDimens.iconSm).testTag("streak-fire"),
+            )
+        }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = tone.content,
+        )
+    }
 }
 
 /**

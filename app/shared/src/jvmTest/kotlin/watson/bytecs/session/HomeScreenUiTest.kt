@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -137,7 +138,7 @@ class HomeScreenUiTest {
     /**
      * 완료는 **긍정 빈 상태**다(§5.10). 더 풀기는 권유일 뿐 압박이 아니다 — Primary가 아닌 Ghost.
      * ⭐️ 별도 완료 카드 없이 오늘의 한입 카드 자체가 완료 표식(체크 배지)으로 바뀐다(2026-07-16 오너 결정
-     * — 홈 복잡도 감소). "오늘의 한입" 배지는 완료 시 사라지고 "✓ 완료"로 바뀐다.
+     * — 홈 복잡도 감소). "오늘의 한입" 배지는 완료 시 사라지고 체크 아이콘 + "완료" 배지로 바뀐다.
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
@@ -148,7 +149,7 @@ class HomeScreenUiTest {
             onExtraPractice = { extra++ },
         )
 
-        onNodeWithText("✓ 완료").assertIsDisplayed()
+        onNodeWithText("완료").assertIsDisplayed()
         onNodeWithText("오늘의 한입").assertDoesNotExist()
         onNodeWithText("오늘 몫은 다 했어요!").assertIsDisplayed()
         onNodeWithText("원한다면 조금 더 풀어볼 수도 있어요.").assertIsDisplayed()
@@ -202,7 +203,7 @@ class HomeScreenUiTest {
         setHome(ready(streak = Streak(count = 3, lastStudyDate = "2026-05-13")))
 
         onNodeWithText("3일째 꾸준히 한입!").assertIsDisplayed()
-        onNodeWithText("🔥").assertIsDisplayed()
+        onNodeWithTag("streak-fire", useUnmergedTree = true).assertIsDisplayed()
         onNodeWithText("내일도 오시면", substring = true).assertDoesNotExist()
     }
 
@@ -216,7 +217,7 @@ class HomeScreenUiTest {
         setHome(ready(streak = Streak(count = 0, lastStudyDate = "2026-05-01")))
 
         onNodeWithText("오늘 한입으로 연속 학습을 시작해요").assertIsDisplayed()
-        onNodeWithText("🔥", substring = true).assertDoesNotExist()
+        onNodeWithTag("streak-fire", useUnmergedTree = true).assertDoesNotExist()
         for (guilt in listOf("놓쳤", "끊겼", "사라", "실패", "아쉽")) {
             onNodeWithText(guilt, substring = true).assertDoesNotExist()
         }
@@ -232,7 +233,7 @@ class HomeScreenUiTest {
         setHome(ready(streak = null))
 
         onNodeWithText("오늘 한입으로 연속 학습을 시작해요").assertDoesNotExist()
-        onNodeWithText("🔥", substring = true).assertDoesNotExist()
+        onNodeWithTag("streak-fire", useUnmergedTree = true).assertDoesNotExist()
     }
 
     // ── 카피 규율 ─────────────────────────────────────────────────────────────

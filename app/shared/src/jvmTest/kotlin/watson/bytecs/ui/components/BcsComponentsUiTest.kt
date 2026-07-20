@@ -3,6 +3,7 @@ package watson.bytecs.ui.components
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -57,7 +58,8 @@ class BcsComponentsUiTest {
             BcsTheme(darkTheme = false) { StreakBadge(days = 5) }
         }
 
-        onNodeWithText("🔥 5일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("5일 연속 학습 중").assertIsDisplayed()
+        onNodeWithTag("streak-fire", useUnmergedTree = true).assertIsDisplayed()
     }
 
     /**
@@ -85,7 +87,7 @@ class BcsComponentsUiTest {
             BcsTheme(darkTheme = false) { StreakBadge(days = 0) }
         }
 
-        onNodeWithText("🔥", substring = true).assertDoesNotExist()
+        onNodeWithTag("streak-fire", useUnmergedTree = true).assertDoesNotExist()
     }
 
     // ── §5.16 ScrapToggle ────────────────────────────────────────────────────
@@ -221,6 +223,6 @@ class BcsComponentsUiTest {
             }
         }
 
-        onNodeWithText("🔥 3일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("3일 연속 학습 중").assertIsDisplayed()
     }
 }

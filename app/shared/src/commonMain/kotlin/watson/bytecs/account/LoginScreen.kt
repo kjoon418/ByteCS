@@ -9,11 +9,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -343,11 +349,13 @@ private fun UpgradeBanner() {
 @Composable
 private fun EmailValidCheck() {
     val colors = LocalBcsColors.current
-    Text(
-        text = "✓",
-        style = MaterialTheme.typography.titleMedium,
-        color = colors.success,
-        modifier = Modifier.clearAndSetSemantics { testTag = "email-valid-check" },
+    Icon(
+        imageVector = Icons.Rounded.Check,
+        contentDescription = null,
+        tint = colors.success,
+        modifier = Modifier
+            .size(BcsDimens.iconCheck)
+            .clearAndSetSemantics { testTag = "email-valid-check" },
     )
 }
 
@@ -363,16 +371,15 @@ private fun EmailValidCheck() {
 private fun PasswordVisibilityToggle(visible: Boolean, onToggle: () -> Unit) {
     val colors = LocalBcsColors.current
     val label = if (visible) "비밀번호 숨기기" else "비밀번호 표시"
-    Text(
-        text = if (visible) "🙈" else "👁",
-        style = MaterialTheme.typography.titleMedium,
-        color = colors.textTertiary,
+    Icon(
+        imageVector = if (visible) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+        contentDescription = label,
+        tint = colors.textTertiary,
         modifier = Modifier
             .clip(RoundedCornerShape(BcsDimens.radiusFull))
             .clickable(onClick = onToggle)
             .sizeIn(minWidth = BcsDimens.minTouchTarget, minHeight = BcsDimens.minTouchTarget)
-            .wrapContentSize(Alignment.Center)
-            .semantics { contentDescription = label },
+            .wrapContentSize(Alignment.Center),
     )
 }
 

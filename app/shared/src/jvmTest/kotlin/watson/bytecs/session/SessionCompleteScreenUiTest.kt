@@ -140,7 +140,7 @@ class SessionCompleteScreenUiTest {
     fun 스트릭이_있으면_연속_일수를_긍정_톤으로_보여준다() = runComposeUiTest {
         showScreen()
 
-        onNodeWithText("🔥 3일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("3일 연속 학습 중").assertIsDisplayed()
     }
 
     @OptIn(ExperimentalTestApi::class)

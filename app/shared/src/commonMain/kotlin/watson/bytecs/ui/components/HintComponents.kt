@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -142,10 +146,13 @@ fun MisconceptionHintCard(
         horizontalArrangement = Arrangement.spacedBy(BcsDimens.space3),
     ) {
         // 장식이다 — 의미는 인접 본문이 전달한다.
-        Text(
-            text = "💡",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.clearAndSetSemantics {},
+        Icon(
+            imageVector = Icons.Rounded.Lightbulb,
+            contentDescription = null,
+            tint = colors.onInfoContainer,
+            modifier = Modifier
+                .size(BcsDimens.iconMd)
+                .clearAndSetSemantics {},
         )
         Text(text = text, style = MaterialTheme.typography.bodyMedium, color = colors.onInfoContainer)
     }
