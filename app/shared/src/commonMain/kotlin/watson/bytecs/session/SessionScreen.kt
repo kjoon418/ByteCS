@@ -472,6 +472,13 @@ private fun ActiveContent(
                     FeedbackCard(feedback, problemId = state.problem.id)
                 }
 
+                // ⭐️ [실기기 QA] 오개념 교정 힌트 — feedback과 독립(stickyMisconceptionHint)이라 답을 고치는
+                //    중에도 남는다. 큐레이션된 오답에만 실린다(보통 null이라 카드가 없다).
+                state.stickyMisconceptionHint?.let { hint ->
+                    Spacer(Modifier.height(BcsDimens.space4))
+                    MisconceptionHintCard(text = hint)
+                }
+
                 // D2: 거짓 오답 완충 ③ — 재시도 N회(임계 RETRY_HINT_THRESHOLD)째도 계속 어긋나면, 큐레이션
                 // 여부와 무관하게 "표기 차이일 수 있음"을 안내한다. wrongAttemptCount는 서버가 원천이라
                 // 재진입해도(이 화면을 나갔다 돌아와도) 안내가 그대로 정확하다 — 이번 방문의 feedback 유무와 무관.
@@ -529,6 +536,12 @@ private fun ActiveContent(
                 FeedbackCard(feedback, problemId = state.problem.id)
             }
 
+            // ⭐️ [실기기 QA] 오개념 교정 힌트 — 공개 후 따라 입력 중에도 편집과 무관하게 유지된다.
+            state.stickyMisconceptionHint?.let { hint ->
+                Spacer(Modifier.height(BcsDimens.space4))
+                MisconceptionHintCard(text = hint)
+            }
+
             // 해설·개념·심화는 정답 시(FeedbackCard Correct)와 같은 flat 순서로 그 아래에 둔다.
             //    개념은 공개 이후에만 — 풀기 전 노출은 정답 스포일이다(§5.9). 여러 개면 칩이 늘어난다(태깅 순).
             Spacer(Modifier.height(BcsDimens.space4))
@@ -583,16 +596,14 @@ private fun FeedbackCard(feedback: SessionFeedback, problemId: Long) {
 
         // 불일치엔 텍스트 카드를 두지 않는다 — 시각 신호는 문제 영역의 주황 플래시가 맡는다(세로 공간 절약).
         //    비시각 사용자에겐 라이브 리전으로만 짧게 안내한다: '오답/틀림/실패' 어휘 없이(무낙인).
-        //    큐레이션된 오답이면 교정 힌트를 함께 얹는다(push·info 톤, danger 금지).
-        is SessionFeedback.Mismatch -> Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
-            Box(
-                Modifier.semantics {
-                    liveRegion = LiveRegionMode.Polite
-                    contentDescription = "정답과 달라요, 다시 시도해 보세요"
-                },
-            )
-            feedback.misconceptionHint?.let { hint -> MisconceptionHintCard(text = hint) }
-        }
+        //    ⭐️ 큐레이션된 오답의 교정 힌트는 여기(feedback)가 아니라 stickyMisconceptionHint로 본문에서
+        //    따로 렌더한다 — 답을 고치는 중에도 힌트가 남아야 하는데, feedback은 편집 시 지워지기 때문이다.
+        is SessionFeedback.Mismatch -> Box(
+            Modifier.semantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = "정답과 달라요, 다시 시도해 보세요"
+            },
+        )
 
         SessionFeedback.NearMiss -> NearMissNudge(modifier = announce)
     }

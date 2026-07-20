@@ -76,17 +76,17 @@ class SessionViewModel(
     }
 
     /**
-     * 답 입력 변경. 전송 실패(systemError) 표시만 내린다.
+     * 답 입력 변경. 직전 제출의 **판정 피드백**(불일치 주황 플래시·'정답과 달라요' 라이브 리전·정답 햅틱)과
+     * 전송 실패 표시는 지운다 — 고친 답은 아직 채점 전이므로 이전 판정을 붙여 두지 않는다(그래야 다음
+     * 제출에서 같은 유형 오답이어도 플래시·낭독이 다시 발화한다).
      *
-     * ⭐️ [실기기 QA] 직전 제출의 피드백(특히 오개념 교정 힌트)은 지우지 않는다 — 사용자가 힌트를
-     * 읽으면서 답을 고칠 수 있어야 한다. 예전엔 한 글자만 바꿔도 피드백이 통째로 사라져, 힌트를 읽으려면
-     * 타이핑을 멈춰야 했다. 피드백은 다음 제출([submit])이 새 결과로 교체하거나 다음 칸([advance])에서
-     * 초기화된다(불일치의 유일한 시각 요소는 교정 힌트 카드이고, '정답과 달라요'는 비시각 라이브 리전이라
-     * 같은 내용이면 다시 낭독되지 않는다).
+     * ⭐️ [실기기 QA] 다만 **오개념 교정 힌트**는 [SessionUiState.Active.stickyMisconceptionHint]로 따로
+     * 보존해, 사용자가 힌트를 읽으면서 답을 고칠 수 있게 한다(예전엔 한 글자만 바꿔도 힌트가 사라져 읽으려면
+     * 타이핑을 멈춰야 했다). 힌트는 다음 제출([submit])이 새 값으로 갈아끼우거나 다음 칸([advance])에서 비운다.
      */
     fun onInputChange(text: String) {
         _uiState.update { state ->
-            if (state is SessionUiState.Active) state.copy(inputText = text, systemError = false)
+            if (state is SessionUiState.Active) state.copy(inputText = text, feedback = null, systemError = false)
             else state
         }
     }
@@ -133,6 +133,8 @@ class SessionViewModel(
                             reveal = null,
                             isRevealing = false,
                             isSubmitting = false,
+                            // 정답을 맞혔으면 직전 오답의 교정 힌트는 더 볼 이유가 없어 비운다.
+                            stickyMisconceptionHint = null,
                         )
                         JudgeResult.NEAR_MISS -> state.withNonCorrect(outcome, SessionFeedback.NearMiss)
                         JudgeResult.MISMATCH ->
@@ -288,9 +290,12 @@ class SessionViewModel(
         outcome: AttemptOutcome,
         feedback: SessionFeedback,
     ): SessionUiState.Active {
-        val serverProblem = outcome.currentProblem ?: return copy(feedback = feedback, isSubmitting = false)
+        // 오개념 교정 힌트는 편집 중에도 읽을 수 있게 따로 보존한다 — 불일치일 때만 채워지고, 근접이면 비운다.
+        val sticky = (feedback as? SessionFeedback.Mismatch)?.misconceptionHint
+        val serverProblem = outcome.currentProblem
+            ?: return copy(feedback = feedback, isSubmitting = false, stickyMisconceptionHint = sticky)
         if (serverProblem.id == problem.id) {
-            return copy(problem = serverProblem, feedback = feedback, isSubmitting = false)
+            return copy(problem = serverProblem, feedback = feedback, isSubmitting = false, stickyMisconceptionHint = sticky)
         }
         return SessionUiState.Active(
             problem = serverProblem,
@@ -322,6 +327,9 @@ sealed interface SessionUiState {
         val solvedCount: Int,
         val inputText: String = "",
         val feedback: SessionFeedback? = null,
+        // 오개념 교정 힌트(불일치일 때만). feedback과 달리 답 편집으로는 지워지지 않아, 힌트를 읽으면서
+        // 답을 고칠 수 있다(실기기 QA). 다음 제출이 갈아끼우거나 다음 칸으로 넘어가면 비워진다.
+        val stickyMisconceptionHint: String? = null,
         val isSubmitting: Boolean = false,
         val systemError: Boolean = false,
         val reveal: Reveal? = null,

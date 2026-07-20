@@ -39,6 +39,7 @@ class SessionScreenUiTest {
     private fun active(
         inputText: String = "",
         feedback: SessionFeedback? = null,
+        stickyMisconceptionHint: String? = null,
         reveal: Reveal? = null,
         past: PastView? = null,
         position: Int = 1,
@@ -51,6 +52,7 @@ class SessionScreenUiTest {
         solvedCount = position,
         inputText = inputText,
         feedback = feedback,
+        stickyMisconceptionHint = stickyMisconceptionHint,
         reveal = reveal,
         past = past,
         pendingCompletion = pendingCompletion,
@@ -575,9 +577,11 @@ class SessionScreenUiTest {
     @OptIn(ExperimentalTestApi::class)
     @Test
     fun 오답_교정_힌트가_있으면_카드로_함께_뜬다() = runScreen(
+        // 제출 직후 상태: 판정(feedback)과 교정 힌트(sticky)가 함께 세팅된다 — 힌트 카드는 sticky가 원천이다.
         active(
             inputText = "프로세스",
             feedback = SessionFeedback.Mismatch("실행 흐름의 단위를 다시 떠올려 봐요"),
+            stickyMisconceptionHint = "실행 흐름의 단위를 다시 떠올려 봐요",
         ),
     ) {
         onNodeWithContentDescription("정답과 달라요, 다시 시도해 보세요").assertExists()

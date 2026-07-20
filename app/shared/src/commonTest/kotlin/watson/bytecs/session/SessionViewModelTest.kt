@@ -538,31 +538,45 @@ class SessionViewModelTest {
     }
 
     /**
-     * ⭐️ [실기기 QA] 입력을 고쳐도 직전 불일치의 오개념 교정 힌트는 유지된다 — 힌트를 읽으면서 답을
-     * 수정할 수 있어야 한다(예전엔 한 글자만 바꿔도 힌트가 사라져 읽으려면 타이핑을 멈춰야 했다).
-     * 피드백은 다음 제출이 새 결과로 교체한다.
+     * ⭐️ [실기기 QA] 입력을 고쳐도 오개념 교정 힌트(stickyMisconceptionHint)는 유지된다 — 힌트를 읽으면서
+     * 답을 고칠 수 있어야 한다(예전엔 한 글자만 바꿔도 힌트가 사라졌다). 반면 판정 피드백(feedback)은 편집
+     * 시 지워진다 — 그래야 다음 제출에서 같은 유형 오답이어도 주황 플래시·라이브 리전 낭독이 다시 발화한다.
      */
     @Test
-    fun editingInput_keepsCorrectionHint() = runTest {
+    fun editingInput_keepsStickyHint_butClearsVerdictFeedback() = runTest {
+        val hint = "그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요"
         val repo = FakeSessionRepository().apply {
-            onSubmit = { mismatchOutcome(misconceptionHint = "그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요") }
+            onSubmit = { mismatchOutcome(misconceptionHint = hint) }
         }
         val viewModel = SessionViewModel(repo).apply { loadSession() }
 
         viewModel.onInputChange("프로세스")
         viewModel.submit()
-        assertEquals(
-            SessionFeedback.Mismatch("그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요"),
-            viewModel.active().feedback,
-        )
+        assertEquals(SessionFeedback.Mismatch(hint), viewModel.active().feedback)
+        assertEquals(hint, viewModel.active().stickyMisconceptionHint, "제출 시 교정 힌트가 sticky로 실린다")
 
         viewModel.onInputChange("스레드")
-        assertEquals(
-            SessionFeedback.Mismatch("그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요"),
-            viewModel.active().feedback,
-            "입력을 고쳐도 오개념 교정 힌트는 유지된다",
-        )
+        assertNull(viewModel.active().feedback, "입력을 고치면 판정 피드백은 지워진다(플래시·낭독 재발화용)")
+        assertEquals(hint, viewModel.active().stickyMisconceptionHint, "입력을 고쳐도 교정 힌트는 유지된다")
         assertEquals("스레드", viewModel.active().inputText, "입력은 고친 값 그대로")
+    }
+
+    /** 정답을 맞히면 직전 오답의 교정 힌트(sticky)는 비워진다 — 더 볼 이유가 없다. */
+    @Test
+    fun correct_clearsStickyHint() = runTest {
+        val next = problem(2L)
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { mismatchOutcome(misconceptionHint = "힌트") }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("오답")
+        viewModel.submit()
+        assertEquals("힌트", viewModel.active().stickyMisconceptionHint)
+
+        repo.onSubmit = { correctOutcome(next = next, position = 1, solved = 1, total = 3) }
+        viewModel.onInputChange("정답")
+        viewModel.submit()
+        assertNull(viewModel.active().stickyMisconceptionHint, "정답이면 교정 힌트를 비운다")
     }
 
     /** 입력을 고치면 직전 제출 실패(systemError) 표시는 내려간다 — 재입력은 새 시도이므로. */
