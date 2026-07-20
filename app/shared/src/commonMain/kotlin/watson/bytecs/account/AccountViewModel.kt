@@ -59,6 +59,8 @@ class AccountViewModel(
                 sessionSizeError = if (value in MIN_SESSION_SIZE..MAX_SESSION_SIZE) null
                 else "세션 크기는 ${MIN_SESSION_SIZE}~${MAX_SESSION_SIZE}문제 사이로 정할 수 있어요.",
                 noticeError = null,
+                // 새로 편집하면 직전 저장 안내는 걷는다(다시 저장하면 다시 안내한다).
+                sessionSizeSaved = false,
             )
         }
     }
@@ -80,8 +82,10 @@ class AccountViewModel(
         viewModelScope.launch {
             try {
                 sessionManager.updateSettings(draft)
-                // 성공: draft를 비워 서버 값(갱신됨)을 따르게 한다.
-                transient.update { it.copy(sessionSizeDraft = null, settingsSaving = false) }
+                // 성공: draft를 비워 서버 값(갱신됨)을 따르게 하고, '다음 세션부터 적용' 안내를 세운다.
+                // ⭐️ [실기기 QA] 세션 크기는 세션이 생성되는 순간에만 반영되므로(진행 중 세션은 이미 문제
+                //    목록이 고정됨), 변경이 다음 세션부터 적용된다는 사실을 저장 시 안내한다(오너 결정).
+                transient.update { it.copy(sessionSizeDraft = null, settingsSaving = false, sessionSizeSaved = true) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
@@ -170,6 +174,7 @@ class AccountViewModel(
                 local.sessionSizeDraft != account?.dailySessionSize &&
                 local.sessionSizeError == null,
             isSettingsSaving = local.settingsSaving,
+            sessionSizeAppliesNextSession = local.sessionSizeSaved,
             themeMode = theme,
             deletePhase = local.deletePhase,
             isLoggingOut = local.loggingOut,
@@ -182,6 +187,8 @@ class AccountViewModel(
         val sessionSizeDraft: Int? = null,
         val sessionSizeError: String? = null,
         val settingsSaving: Boolean = false,
+        // 저장 직후 '다음 세션부터 적용' 안내 노출 여부. 새 편집·화면 재진입 시 걷힌다.
+        val sessionSizeSaved: Boolean = false,
         val loggingOut: Boolean = false,
         val deletePhase: DeletePhase = DeletePhase.None,
         // 오류 채널 분리: 설정 저장·로그아웃은 [noticeError], 계정 삭제는 [deleteError]로 나눠
@@ -221,6 +228,8 @@ data class AccountUiState(
     val sessionSizeError: String?,
     val isSettingsDirty: Boolean,
     val isSettingsSaving: Boolean,
+    /** 저장 직후 '변경한 세션 크기는 다음 세션부터 적용돼요' 안내를 보일지. */
+    val sessionSizeAppliesNextSession: Boolean,
     val themeMode: ThemeMode,
     val deletePhase: DeletePhase,
     val isLoggingOut: Boolean,

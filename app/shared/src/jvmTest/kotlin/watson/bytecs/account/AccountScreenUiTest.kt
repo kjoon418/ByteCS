@@ -30,6 +30,7 @@ class AccountScreenUiTest {
         sessionSizeError = null,
         isSettingsDirty = false,
         isSettingsSaving = false,
+        sessionSizeAppliesNextSession = false,
         themeMode = ThemeMode.SYSTEM,
         deletePhase = DeletePhase.None,
         isLoggingOut = false,
@@ -87,6 +88,26 @@ class AccountScreenUiTest {
         showScreen(guestState)
 
         onNodeWithText("로그아웃").assertDoesNotExist()
+    }
+
+    // ── 세션 크기 변경 안내(실기기 QA — 다음 세션부터 적용) ──────────────────────
+
+    /** ⭐️ [실기기 QA] 저장 직후에는 '다음 세션부터 적용' 안내가 보인다(진행 중 세션은 그대로). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 세션_크기를_저장하면_다음_세션부터_적용_안내가_보인다() = runComposeUiTest {
+        showScreen(memberState.copy(sessionSizeAppliesNextSession = true))
+
+        onNodeWithText("다음 세션부터 적용", substring = true).assertIsDisplayed()
+    }
+
+    /** 저장 전(평상시)에는 안내가 뜨지 않는다 — 저장 시에만 안내한다(오너 결정). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 저장_전에는_다음_세션_적용_안내가_뜨지_않는다() = runComposeUiTest {
+        showScreen(memberState)
+
+        onNodeWithText("다음 세션부터 적용", substring = true).assertDoesNotExist()
     }
 
     // ── 스크랩 목록 진입점(시안 외 최소 진입점 · 기획 리뷰 대상) ────────────────

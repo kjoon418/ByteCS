@@ -92,6 +92,29 @@ class AccountViewModelTest {
         assertEquals(12, repository.lastUpdatedSize, "서버에 새 세션 크기가 전달돼야 한다")
         assertEquals(12, viewModel.uiState.value.sessionSize)
         assertFalse(viewModel.uiState.value.isSettingsDirty, "저장 후 변경 상태 해제")
+        assertTrue(
+            viewModel.uiState.value.sessionSizeAppliesNextSession,
+            "저장 직후엔 '다음 세션부터 적용' 안내를 세운다(실기기 QA — 진행 중 세션엔 반영 안 됨)",
+        )
+    }
+
+    /**
+     * ⭐️ [실기기 QA] 저장 안내는 다시 편집하면 걷힌다(다음 저장에서 다시 안내한다). 평상시 안내가
+     * 눌러붙어 있지 않게 한다.
+     */
+    @Test
+    fun settingsSavedNotice_clearsOnNextEdit() = runTest {
+        val (viewModel, _) = memberViewModel()
+
+        viewModel.onSessionSizeChange(12)
+        viewModel.saveSettings()
+        assertTrue(viewModel.uiState.value.sessionSizeAppliesNextSession)
+
+        viewModel.onSessionSizeChange(9)
+        assertFalse(
+            viewModel.uiState.value.sessionSizeAppliesNextSession,
+            "다시 편집하면 직전 저장 안내는 걷힌다",
+        )
     }
 
     @Test

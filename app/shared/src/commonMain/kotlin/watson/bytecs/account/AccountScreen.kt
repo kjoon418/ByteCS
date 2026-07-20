@@ -174,6 +174,11 @@ internal fun AccountScreenContent(
                     onChange = onSessionSizeChange,
                     onSave = onSaveSettings,
                 )
+                // ⭐️ [실기기 QA] 세션 크기는 다음 세션 생성부터 반영된다(진행 중 세션은 이미 문제 목록이
+                //    고정됨). 저장 직후 이 사실을 안내해 "바꿨는데 그대로다"라는 혼란을 막는다(오너 결정 — 안내만).
+                if (state.sessionSizeAppliesNextSession) {
+                    InfoNotice("변경한 세션 크기는 다음 세션부터 적용돼요.")
+                }
 
                 SectionTitle("화면 테마")
                 ThemeToggle(selected = state.themeMode, onSelect = onThemeSelect)
