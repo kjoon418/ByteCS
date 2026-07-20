@@ -75,10 +75,18 @@ class SessionViewModel(
         }
     }
 
-    /** 답 입력 변경. 답을 고치면 직전 피드백·전송 실패 표시를 지운다(공개된 모범답안은 유지 — 따라 적는 중). */
+    /**
+     * 답 입력 변경. 전송 실패(systemError) 표시만 내린다.
+     *
+     * ⭐️ [실기기 QA] 직전 제출의 피드백(특히 오개념 교정 힌트)은 지우지 않는다 — 사용자가 힌트를
+     * 읽으면서 답을 고칠 수 있어야 한다. 예전엔 한 글자만 바꿔도 피드백이 통째로 사라져, 힌트를 읽으려면
+     * 타이핑을 멈춰야 했다. 피드백은 다음 제출([submit])이 새 결과로 교체하거나 다음 칸([advance])에서
+     * 초기화된다(불일치의 유일한 시각 요소는 교정 힌트 카드이고, '정답과 달라요'는 비시각 라이브 리전이라
+     * 같은 내용이면 다시 낭독되지 않는다).
+     */
     fun onInputChange(text: String) {
         _uiState.update { state ->
-            if (state is SessionUiState.Active) state.copy(inputText = text, feedback = null, systemError = false)
+            if (state is SessionUiState.Active) state.copy(inputText = text, systemError = false)
             else state
         }
     }

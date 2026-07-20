@@ -537,17 +537,46 @@ class SessionViewModelTest {
         assertEquals("아무거나", state.inputText)
     }
 
+    /**
+     * ⭐️ [실기기 QA] 입력을 고쳐도 직전 불일치의 오개념 교정 힌트는 유지된다 — 힌트를 읽으면서 답을
+     * 수정할 수 있어야 한다(예전엔 한 글자만 바꿔도 힌트가 사라져 읽으려면 타이핑을 멈춰야 했다).
+     * 피드백은 다음 제출이 새 결과로 교체한다.
+     */
     @Test
-    fun editingInput_clearsPriorFeedback() = runTest {
-        val repo = FakeSessionRepository().apply { onSubmit = { mismatchOutcome() } }
+    fun editingInput_keepsCorrectionHint() = runTest {
+        val repo = FakeSessionRepository().apply {
+            onSubmit = { mismatchOutcome(misconceptionHint = "그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요") }
+        }
         val viewModel = SessionViewModel(repo).apply { loadSession() }
 
         viewModel.onInputChange("프로세스")
         viewModel.submit()
-        assertEquals(SessionFeedback.Mismatch(), viewModel.active().feedback)
+        assertEquals(
+            SessionFeedback.Mismatch("그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요"),
+            viewModel.active().feedback,
+        )
 
         viewModel.onInputChange("스레드")
-        assertNull(viewModel.active().feedback, "입력을 고치면 직전 피드백이 지워진다")
+        assertEquals(
+            SessionFeedback.Mismatch("그건 프로세스예요, 실행 흐름의 단위를 다시 떠올려 봐요"),
+            viewModel.active().feedback,
+            "입력을 고쳐도 오개념 교정 힌트는 유지된다",
+        )
+        assertEquals("스레드", viewModel.active().inputText, "입력은 고친 값 그대로")
+    }
+
+    /** 입력을 고치면 직전 제출 실패(systemError) 표시는 내려간다 — 재입력은 새 시도이므로. */
+    @Test
+    fun editingInput_clearsSystemError() = runTest {
+        val repo = FakeSessionRepository().apply { submitError = RuntimeException("network") }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("아무거나")
+        viewModel.submit()
+        assertTrue(viewModel.active().systemError, "전송 실패는 systemError로 표시된다")
+
+        viewModel.onInputChange("다시 입력")
+        assertFalse(viewModel.active().systemError, "재입력하면 전송 실패 표시는 내려간다")
     }
 
     // ── 힌트(pull) · 오답 교정 힌트(push) ────────────────────────────────────
