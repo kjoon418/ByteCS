@@ -76,7 +76,11 @@ import watson.bytecs.ui.theme.LocalBcsColors
 import watson.bytecs.ui.theme.ThemeController
 import watson.bytecs.ui.theme.ThemeMode
 import watson.bytecs.ui.theme.createThemeController
+import watson.bytecs.ui.layout.LocalWindowWidthClass
 import watson.bytecs.ui.layout.ProvideWindowWidthClass
+import watson.bytecs.ui.layout.TwoPaneDetailPlaceholder
+import watson.bytecs.ui.layout.TwoPaneListDetail
+import watson.bytecs.ui.layout.WindowWidthClass
 
 /**
  * 앱 루트. 앱 수명 동안 유지되는 싱글턴(토큰 저장소·인증 HTTP 클라이언트·저장소·세션·테마)을 한 번만 만들고,
@@ -265,12 +269,45 @@ private fun AppNavHost(dependencies: AppDependencies) {
         }
 
         Screen.ScrapList -> {
-            val viewModel = viewModel { ScrapListViewModel(dependencies.scrapRepository) }
-            ScrapListScreen(
-                viewModel = viewModel,
-                onOpenScrap = { problemId -> navigate(Screen.ScrapDetail(problemId)) },
-                onBack = { back() },
-            )
+            val listViewModel = viewModel { ScrapListViewModel(dependencies.scrapRepository) }
+            if (LocalWindowWidthClass.current == WindowWidthClass.EXPANDED) {
+                // 웹/데스크톱: 목록↔상세를 백스택 push 없이 나란히 둔다. 선택은 로컬 상태로 끌어올린다(계획 §4-2).
+                var selectedScrapId by remember { mutableStateOf<Long?>(null) }
+                TwoPaneListDetail(
+                    master = {
+                        ScrapListScreen(
+                            viewModel = listViewModel,
+                            onOpenScrap = { problemId -> selectedScrapId = problemId },
+                            onBack = { back() },
+                        )
+                    },
+                    detail = {
+                        val id = selectedScrapId
+                        if (id == null) {
+                            TwoPaneDetailPlaceholder("왼쪽에서 스크랩한 문제를 선택하세요")
+                        } else {
+                            // ⭐️ 상세 뷰모델은 선택된 문제별로 키를 분리한다(전역 ViewModelStore·클래스 단위 캐시
+                            //    문제는 2패널에서도 동일 — 키가 없으면 첫 선택 문제가 고정된다). push 경로의
+                            //    detailViewModelKey(Screen.ScrapDetail)와 겹치지 않도록 2패널 전용 접두어를 쓴다.
+                            val detailViewModel = viewModel(key = "scrap-detail-pane-$id") {
+                                ScrapDetailViewModel(dependencies.scrapRepository, id)
+                            }
+                            ScrapDetailScreen(
+                                viewModel = detailViewModel,
+                                onReport = { problemId, presetCategory -> navigate(Screen.Report(problemId, presetCategory)) },
+                                // 2패널에서 '뒤로'는 상세 선택 해제(패널 비우기)다 — 화면을 벗어나지 않는다.
+                                onBack = { selectedScrapId = null },
+                            )
+                        }
+                    },
+                )
+            } else {
+                ScrapListScreen(
+                    viewModel = listViewModel,
+                    onOpenScrap = { problemId -> navigate(Screen.ScrapDetail(problemId)) },
+                    onBack = { back() },
+                )
+            }
         }
 
         is Screen.ScrapDetail -> {
