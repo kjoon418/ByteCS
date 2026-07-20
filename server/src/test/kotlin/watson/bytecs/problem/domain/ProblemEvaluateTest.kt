@@ -110,6 +110,30 @@ class ProblemEvaluateTest {
         }
     }
 
+    /**
+     * D1(따라 입력): 정답 공개 후 화면의 대표 정답을 옮겨 적는 맥락에서는 유형 관문을 면제해 전사 오타를 근접으로 안내한다.
+     */
+    @Nested
+    inner class 따라_입력이면_유형과_무관하게_근접으로_안내한다 {
+
+        @Test
+        fun 유도형_전사_오타는_따라_입력일_때만_근접이다() {
+            // "o(n²)"(유도형)에 "o(n)" — 평소엔 MISMATCH지만, 정답을 옮겨 적다 ²를 빠뜨린 전사 오타다.
+            val derivationProblem = problemWith(
+                acceptableAnswers = setOf("o(n²)"),
+                type = ProblemType.DERIVATION,
+            )
+
+            // 전제 고정: 따라 입력이 아니면 유형 관문에 막혀 MISMATCH다.
+            assertThat(derivationProblem.evaluate(AnswerText("o(n)")).judgement).isEqualTo(Judgement.MISMATCH)
+
+            val outcome = derivationProblem.evaluate(AnswerText("o(n)"), typeAlong = true)
+
+            assertThat(outcome.judgement).isEqualTo(Judgement.NEAR_MISS)
+            assertThat(outcome.misconceptionHint).isNull()
+        }
+    }
+
     private fun problemWith(
         acceptableAnswers: Set<String>,
         type: ProblemType? = ProblemType.DEFINITION_RECALL,

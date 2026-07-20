@@ -380,6 +380,37 @@ class SessionControllerIntegrationTest(
     }
 
     @Test
+    fun `정답 공개 후 따라 입력에서 유도형 전사 오타는 근접으로 안내된다`() {
+        // D1: 유도형은 평소 근접 판정을 하지 않지만, 정답을 공개해 화면의 정답을 옮겨 적는 맥락에서는
+        // 전사 오타를 근접으로 안내한다(유형 관문 면제, 길이 하한은 유지).
+        reseedDerivationProblem()
+        getToday(token)
+        reveal(token)
+
+        // 공개된 "o(n²)"을 옮겨 적다 ²를 빠뜨린 "o(n)" — 전진하지 않고 근접 신호만 준다(무낙인).
+        submit(token, "o(n)").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("NEAR_MISS") }
+            jsonPath("$.position") { value(0) }
+            jsonPath("$.concepts") { value(nullValue()) }
+            jsonPath("$.representativeAnswer") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun `정답 공개 전에는 유도형 전사 오타가 근접이 아니라 불일치다`() {
+        // D1의 경계: 정답을 공개하지 않았으면 유도형 근접 금지가 그대로 적용돼 MISMATCH다.
+        reseedDerivationProblem()
+        getToday(token)
+
+        submit(token, "o(n)").andExpect {
+            status { isOk() }
+            jsonPath("$.result") { value("MISMATCH") }
+            jsonPath("$.position") { value(0) }
+        }
+    }
+
+    @Test
     fun `모든 문제를 통과하면 완료되고 스트릭이 1이 된다`() {
         getToday(token)
 
@@ -894,6 +925,31 @@ class SessionControllerIntegrationTest(
                     items = listOf(EnrichmentItem(ENRICHMENT_ITEM_TITLE, ENRICHMENT_ITEM_DESC)),
                     quote = ENRICHMENT_QUOTE,
                 ),
+            ),
+        )
+    }
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 유도형 문제 하나만 남긴다(대표 정답 "o(n²)").
+     * D1(따라 입력) 근접 판정이 유형 관문을 면제하는지 검증하는 데 쓴다.
+     */
+    private fun reseedDerivationProblem() {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val concept = conceptRepository.save(Concept("복잡도개념"))
+        problemRepository.save(
+            Problem(
+                // 통합 테스트 시드는 서빙 중인 문제를 표현하므로 승인 상태로 넣는다(서빙 게이트).
+                approvalStatus = ApprovalStatus.APPROVED,
+                questionText = "시간 복잡도 문제",
+                concepts = listOf(concept),
+                acceptableAnswers = setOf("o(n²)"),
+                representativeAnswer = "o(n²)",
+                type = ProblemType.DERIVATION,
+                difficulty = Difficulty.EASY,
+                explanation = "해설",
             ),
         )
     }

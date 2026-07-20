@@ -93,7 +93,9 @@ class SessionService(
         // 판정과 오답 교정 힌트를 함께 산출한다(교정 힌트 매칭 시 MISMATCH 확정 — 근접보다 우선). 진행에는 확정된 판정을 쓴다.
         // 정답으로 통과할 칸(= 진입 시점의 현재 칸)의 위치를 미리 잡아, 통과 직후 그 칸의 도움 신호를 읽는다.
         val solvedPosition = session.currentPosition
-        val outcome = problem.evaluate(answer)
+        // D1(따라 입력): 이 칸에서 정답을 공개했다면 화면의 정답을 옮겨 적는 맥락이므로, 유형과 무관하게 전사 오타를 근접으로 안내한다.
+        val typeAlong = session.items[solvedPosition].revealed
+        val outcome = problem.evaluate(answer, typeAlong = typeAlong)
         // D8: '이미 풀었던 문제인가'는 recordAttempt로 이번 정답이 반영되기 전에 스냅샷해야 한다 —
         // recordAttempt 이후 조회하면(플러시 등으로) 방금 통과한 이번 정답이 섞여 '이미 풀었음'으로 오판할 수 있다.
         val alreadySolvedBefore = if (outcome.judgement == Judgement.CORRECT) {

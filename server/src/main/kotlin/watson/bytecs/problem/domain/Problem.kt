@@ -237,8 +237,9 @@ class Problem(
      *  2. 오탈자 수준(편집거리 임계 내)으로 가까우면 NEAR_MISS. 단, [isNearMissCandidate]를 만족할 때만.
      *  3. 그 외에는 MISMATCH.
      * 정규화는 [AnswerText]로 통일해, 정확 일치와 근접 판정이 같은 기준을 공유한다.
+     * [typeAlong]이 참이면(정답 공개 후 '따라 입력' 맥락) 근접 후보의 유형 관문을 면제한다([isNearMissCandidate] 참고, D1).
      */
-    fun judge(answer: AnswerText): Judgement {
+    fun judge(answer: AnswerText, typeAlong: Boolean = false): Judgement {
         val normalizedAcceptableAnswers = acceptableAnswers.map { AnswerText(it).value }
 
         if (answer.value in normalizedAcceptableAnswers) {
@@ -246,7 +247,7 @@ class Problem(
         }
 
         val isNearMiss = normalizedAcceptableAnswers.any { acceptable ->
-            isNearMissCandidate(acceptable) &&
+            isNearMissCandidate(acceptable, typeAlong) &&
                 EditDistance.levenshtein(answer.value, acceptable) <= nearMissThreshold(acceptable.length)
         }
         return if (isNearMiss) Judgement.NEAR_MISS else Judgement.MISMATCH
@@ -271,9 +272,10 @@ class Problem(
      *    알려주면 틀린 유도를 맞았다고 알려주는 셈이 된다(§1.4 근접 신호의 취지와 정합).
      *  - 매칭되지 않은 비정답은 판정을 그대로 두고 교정 힌트를 싣지 않는다(막다른 길 없음 — 일반 재시도로 흐른다).
      * 무낙인은 유지된다 — 교정 힌트가 떠도 오답으로 확정하지 않으며 정답을 노출하지 않는다.
+     * [typeAlong]이 참이면(현재 칸에서 정답을 공개해 '따라 입력' 중이면) 근접 후보의 유형 관문을 면제한다([judge] 참고, D1).
      */
-    fun evaluate(answer: AnswerText): AttemptOutcome {
-        val judgement = judge(answer)
+    fun evaluate(answer: AnswerText, typeAlong: Boolean = false): AttemptOutcome {
+        val judgement = judge(answer, typeAlong)
         if (judgement == Judgement.CORRECT) {
             return AttemptOutcome(Judgement.CORRECT, null)
         }
@@ -286,16 +288,23 @@ class Problem(
     /**
      * 이 허용답에 근접 판정을 적용해도 되는지 판단한다. 두 관문을 모두 통과해야 한다.
      *
-     * 1. **유형이 정의 재생형인가.** 근접 신호는 "편집거리가 작다 ⇒ 오타다"를 가정한다.
+     * 1. **유형 관문(또는 따라 입력).** 근접 신호는 "편집거리가 작다 ⇒ 오타다"를 가정한다.
      *    정의 재생형은 정답이 자연어 단어(개념 이름)라 개념명끼리 편집거리가 멀고(`TCP`↔`UDP` = 2),
      *    편집거리 1은 실제로 오타다(`collsion` → `collision`). 유도형은 정답이 수식·숫자처럼
      *    밀집한 공간의 한 점이라 이웃이 전부 유효한 다른 답이고, 한 글자가 곧 의미(지수·차수·자릿수)다.
      *    `o(n²)`에 `o(n)`은 오타가 아니라 이중 반복문을 하나로 잘못 센 오답이므로,
      *    근접으로 알려주면 틀린 유도를 맞았다고 알려주는 셈이 된다. 유형 미상(null)도 같은 이유로 제외한다.
-     * 2. **허용답이 충분히 긴가.** [MIN_NEAR_MISS_LENGTH] 참고. 유형과 별개로 필요한 조건이다.
+     *    **예외([typeAlong], D1): 정답을 공개하고 화면의 대표 정답을 그대로 옮겨 적는 '따라 입력' 맥락에서는
+     *    작은 편집거리가 실제로 전사 오타다(사용자가 정답을 이미 보고 있으므로 '다른 유효한 답'을 낼 이유가 없다).
+     *    그래서 이때는 유형 관문을 면제해, 유도형·유형 미상이어도 근접으로 안내한다.**
+     * 2. **허용답이 충분히 긴가.** [MIN_NEAR_MISS_LENGTH] 참고. 유형·따라 입력과 별개로 항상 필요한 하한이다.
      */
-    private fun isNearMissCandidate(acceptable: String): Boolean =
-        type == ProblemType.DEFINITION_RECALL && acceptable.length >= MIN_NEAR_MISS_LENGTH
+    private fun isNearMissCandidate(acceptable: String, typeAlong: Boolean): Boolean {
+        if (acceptable.length < MIN_NEAR_MISS_LENGTH) {
+            return false
+        }
+        return typeAlong || type == ProblemType.DEFINITION_RECALL
+    }
 
     companion object {
         const val TYPE_REQUIRED_MESSAGE = "승인하려면 문제 유형(정의 재생형/유도형) 태깅이 있어야 합니다."

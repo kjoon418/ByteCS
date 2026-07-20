@@ -136,6 +136,37 @@ class ProblemJudgeTest {
         }
     }
 
+    /**
+     * D1(따라 입력): 정답을 공개하고 화면의 대표 정답을 그대로 옮겨 적는 맥락에서는,
+     * 유도형·유형 미상이어도 작은 편집거리를 전사 오타(근접)로 안내한다. 유형 관문만 면제되고 길이 하한은 유지된다.
+     */
+    @Nested
+    inner class 따라_입력_중에는_유형_관문을_면제한다 {
+
+        @Test
+        fun 유도형이라도_따라_입력이면_오타는_근접이다() {
+            // "o(n²)"(유도형)에 "o(n)" — 평소엔 MISMATCH(유형 관문)지만, 정답을 보고 옮겨 적다 ²를 빠뜨린 전사 오타다.
+            val derivationProblem = problemWithAnswers("o(n²)", type = ProblemType.DERIVATION)
+
+            assertThat(derivationProblem.judge(AnswerText("o(n)"), typeAlong = true)).isEqualTo(Judgement.NEAR_MISS)
+        }
+
+        @Test
+        fun 유형_미상이라도_따라_입력이면_오타는_근접이다() {
+            val untypedProblem = problemWithAnswers("collision", type = null)
+
+            assertThat(untypedProblem.judge(AnswerText("collsion"), typeAlong = true)).isEqualTo(Judgement.NEAR_MISS)
+        }
+
+        @Test
+        fun 따라_입력이어도_길이_하한에_못_미치면_근접이_아니다() {
+            // 유형 관문은 면제돼도, 1~2자 답은 근접이 정답의 길이·모양을 흘리므로 여전히 근접으로 보지 않는다.
+            val derivationProblem = problemWithAnswers("큐", "queue", type = ProblemType.DERIVATION)
+
+            assertThat(derivationProblem.judge(AnswerText("구"), typeAlong = true)).isEqualTo(Judgement.MISMATCH)
+        }
+    }
+
     @Nested
     inner class 유형이_미상이면_근접_판정을_하지_않는다 {
 

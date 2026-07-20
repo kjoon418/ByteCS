@@ -9,9 +9,11 @@ import org.mockito.Mockito.verify
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.AnswerText
+import watson.bytecs.problem.domain.AttemptOutcome
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
+import watson.bytecs.problem.domain.ProblemType
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
 import watson.bytecs.review.domain.MasterySignal
@@ -153,6 +155,53 @@ class SessionServiceTest {
         service.submitAnswer(1L, AnswerText("정답"))
 
         verify(reviewService).recordSolve(1L, problem.conceptIds(), MasterySignal.UNAIDED, today, problem.id, false)
+    }
+
+    /**
+     * D1(따라 입력): 정답을 공개한 칸에 전사 오타를 제출하면, SessionService가 그 칸의 revealed를 typeAlong으로 넘겨
+     * 유도형이어도 근접(NEAR_MISS)으로 판정되게 한다. 매퍼로 흘러간 판정 결과(outcome)로 typeAlong 전달을 확인한다.
+     * (근접 vs 불일치는 응답 result에만 드러나므로, 목 매퍼에 실제로 전달된 outcome을 구체값으로 검증한다 — 매처 없음.)
+     */
+    @Test
+    fun `정답을 공개한 칸에 전사 오타를 제출하면 유도형이라도 근접으로 판정된다`() {
+        val problem = derivationProblem()
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        session.reveal() // 현재 칸을 정답 공개 상태로 만든다 → typeAlong=true.
+        stubSubmit(session, problem)
+
+        service.submitAnswer(1L, AnswerText("o(n)"))
+
+        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null이다.
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null)
+    }
+
+    @Test
+    fun `정답을 공개하지 않은 칸에 같은 오타를 제출하면 유도형이라 불일치로 판정된다`() {
+        val problem = derivationProblem()
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        // reveal 하지 않는다 → typeAlong=false → 유도형 근접 금지가 그대로 적용된다.
+        stubSubmit(session, problem)
+
+        service.submitAnswer(1L, AnswerText("o(n)"))
+
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null)
+    }
+
+    /** 유도형 문제(대표 정답 "o(n²)") — "o(n)"은 편집거리 1이지만 유형 관문에 막혀 평소엔 불일치다. */
+    private fun derivationProblem(): Problem =
+        Problem(
+            questionText = "질문",
+            concepts = listOf(Concept("개념")),
+            acceptableAnswers = setOf("o(n²)"),
+            representativeAnswer = "o(n²)",
+            type = ProblemType.DERIVATION,
+        )
+
+    /** submitAnswer가 로드하는 오늘 세션·문제·사용자를 스텁한다. */
+    private fun stubSubmit(session: Session, problem: Problem) {
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(session)
+        given(problemRepository.findById(problem.id)).willReturn(Optional.of(problem))
+        given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()))
     }
 
     /** 상태 응답 변환이 로드하는 현재 문제·사용자를 스텁한다(responseMapper는 목이라 반환값은 관심사가 아니다). */

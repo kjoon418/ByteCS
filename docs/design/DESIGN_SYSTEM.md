@@ -276,7 +276,7 @@ val BcsTypography = Typography(
 ### 5.7 정답 공개·직접 입력·심화 — RevealAnswerButton / ModelAnswerBlock / TypeAlongField / EnrichmentBlock
 - **RevealAnswerButton** — secondary(GhostButton/TextLink). **사용자 명시 요청 시에만**. "정답 보기".
 - **ModelAnswerBlock** — 모범답안 + 짧은 해설(코드면 `codeBlock`). 도움 신호지만 **벌점처럼 보이게 하지 않는다**(중립·정보 톤).
-- **TypeAlongField**(정답 직접 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **정답을 직접 입력해야 다음으로 진행**(입력이 허용답 집합과 일치하면 통과 — 화면의 대표 정답 문자를 그대로 베낄 필요는 없다. **[반영 2026-07-19: C6]**). AnswerTextField 재사용 + "정답을 다시 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점.
+- **TypeAlongField**(정답 직접 입력, 리뷰 반영) — ⭐️ 정답 공개 후 **정답을 직접 입력해야 다음으로 진행**(입력이 허용답 집합과 일치하면 통과 — 화면의 대표 정답 문자를 그대로 베낄 필요는 없다. **[반영 2026-07-19: C6]**). AnswerTextField 재사용 + "정답을 다시 적어 볼까요?" 안내. '벌'이 아니라 '손으로 써 보며 익히기' 톤. 이 서비스가 진행을 요구하는 유일한 지점. **[반영 2026-07-19: D1]** 이 구간에서는 §5.6 NearMissNudge를 **문제 유형과 무관하게**(유도형 포함) 적용한다 — 정의 재생형 한정은 이 구간 밖(첫 시도 등)에서만 유효하다.
 - **EnrichmentBlock**('더 알아보기' 심화 정보, 리뷰 반영) — 정답 처리 후 그 개념의 흥미로운 추가 정보를 **[결정 2026-07-16] 별도 조작 없이 바로 보여주는** 정적 섹션(토글 없음 — 확인하려 매번 한 번 더 누르는 마찰 제거). 없으면 표시 안 함. 진행을 막지 않음.
   - **[2026-07-16] 시안 구조 렌더(시안 71~114행)**: 자유 텍스트 한 덩어리가 아니라 구조체로 받는다 — `Enrichment(title, body, items: List<EnrichmentItem>, quote?)`, `EnrichmentItem(title, description)`. 정답 처리 이후에만·문제 배포 응답에는 비포함(no-leak 연장).
   - 렌더 순서: 섹션 라벨 "더 알아보기" + 가는 구분선(1dp `borderSubtle`) → **본 카드**(bg `surfaceSubtle`, border `borderSubtle`, radius 16, padding 20dp — 제목 `titleS` + 리드 `bodyM` + 항목 서브카드들) → **인용 카드**(있으면만 — `InfoCard` 재사용, 인용 표식 + 이탤릭 `bodyM`).
