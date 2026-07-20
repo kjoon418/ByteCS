@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CS한입</title>
+    <!-- 인라인 SVG 파비콘(외부 요청 없음): 둥근 사각형 위 'CS'. -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%234c6ef5'/><text x='50' y='54' font-size='42' font-family='sans-serif' font-weight='700' fill='white' text-anchor='middle' dominant-baseline='central'>CS</text></svg>">
     <style>
         html, body {
             width: 100%;
@@ -12,9 +14,112 @@
             padding: 0;
             overflow: hidden;
         }
+        body {
+            background: #ffffff;
+            font-family: -apple-system, "Pretendard", "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+        }
+        /* Wasm 번들(수 MB)은 첫 로드에 수 초 걸린다 — 순수 HTML/CSS 로딩·안내 화면으로 빈 화면을 막는다. */
+        #bcs-loading, #bcs-unsupported {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 24px;
+            box-sizing: border-box;
+            text-align: center;
+            color: #333333;
+            transition: opacity 0.3s ease;
+        }
+        #bcs-unsupported {
+            display: none;
+        }
+        .bcs-brand {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+        .bcs-sub {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #777777;
+        }
+        .bcs-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #4c6ef5;
+            border-radius: 50%;
+            animation: bcs-spin 0.8s linear infinite;
+        }
+        @keyframes bcs-spin {
+            to { transform: rotate(360deg); }
+        }
+        @media (prefers-color-scheme: dark) {
+            body { background: #111111; }
+            #bcs-loading, #bcs-unsupported { color: #eeeeee; }
+            .bcs-sub { color: #aaaaaa; }
+            .bcs-spinner { border-color: #333333; border-top-color: #8aa0ff; }
+        }
     </style>
-    <!-- Compose 웹 번들. binaries.executable() + outputFileName = "bytecs.js"로 생성된다. -->
-    <script type="application/javascript" src="bytecs.js"></script>
 </head>
-<body></body>
+<body>
+    <!-- 로딩 인디케이터(캔버스 준비 시 제거). -->
+    <div id="bcs-loading">
+        <div class="bcs-brand">CS한입</div>
+        <div class="bcs-spinner"></div>
+        <div class="bcs-sub">잠시만 기다려 주세요…</div>
+    </div>
+    <!-- 미지원 브라우저 안내(WasmGC 미지원 시 표시, 번들은 내려받지 않는다). -->
+    <div id="bcs-unsupported">
+        <div class="bcs-brand">CS한입</div>
+        <div class="bcs-sub">
+            이 브라우저는 아직 지원하지 않아요.<br>
+            최신 Chrome, Firefox, Safari에서 열어 주세요.
+        </div>
+    </div>
+    <script>
+        (function () {
+            // WasmGC 지원 감지: GC struct 타입을 쓰는 최소 모듈을 validate한다(wasm-feature-detect의 'gc' 검사와 동일).
+            // WasmGC 미지원 구형 브라우저에서 20MB 번들을 내려받다 실패하는 대신, 안내만 보여준다(오너 결정 2).
+            function wasmGcSupported() {
+                try {
+                    return typeof WebAssembly === "object" &&
+                        WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 95, 1, 127, 0]));
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            if (!wasmGcSupported()) {
+                var loading = document.getElementById("bcs-loading");
+                if (loading) loading.style.display = "none";
+                document.getElementById("bcs-unsupported").style.display = "flex";
+                return;
+            }
+
+            // Compose가 <canvas>를 body에 붙이면(첫 렌더 시작) 로딩 오버레이를 걷는다.
+            var observer = new MutationObserver(function () {
+                if (document.querySelector("canvas")) {
+                    var el = document.getElementById("bcs-loading");
+                    if (el) {
+                        el.style.opacity = "0";
+                        setTimeout(function () { el.remove(); }, 300);
+                    }
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Compose 웹 번들. binaries.executable() + outputFileName = "bytecs.js"로 생성된다.
+            var script = document.createElement("script");
+            script.type = "application/javascript";
+            script.src = "bytecs.js";
+            document.head.appendChild(script);
+        })();
+    </script>
+</body>
 </html>
