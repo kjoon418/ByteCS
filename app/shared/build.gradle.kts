@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // java.util/java.io를 정규화된 이름으로 쓰면 Kotlin DSL의 `java` 확장이 패키지명을 가려 컴파일이 깨진다.
 import java.io.StringReader
@@ -99,6 +100,11 @@ kotlin {
     // 이미 있던 jvmMain/jvmTest 고아 디렉터리도 이 선언으로 비로소 빌드에 편입된다.
     jvm()
 
+    // 웹(브라우저) 타깃. commonMain 전체 UI/로직을 그대로 재사용하고, actual 3파일만 wasmJsMain에 둔다.
+    // 실행 바이너리는 :app:webApp 런처 모듈이 갖고, 이 모듈은 순수 라이브러리로 남는다.
+    @OptIn(ExperimentalWasmDsl::class)
+    wasmJs { browser() }
+
     androidLibrary {
         namespace = "watson.bytecs.app.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -132,6 +138,12 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.okhttp)
+        }
+        wasmJsMain.dependencies {
+            // wasmJs용 Ktor 엔진(브라우저 Fetch 기반).
+            implementation(libs.ktor.client.js)
+            // kotlinx.browser.window/document 접근용(actual에서 window.location.origin 사용).
+            implementation(libs.kotlinx.browser)
         }
         jvmTest.dependencies {
             // Compose UI 테스트의 실행 런타임. desktop.currentOs가 호스트 OS용 skiko를 끌어와
