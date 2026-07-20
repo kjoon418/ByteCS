@@ -252,7 +252,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
         is Screen.Report -> {
             // ⭐️ key로 대상 문제를 구분하지 않으면, 한 번 만든 ReportViewModel이 클래스 단위로 캐시돼(전역
             //    ViewModelStore) 다른 문제를 신고할 때도 첫 problemId·presetCategory 인스턴스가 재사용된다.
-            val viewModel = viewModel(key = "report:${screen.problemId}:${screen.presetCategory}") {
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
                 ReportViewModel(dependencies.contentReportRepository, screen.problemId, screen.presetCategory)
             }
             ReportScreen(
@@ -273,7 +273,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
         is Screen.ScrapDetail -> {
             // ⭐️ key로 문제를 구분하지 않으면 첫 재열람에서 만든 뷰모델이 재사용돼, 다른 스크랩을 열어도
             //    처음 본 문제가 그대로 뜬다(전역 ViewModelStore·클래스 단위 캐시).
-            val viewModel = viewModel(key = "scrap-detail:${screen.problemId}") {
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
                 ScrapDetailViewModel(dependencies.scrapRepository, screen.problemId)
             }
             ScrapDetailScreen(
@@ -296,7 +296,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
             // ⭐️ [실기기 QA] key로 카테고리를 구분하지 않으면, 처음 연 카테고리의 뷰모델이 클래스 단위로
             //    캐시돼(내비 라이브러리가 없어 ViewModelStore가 앱 전역) 이후 어떤 카테고리를 눌러도 첫
             //    카테고리 문제만 보인다. category별 key로 인스턴스를 분리한다.
-            val viewModel = viewModel(key = "category-history-detail:${screen.category}") {
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
                 CategoryHistoryDetailViewModel(dependencies.categoryHistoryRepository, screen.category)
             }
             CategoryHistoryDetailScreen(
@@ -310,7 +310,7 @@ private fun AppNavHost(dependencies: AppDependencies) {
         }
 
         is Screen.CategoryHistoryProblemDetail -> {
-            val viewModel = viewModel(key = "category-history-problem:${screen.category}:${screen.problemId}") {
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
                 CategoryHistoryProblemDetailViewModel(dependencies.categoryHistoryRepository, screen.category, screen.problemId)
             }
             CategoryHistoryProblemDetailScreen(viewModel = viewModel, onBack = { back() })
@@ -464,6 +464,24 @@ internal fun MutableList<Screen>.pushDistinct(screen: Screen) {
 /** 맨 위 화면을 pop. 홈(밑바닥)은 남긴다 — 막다른 길 방지. */
 internal fun MutableList<Screen>.popScreen() {
     if (size > 1) removeAt(lastIndex)
+}
+
+/**
+ * 상세 화면 뷰모델의 캐시 [viewModel] key. 내비 라이브러리가 없어 ViewModelStore가 앱 전역이라, 같은 화면
+ * 종류의 서로 다른 대상(문제·카테고리)이 이전 인스턴스를 재사용하지 않도록 **대상별로 유일한** key가 필요하다
+ * (실기기 QA — key가 없으면 처음 연 항목이 그대로 고정됐다). 화면 종류마다 접두사를 달리해 종류 간 충돌도 막는다.
+ * key가 필요 없는 화면(단일 인스턴스)은 null을 돌려 클래스 단위 기본 캐시를 쓴다.
+ *
+ * 순수 함수로 빼 둔 이유: "서로 다른 대상 → 서로 다른 key"라는 불변식을 Compose 트리 밖에서 못박기 위함
+ * (원래 버그가 컴파일되고 모든 화면 테스트를 통과하던 유형이라, 회귀를 이 단위 테스트로 잡는다).
+ */
+internal fun detailViewModelKey(screen: Screen): String? = when (screen) {
+    is Screen.Report -> "report:${screen.problemId}:${screen.presetCategory}"
+    is Screen.ScrapDetail -> "scrap-detail:${screen.problemId}"
+    is Screen.CategoryHistoryDetail -> "category-history-detail:${screen.category}"
+    is Screen.CategoryHistoryProblemDetail ->
+        "category-history-problem:${screen.category}:${screen.problemId}"
+    else -> null
 }
 
 /**
