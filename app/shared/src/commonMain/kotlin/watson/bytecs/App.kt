@@ -324,12 +324,47 @@ private fun AppNavHost(dependencies: AppDependencies) {
         }
 
         Screen.CategoryHistoryList -> {
-            val viewModel = viewModel { CategoryHistoryListViewModel(dependencies.categoryHistoryRepository) }
-            CategoryHistoryListScreen(
-                viewModel = viewModel,
-                onOpenCategory = { category -> navigate(Screen.CategoryHistoryDetail(category)) },
-                onBack = { back() },
-            )
+            val listViewModel = viewModel { CategoryHistoryListViewModel(dependencies.categoryHistoryRepository) }
+            if (LocalWindowWidthClass.current == WindowWidthClass.EXPANDED) {
+                // 웹/데스크톱: 카테고리 목록↔상세를 스크랩과 같은 2패널 패턴으로 나란히 둔다(계획 §4-2).
+                // 상세 안에서 개별 문제 열람은 잎(leaf)이라 기존처럼 전체 화면으로 push한다(스크랩→신고와 동일 관례).
+                var selectedCategory by remember { mutableStateOf<String?>(null) }
+                TwoPaneListDetail(
+                    master = {
+                        CategoryHistoryListScreen(
+                            viewModel = listViewModel,
+                            onOpenCategory = { category -> selectedCategory = category },
+                            onBack = { back() },
+                        )
+                    },
+                    detail = {
+                        val category = selectedCategory
+                        if (category == null) {
+                            TwoPaneDetailPlaceholder("왼쪽에서 카테고리를 선택하세요")
+                        } else {
+                            // 카테고리별 키 분리(전역 ViewModelStore·클래스 단위 캐시 대응). push 경로 키와 겹치지 않게 접두어를 둔다.
+                            val detailViewModel = viewModel(key = "category-detail-pane-$category") {
+                                CategoryHistoryDetailViewModel(dependencies.categoryHistoryRepository, category)
+                            }
+                            CategoryHistoryDetailScreen(
+                                viewModel = detailViewModel,
+                                category = category,
+                                onOpenProblem = { problemId ->
+                                    navigate(Screen.CategoryHistoryProblemDetail(category, problemId))
+                                },
+                                // 2패널에서 '뒤로'는 카테고리 선택 해제(패널 비우기)다.
+                                onBack = { selectedCategory = null },
+                            )
+                        }
+                    },
+                )
+            } else {
+                CategoryHistoryListScreen(
+                    viewModel = listViewModel,
+                    onOpenCategory = { category -> navigate(Screen.CategoryHistoryDetail(category)) },
+                    onBack = { back() },
+                )
+            }
         }
 
         is Screen.CategoryHistoryDetail -> {
