@@ -172,6 +172,18 @@ class SessionCreatorTest {
         assertThat(assignedIds[1]).isIn(1L, 2L, 3L, 4L)
     }
 
+    @Test
+    fun `선호 난이도를 미설정으로 되돌리면 난이도 조회 없이 균등 경로로 배정한다`() {
+        // 선호를 EASY로 뒀다가 되돌린 사용자 → 미설정과 동일하게 난이도 조회 자체가 일어나지 않아야 한다.
+        assign(
+            size = 3, all = listOf(1L, 2L, 3L, 4L, 5L), solved = emptyList(), reviews = emptyList(),
+            preferred = Difficulty.EASY, resetAfter = true,
+            difficulties = mapOf(1L to Difficulty.EASY, 2L to Difficulty.MEDIUM, 3L to Difficulty.HARD),
+        )
+
+        verify(problemRepository, never()).findApprovedDifficultiesByIdIn(anyList())
+    }
+
     /** 주어진 학습 상태를 stub하고 시드 고정 Random으로 create를 구동해, 배정된 본 문제 id를 순서대로 돌려준다. */
     private fun assign(
         size: Int,
@@ -180,11 +192,13 @@ class SessionCreatorTest {
         reviews: List<Long>,
         seed: Long = SEED,
         preferred: Difficulty? = null,
+        resetAfter: Boolean = false,
         difficulties: Map<Long, Difficulty?> = emptyMap(),
     ): List<Long> {
         val user = User.createGuest().apply {
             updateSettings(UserSettings(size))
             preferred?.let { updatePreferredDifficulty(it) }
+            if (resetAfter) resetPreferredDifficulty()
         }
 
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user))
@@ -196,8 +210,8 @@ class SessionCreatorTest {
             .willReturn(reviews)
         given(sessionRepository.save(org.mockito.ArgumentMatchers.any(Session::class.java)))
             .willAnswer { it.getArgument(0) }
-        // 가중 경로에서만 후보 난이도를 조회한다. 균등·D8 경로에서는 호출되지 않으므로 스텁도 필요 없다.
-        if (preferred != null) {
+        // 가중 경로에서만 후보 난이도를 조회한다. 균등·D8·되돌리기 경로에서는 호출되지 않으므로 스텁도 필요 없다.
+        if (preferred != null && !resetAfter) {
             given(problemRepository.findApprovedDifficultiesByIdIn(anyList()))
                 .willReturn(difficultyViews(difficulties))
         }

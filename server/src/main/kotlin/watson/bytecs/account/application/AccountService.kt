@@ -115,6 +115,9 @@ class AccountService(
         // 세션 분량의 범위 검증은 UserSettings 생성 시점에 강제된다(위반 시 400).
         command.dailySessionSize?.let { user.updateDailySessionSize(it) }
         command.preferredDifficulty?.let { user.updatePreferredDifficulty(it) }
+        if (command.resetPreferredDifficulty) {
+            user.resetPreferredDifficulty()
+        }
         if (command.markDifficultyPromptDone) {
             user.markDifficultyPromptDone()
         }

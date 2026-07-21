@@ -42,6 +42,7 @@ class UserController(
             UpdateSettingsCommand(
                 dailySessionSize = request.dailySessionSize,
                 preferredDifficulty = request.preferredDifficulty,
+                resetPreferredDifficulty = request.resetPreferredDifficulty == true,
                 markDifficultyPromptDone = request.difficultyPromptDone == true,
             ),
         )

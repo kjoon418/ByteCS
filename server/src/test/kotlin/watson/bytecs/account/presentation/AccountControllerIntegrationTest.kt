@@ -266,6 +266,46 @@ class AccountControllerIntegrationTest(
     }
 
     @Test
+    fun `선호 난이도를 미설정으로 되돌려도 제안 응답 상태는 유지된다`() {
+        val token = register(EMAIL, PASSWORD)
+        // 먼저 선호를 설정한다(promptDone도 true가 된다).
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"HARD"}"""
+        }.andExpect { status { isOk() } }
+
+        // 되돌리기: 자동(미설정)으로 리셋.
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"resetPreferredDifficulty":true}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.preferredDifficulty") { value(null) }
+        }
+
+        // 선호는 미설정으로 돌아가되, 이미 응답한 상태라 완료 화면 제안은 부활하지 않는다(DF1).
+        val stored = userRepository.findByEmail(EMAIL)!!
+        assertThat(stored.settings.preferredDifficulty).isNull()
+        assertThat(stored.difficultyPromptDone).isTrue()
+        assertThat(stored.needsDifficultyPrompt()).isFalse()
+    }
+
+    @Test
+    fun `선호 난이도 설정과 되돌리기를 동시에 요청하면 400을 반환한다`() {
+        val token = register(EMAIL, PASSWORD)
+
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"EASY","resetPreferredDifficulty":true}"""
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
     fun `게스트도 선호 난이도를 설정할 수 있다`() {
         val guestResult = mockMvc.post("/api/guests").andReturn()
         val guestToken = readField(guestResult, "token").asText()

@@ -109,6 +109,19 @@ class UserTest {
             assertThat(user.settings.dailySessionSize).isEqualTo(20)
             assertThat(user.settings.preferredDifficulty).isEqualTo(Difficulty.HARD)
         }
+
+        @Test
+        fun 선호_난이도를_미설정으로_되돌리면_제안_응답_상태는_유지된다() {
+            val user = User.createGuest()
+            user.updatePreferredDifficulty(Difficulty.HARD) // 설정하면서 promptDone=true가 됐다.
+
+            user.resetPreferredDifficulty()
+
+            // 선호는 미설정으로 돌아가지만, 이미 응답한 상태는 되돌리지 않아 제안이 부활하지 않는다(DF1).
+            assertThat(user.settings.preferredDifficulty).isNull()
+            assertThat(user.difficultyPromptDone).isTrue()
+            assertThat(user.needsDifficultyPrompt()).isFalse()
+        }
     }
 
     @Nested

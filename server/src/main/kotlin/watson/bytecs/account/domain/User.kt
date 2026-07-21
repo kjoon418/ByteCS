@@ -90,6 +90,15 @@ class User private constructor(
         this.difficultyPromptDone = true
     }
 
+    /**
+     * 선호 난이도를 미설정(자동·균등 배정)으로 되돌린다. 언제든 설정에서 바꿀 수 있다는 원칙의 반대 방향 조작이다.
+     * 제안 응답 상태(difficultyPromptDone)는 의도적으로 되돌리지 않는다 — 이미 응답한 사용자에게 완료 화면 제안이
+     * 부활하면 DF1('1회 제안')을 위반하기 때문이다. 그래서 리셋 후에도 needsDifficultyPrompt는 되살아나지 않는다.
+     */
+    fun resetPreferredDifficulty() {
+        this.settings = settings.copy(preferredDifficulty = null)
+    }
+
     /** 완료 화면 난이도 제안에 응답(거절 포함)했음을 기록한다. 어느 쪽이든 1회 응답하면 다시 묻지 않는다(잔소리 금지). */
     fun markDifficultyPromptDone() {
         this.difficultyPromptDone = true
