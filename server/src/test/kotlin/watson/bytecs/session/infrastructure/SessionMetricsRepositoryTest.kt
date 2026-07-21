@@ -60,6 +60,11 @@ class SessionMetricsRepositoryTest(
         startedSession(userId = TWO_SESSIONS_NO_COMPLETE_USER)
         startedSession(userId = TWO_SESSIONS_NO_COMPLETE_USER)
 
+        // 완료 후 다음 세션이 배정만 되고 풀이 화면에는 진입하지 않은(started_at null) 사용자 — 아직 추가로 풀지
+        // 않았으므로 지표 3에 해당하지 않는다('later.startedAt is not null' 절이 이 사용자를 걸러야 한다).
+        completedSession(userId = COMPLETED_THEN_ASSIGNED_ONLY_USER)
+        assignedSession(userId = COMPLETED_THEN_ASSIGNED_ONLY_USER)
+
         // when and then
         assertThat(sessionRepository.countUsersStudiedMoreAfterCompletion()).isEqualTo(1)
     }
@@ -94,5 +99,6 @@ class SessionMetricsRepositoryTest(
         const val COMPLETED_USER = 3L
         const val STUDIED_MORE_USER = 4L
         const val TWO_SESSIONS_NO_COMPLETE_USER = 5L
+        const val COMPLETED_THEN_ASSIGNED_ONLY_USER = 6L
     }
 }

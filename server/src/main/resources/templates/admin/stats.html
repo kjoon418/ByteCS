@@ -25,6 +25,7 @@
         .nav { margin-bottom: 20px; }
         .nav a { font-size: 0.85rem; color: #3a5bd0; text-decoration: none; }
         .nav a:hover { text-decoration: underline; }
+        .note { background: #fff8e6; border: 1px solid #f0d98a; border-radius: 8px; padding: 12px 16px; font-size: 0.82rem; color: #7a6320; margin: 16px 0 24px; }
     </style>
 </head>
 <body>
@@ -41,6 +42,7 @@
     <div class="nav"><a th:href="@{/admin}">← 관리자 홈</a></div>
     <h2>테스터 참여 지표</h2>
     <p class="lead">각 지표는 중복을 제거한 사용자 수(DISTINCT)입니다.</p>
+    <p class="note">참고: 풀이 시작 기록은 클라이언트가 진입 시 서버에 별도로 알리는 방식(fire-and-forget)이라, 네트워크 유실 가능성으로 실제보다 적게 집계될 수 있는 하한값입니다.</p>
 
     <div class="cards">
         <div class="card primary">
