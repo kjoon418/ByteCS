@@ -2,6 +2,7 @@ package watson.bytecs.session.infrastructure
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.session.domain.Session
 import java.time.LocalDate
 
@@ -82,9 +83,32 @@ interface SessionRepository : JpaRepository<Session, Long> {
     )
     fun countUsersStudiedMoreAfterCompletion(): Long
 
+    /**
+     * 관리자 지표 ② — 난이도별 '정답 공개(포기)율'의 원자료(2차 적응 조정 임계값 검증 근거).
+     * 분모는 **푼 문제(solved=true)** — 실제로 완결한 풀이만 신호로 본다(미도달 미래 칸이 분모를 희석하지 않게).
+     * 분자는 그중 정답을 열어 본(revealed=true) 칸이다. 세션 칸(problemId)과 문제(Problem.difficulty)는 연관이 없어
+     * theta 조인(p.id = item.problemId)으로 잇는다. 난이도별로 (푼 수, 공개 수)를 집계하고 비율은 서비스가 계산한다.
+     */
+    @Query(
+        "select p.difficulty as difficulty, " +
+            "count(item.problemId) as solvedCount, " +
+            "sum(case when item.revealed = true then 1L else 0L end) as revealedCount " +
+            "from Session s join s.mutableItems item, Problem p " +
+            "where item.solved = true and p.id = item.problemId " +
+            "group by p.difficulty",
+    )
+    fun countSolvedItemRevealsByDifficulty(): List<DifficultyRevealCount>
+
     /** JPQL 별칭 프로젝션 — [findSolvedItemAnswers] 전용. */
     interface SolvedItemAnswer {
         val problemId: Long
         val submittedAnswer: String?
+    }
+
+    /** JPQL 별칭 프로젝션 — [countSolvedItemRevealsByDifficulty] 전용(난이도별 푼 수·정답 공개 수). */
+    interface DifficultyRevealCount {
+        val difficulty: Difficulty?
+        val solvedCount: Long
+        val revealedCount: Long
     }
 }

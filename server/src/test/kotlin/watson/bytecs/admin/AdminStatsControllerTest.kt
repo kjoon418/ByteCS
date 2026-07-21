@@ -15,6 +15,7 @@ import watson.bytecs.account.domain.Email
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.AnswerText
+import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
@@ -68,6 +69,24 @@ class AdminStatsControllerTest(
             content { string(containsString("문제 풀이를 시작한 사용자")) }
             content { string(containsString("세션을 완료한 사용자")) }
             content { string(containsString("완료 후 더 푼 사용자")) }
+            // 난이도 조절(1차) 지표 섹션도 함께 렌더링된다.
+            content { string(containsString("선호 난이도 분포")) }
+            content { string(containsString("난이도별 정답 공개")) }
+        }
+    }
+
+    @Test
+    fun `통계 페이지는 선호 난이도 분포에 설정한 학습자를 집계해 표시한다`() {
+        // 선호를 EASY로 설정한 학습자 한 명 — 분포 표의 '쉬움' 행에 1명으로 잡혀야 한다.
+        userRepository.save(User.createGuest().apply { updatePreferredDifficulty(Difficulty.EASY) })
+
+        val adminSession = login()
+
+        mockMvc.get("/admin/stats") {
+            session = adminSession
+        }.andExpect {
+            status { isOk() }
+            content { string(containsString("쉬움")) }
         }
     }
 

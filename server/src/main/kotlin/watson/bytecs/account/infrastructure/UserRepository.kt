@@ -3,13 +3,32 @@ package watson.bytecs.account.infrastructure
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
+import org.springframework.data.jpa.repository.Query
 import watson.bytecs.account.domain.User
+import watson.bytecs.problem.domain.Difficulty
 import java.util.Optional
 
 interface UserRepository : JpaRepository<User, Long> {
 
     /** 로그인·중복 가입 검증은 정규화된 이메일 문자열로 조회한다. */
     fun findByEmail(email: String): User?
+
+    /**
+     * 관리자 지표 ① — 학습자(게스트·회원, ADMIN 제외)의 선호 난이도 분포. 미설정(null)도 한 그룹으로 잡힌다.
+     * 운영 주체(ADMIN)는 학습자가 아니라 분모에서 제외해야 '미설정' 버킷이 부풀지 않는다.
+     */
+    @Query(
+        "select u.settings.preferredDifficulty as difficulty, count(u) as count from User u " +
+            "where u.role <> watson.bytecs.account.domain.UserRole.ADMIN " +
+            "group by u.settings.preferredDifficulty",
+    )
+    fun countLearnersByPreferredDifficulty(): List<PreferredDifficultyCount>
+
+    /** JPQL 별칭 프로젝션 — [countLearnersByPreferredDifficulty] 전용(난이도·인원, 난이도 null=미설정). */
+    interface PreferredDifficultyCount {
+        val difficulty: Difficulty?
+        val count: Long
+    }
 
     /**
      * 사용자 행에 비관적 쓰기 잠금(SELECT … FOR UPDATE)을 걸어 조회한다(M1).

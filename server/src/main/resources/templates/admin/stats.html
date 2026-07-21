@@ -26,6 +26,11 @@
         .nav a { font-size: 0.85rem; color: #3a5bd0; text-decoration: none; }
         .nav a:hover { text-decoration: underline; }
         .note { background: #fff8e6; border: 1px solid #f0d98a; border-radius: 8px; padding: 12px 16px; font-size: 0.82rem; color: #7a6320; margin: 16px 0 24px; }
+        table.stats { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e4e8; border-radius: 12px; overflow: hidden; }
+        table.stats th, table.stats td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #eef0f3; font-size: 0.9rem; }
+        table.stats th { background: #fafbfc; color: #555; font-weight: 600; font-size: 0.8rem; }
+        table.stats td.num { text-align: right; font-variant-numeric: tabular-nums; }
+        table.stats tr:last-child td { border-bottom: none; }
     </style>
 </head>
 <body>
@@ -75,6 +80,44 @@
             <p class="hint">지금까지 만들어진 모든 세션</p>
         </div>
     </div>
+
+    <h2 style="margin-top: 40px;">난이도 조절 지표</h2>
+    <p class="lead">선호 난이도 설정 현황과, 2차 적응 조정(제안+승인)의 임계값을 검증할 난이도별 정답 공개율입니다.</p>
+
+    <p class="section-title">선호 난이도 분포</p>
+    <table class="stats">
+        <thead>
+            <tr><th>선호 난이도</th><th style="text-align:right;">학습자 수</th></tr>
+        </thead>
+        <tbody>
+            <tr th:each="stat : ${metrics.preferredDifficultyDistribution}">
+                <td th:text="${stat.label}">쉬움</td>
+                <td class="num" th:text="${stat.count}">0</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note">관리자(운영 계정)는 학습자가 아니므로 이 분포에서 제외됩니다.</p>
+
+    <p class="section-title">난이도별 정답 공개(포기)율</p>
+    <table class="stats">
+        <thead>
+            <tr>
+                <th>난이도</th>
+                <th style="text-align:right;">푼 문제</th>
+                <th style="text-align:right;">정답 공개</th>
+                <th style="text-align:right;">공개율</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="rate : ${metrics.difficultyRevealRates}">
+                <td th:text="${rate.label}">쉬움</td>
+                <td class="num" th:text="${rate.solvedCount}">0</td>
+                <td class="num" th:text="${rate.revealedCount}">0</td>
+                <td class="num"><span th:text="${rate.revealRatePercent}">0</span>%</td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="note">공개율 = 정답 공개 ÷ 푼 문제. 분모는 실제로 완결한 풀이(맞힌 문제)만 세므로, 아직 도달하지 않은 미래 문제는 포함되지 않습니다.</p>
 </main>
 </body>
 </html>
