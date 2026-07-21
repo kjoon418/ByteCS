@@ -23,6 +23,13 @@ interface AccountRepository {
     /** 학습 설정(세션 크기) 변경. `PATCH /api/users/me/settings`(인증 필요). */
     suspend fun updateSettings(dailySessionSize: Int): Account
 
+    /**
+     * 선호 난이도 변경. `PATCH /api/users/me/settings`(인증 필요, 부분 갱신 — preferredDifficulty만 보낸다).
+     * 직접 지정하면 서버가 세션 완료 화면 제안(Stage 5)도 함께 종료한다(도메인 규칙, 클라이언트가 신경 쓸 것 없음).
+     * [PreferredDifficulty]는 null을 표현하지 못하므로, 이 메서드로 선호를 다시 미설정으로 되돌릴 수는 없다.
+     */
+    suspend fun updatePreferredDifficulty(value: PreferredDifficulty): Account
+
     /** 본인 계정 삭제. `DELETE /api/users/me`(인증 필요). */
     suspend fun deleteMe()
 }

@@ -27,8 +27,44 @@ data class Account(
     val role: Role,
     val email: String?,
     val dailySessionSize: Int,
+    /** 선호 난이도(가중 출제 입력). 미설정이면 null — 균등 배정이 유지된다(무낙인·강제 없음). */
+    val preferredDifficulty: PreferredDifficulty? = null,
 ) {
     val isMember: Boolean get() = role == Role.MEMBER
+}
+
+/**
+ * 선호 난이도. 서버 `Difficulty` enum(EASY/MEDIUM/HARD)과 이름으로 대조한다.
+ * 미설정 상태는 이 타입이 아니라 `null`로 표현한다([Account.preferredDifficulty]).
+ *
+ * ⭐️ 서버 `PATCH /me/settings`는 값을 **설정**만 할 뿐, 미설정으로 되돌리는 동작은 지원하지 않는다
+ * (부분 갱신 계약 — 필드를 보내면 그 값으로 바뀌고, 보내지 않으면 기존 값을 보존한다. "지우기"라는
+ * 세 번째 의미는 없다). 그래서 이 타입 자체가 null을 만들 수 없게 두어, "자동으로 되돌리기"가 API로
+ * 표현 불가능하다는 사실을 타입 수준에서 드러낸다 — 설정 화면은 이 계약을 그대로 따라야 한다.
+ */
+enum class PreferredDifficulty {
+    EASY,
+    MEDIUM,
+    HARD,
+    ;
+
+    companion object {
+        /** 서버가 준 난이도 문자열을 대소문자 무시로 매핑한다. 모르는 값이면 null(미설정과 동일하게 처리). */
+        fun from(raw: String): PreferredDifficulty? =
+            entries.find { it.name.equals(raw, ignoreCase = true) }
+    }
+}
+
+/**
+ * 선호 난이도 선택지의 무낙인 상태 서술형 문구(계획 §4.4). "쉬움/보통/어려움을 고르세요"가 아니라
+ * 자기 상태를 서술하는 문장으로 감싸 낙인을 피한다. 설정 화면(06)과 세션 완료 제안 카드(04, Stage 5)가
+ * 같은 문구를 써야 하므로 여기 한곳에 둔다 — 두 화면이 각자 문자열을 들고 있으면 나중에 어긋난다.
+ */
+fun preferredDifficultyStatement(value: PreferredDifficulty?): String = when (value) {
+    PreferredDifficulty.EASY -> "CS를 이제 막 시작해요"
+    PreferredDifficulty.MEDIUM -> "기본기를 다지는 중이에요"
+    PreferredDifficulty.HARD -> "도전적인 문제를 원해요"
+    null -> "자동으로 골고루 받을래요"
 }
 
 /** 게스트 발급 결과. 발급 토큰과 신원을 함께 받아 즉시 인증 상태를 구성한다. */

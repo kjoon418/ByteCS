@@ -74,6 +74,12 @@ class SessionManager(
         _state.value = account.toState()
     }
 
+    /** 선호 난이도를 변경하고, 갱신된 프로필로 상태를 다시 그린다. */
+    suspend fun updatePreferredDifficulty(value: PreferredDifficulty) {
+        val account = repository.updatePreferredDifficulty(value)
+        _state.value = account.toState()
+    }
+
     /** 로그아웃. 토큰을 지우고 새 게스트를 발급해 학습을 이어갈 수 있게 한다(발급 실패 시 BootstrapFailed). */
     suspend fun logout() {
         tokenStore.clear()

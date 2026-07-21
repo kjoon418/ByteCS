@@ -18,10 +18,12 @@ class FakeAccountRepository(
     var loginError: Throwable? = null
     var getMeError: Throwable? = null
     var updateSettingsError: Throwable? = null
+    var updatePreferredDifficultyError: Throwable? = null
     var deleteMeError: Throwable? = null
 
     var deleteMeCount = 0
     var lastUpdatedSize: Int? = null
+    var lastUpdatedPreferredDifficulty: PreferredDifficulty? = null
 
     override suspend fun issueGuest(): GuestSession {
         calls += "issueGuest"
@@ -66,6 +68,15 @@ class FakeAccountRepository(
         val account = current ?: throw IllegalStateException("no current user")
         lastUpdatedSize = dailySessionSize
         current = account.copy(dailySessionSize = dailySessionSize)
+        return current!!
+    }
+
+    override suspend fun updatePreferredDifficulty(value: PreferredDifficulty): Account {
+        calls += "updatePreferredDifficulty"
+        updatePreferredDifficultyError?.let { throw it }
+        val account = current ?: throw IllegalStateException("no current user")
+        lastUpdatedPreferredDifficulty = value
+        current = account.copy(preferredDifficulty = value)
         return current!!
     }
 

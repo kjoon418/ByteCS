@@ -97,6 +97,41 @@ class AccountViewModel(
     }
 
     /**
+     * 선호 난이도 선택 편집. EASY/MEDIUM/HARD 중 하나만 선택할 수 있다 — [PreferredDifficulty]는
+     * '미설정(자동)'을 표현하지 못하므로([AccountModels] 참고), 이미 선호를 정한 사용자가 다시
+     * 자동으로 되돌리는 편집은 이 메서드로 시작될 수 없다(화면이 그 선택지를 비활성화해 걸러낸다).
+     */
+    fun onPreferredDifficultyChange(value: PreferredDifficulty) {
+        transient.update { it.copy(preferredDifficultyDraft = value, noticeError = null) }
+    }
+
+    /** 선호 난이도 저장(PATCH). 전송 중이거나 서버 값과 같으면(=되돌린 경우) 아무 일도 하지 않는다. */
+    fun savePreferredDifficulty() {
+        val local = transient.value
+        val draft = local.preferredDifficultyDraft ?: return
+        if (local.preferredDifficultySaving) return
+
+        if (draft == currentAccount()?.preferredDifficulty) {
+            transient.update { it.copy(preferredDifficultyDraft = null) }
+            return
+        }
+
+        transient.update { it.copy(preferredDifficultySaving = true, noticeError = null) }
+        viewModelScope.launch {
+            try {
+                sessionManager.updatePreferredDifficulty(draft)
+                transient.update { it.copy(preferredDifficultyDraft = null, preferredDifficultySaving = false) }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                transient.update {
+                    it.copy(preferredDifficultySaving = false, noticeError = "설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.")
+                }
+            }
+        }
+    }
+
+    /**
      * 로그아웃. 완료되면 SessionManager가 새 게스트로 상태를 바꾼다("다시 로그인하면 기록이 그대로예요").
      * ⭐️ 삭제 확인 카드가 열려 있는 동안에는 로그아웃이 끼어들지 못하게 막는다(상충 방지).
      */
@@ -155,11 +190,7 @@ class AccountViewModel(
     }
 
     private fun buildState(auth: AuthState, theme: ThemeMode, local: Transient): AccountUiState {
-        val account = when (auth) {
-            is AuthState.Member -> auth.account
-            is AuthState.Guest -> auth.account
-            AuthState.Loading, AuthState.BootstrapFailed -> null
-        }
+        val account = auth.accountOrNull()
         val sessionSize = local.sessionSizeDraft ?: account?.dailySessionSize ?: DEFAULT_SESSION_SIZE
         return AccountUiState(
             isLoading = auth is AuthState.Loading,
@@ -175,6 +206,11 @@ class AccountViewModel(
                 local.sessionSizeError == null,
             isSettingsSaving = local.settingsSaving,
             sessionSizeAppliesNextSession = local.sessionSizeSaved,
+            preferredDifficulty = local.preferredDifficultyDraft ?: account?.preferredDifficulty,
+            // 같은 근거로 선호 난이도도 서버 값과 비교해 dirty를 판단한다.
+            isPreferredDifficultyDirty = local.preferredDifficultyDraft != null &&
+                local.preferredDifficultyDraft != account?.preferredDifficulty,
+            isPreferredDifficultySaving = local.preferredDifficultySaving,
             themeMode = theme,
             deletePhase = local.deletePhase,
             isLoggingOut = local.loggingOut,
@@ -183,12 +219,23 @@ class AccountViewModel(
         )
     }
 
+    /** 현재 인증 상태의 계정 스냅샷(게스트·회원 공통 — 선호 난이도는 게스트도 소유한 설정이다). */
+    private fun currentAccount(): Account? = sessionManager.state.value.accountOrNull()
+
+    private fun AuthState.accountOrNull(): Account? = when (this) {
+        is AuthState.Member -> account
+        is AuthState.Guest -> account
+        AuthState.Loading, AuthState.BootstrapFailed -> null
+    }
+
     private data class Transient(
         val sessionSizeDraft: Int? = null,
         val sessionSizeError: String? = null,
         val settingsSaving: Boolean = false,
         // 저장 직후 '다음 세션부터 적용' 안내 노출 여부. 새 편집·화면 재진입 시 걷힌다.
         val sessionSizeSaved: Boolean = false,
+        val preferredDifficultyDraft: PreferredDifficulty? = null,
+        val preferredDifficultySaving: Boolean = false,
         val loggingOut: Boolean = false,
         val deletePhase: DeletePhase = DeletePhase.None,
         // 오류 채널 분리: 설정 저장·로그아웃은 [noticeError], 계정 삭제는 [deleteError]로 나눠
@@ -230,6 +277,10 @@ data class AccountUiState(
     val isSettingsSaving: Boolean,
     /** 저장 직후 '변경한 세션 크기는 다음 세션부터 적용돼요' 안내를 보일지. */
     val sessionSizeAppliesNextSession: Boolean,
+    /** 현재(또는 편집 중) 선호 난이도. null이면 '자동으로 골고루 받을래요'(미설정). */
+    val preferredDifficulty: PreferredDifficulty?,
+    val isPreferredDifficultyDirty: Boolean,
+    val isPreferredDifficultySaving: Boolean,
     val themeMode: ThemeMode,
     val deletePhase: DeletePhase,
     val isLoggingOut: Boolean,

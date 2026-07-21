@@ -155,6 +155,57 @@ class AccountViewModelTest {
         assertNull(repository.lastUpdatedSize)
     }
 
+    // ── 선호 난이도 설정 (난이도 조절 1차) ──────────────────────────────────────
+
+    @Test
+    fun preferredDifficulty_defaultsToNull_meaningAutomatic() = runTest {
+        val (viewModel, _) = memberViewModel()
+
+        assertNull(viewModel.uiState.value.preferredDifficulty, "새 계정은 미설정(자동)이 기본값")
+    }
+
+    @Test
+    fun preferredDifficultyUpdate_happyPath_patchesAndSyncs() = runTest {
+        val (viewModel, repository) = memberViewModel()
+
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.HARD)
+        assertTrue(viewModel.uiState.value.isPreferredDifficultyDirty, "변경 시 저장 가능")
+
+        viewModel.savePreferredDifficulty()
+
+        assertEquals(PreferredDifficulty.HARD, repository.lastUpdatedPreferredDifficulty, "서버에 새 선호 난이도가 전달돼야 한다")
+        assertEquals(PreferredDifficulty.HARD, viewModel.uiState.value.preferredDifficulty)
+        assertFalse(viewModel.uiState.value.isPreferredDifficultyDirty, "저장 후 변경 상태 해제")
+    }
+
+    @Test
+    fun preferredDifficultyUpdate_backToServerValue_isNotDirty_andSkipsPatch() = runTest {
+        val (viewModel, repository) = memberViewModel() // 서버 값은 미설정(null)
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.EASY)
+        viewModel.savePreferredDifficulty()
+        assertEquals(PreferredDifficulty.EASY, repository.lastUpdatedPreferredDifficulty)
+
+        // 서버 값(EASY)과 같은 값을 다시 고르면 변경 아님 → PATCH 재전송 안 함.
+        repository.lastUpdatedPreferredDifficulty = null
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.EASY)
+        assertFalse(viewModel.uiState.value.isPreferredDifficultyDirty, "서버 값과 같으면 변경 아님")
+
+        viewModel.savePreferredDifficulty()
+        assertNull(repository.lastUpdatedPreferredDifficulty, "변경 없으면 PATCH하지 않는다")
+    }
+
+    @Test
+    fun preferredDifficultyUpdate_failure_showsNotice_keepsDraft() = runTest {
+        val (viewModel, repository) = memberViewModel()
+        repository.updatePreferredDifficultyError = RuntimeException("down")
+
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.MEDIUM)
+        viewModel.savePreferredDifficulty()
+
+        assertNotNull(viewModel.uiState.value.noticeError, "저장 실패는 비처벌 안내로 남는다")
+        assertFalse(viewModel.uiState.value.isPreferredDifficultySaving)
+    }
+
     @Test
     fun delete_requiresTwoStepConfirm() = runTest {
         val (viewModel, repository) = memberViewModel()

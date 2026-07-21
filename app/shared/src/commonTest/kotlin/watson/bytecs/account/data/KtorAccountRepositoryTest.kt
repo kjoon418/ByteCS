@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import watson.bytecs.account.EmailAlreadyInUseException
 import watson.bytecs.account.InvalidCredentialsException
 import watson.bytecs.account.InvalidInputException
+import watson.bytecs.account.PreferredDifficulty
 import watson.bytecs.account.Role
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -201,6 +202,45 @@ class KtorAccountRepositoryTest {
         val account = repository.updateSettings(12)
 
         assertEquals(12, account.dailySessionSize)
+    }
+
+    @Test
+    fun updatePreferredDifficulty_patchesBodyAndPath_andMapsResponse() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Patch, request.method)
+            assertEquals("http://test/api/users/me/settings", request.url.toString())
+            val body = (request.body as TextContent).text
+            assertTrue(body.contains("\"preferredDifficulty\""))
+            assertTrue(body.contains("HARD"))
+            // 세션 크기 필드는 부분 갱신 계약상 함께 보내지 않는다.
+            assertTrue(!body.contains("dailySessionSize"))
+            respond(
+                content = """{"userId":42,"role":"MEMBER","email":"a@b.com","dailySessionSize":5,"preferredDifficulty":"HARD"}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val repository = KtorAccountRepository(authedClient("member-jwt", engine), baseUrl)
+
+        val account = repository.updatePreferredDifficulty(PreferredDifficulty.HARD)
+
+        assertEquals(PreferredDifficulty.HARD, account.preferredDifficulty)
+    }
+
+    @Test
+    fun getMe_preferredDifficultyUnset_mapsToNull() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"userId":42,"role":"MEMBER","email":"a@b.com","dailySessionSize":5,"preferredDifficulty":null}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val repository = KtorAccountRepository(authedClient("member-jwt", engine), baseUrl)
+
+        val account = repository.getMe()
+
+        assertNull(account.preferredDifficulty, "미설정은 null(자동 배정)로 매핑된다")
     }
 
     @Test

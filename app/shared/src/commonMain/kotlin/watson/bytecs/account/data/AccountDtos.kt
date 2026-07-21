@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import watson.bytecs.account.Account
 import watson.bytecs.account.AuthSession
 import watson.bytecs.account.GuestSession
+import watson.bytecs.account.PreferredDifficulty
 import watson.bytecs.account.Role
 
 /**
@@ -28,19 +29,24 @@ internal data class TokenResponseDto(
     fun toDomain(): AuthSession = AuthSession(token = token)
 }
 
-/** `GET /api/users/me`·`PATCH /api/users/me/settings` 응답. 게스트는 email이 null. */
+/**
+ * `GET /api/users/me`·`PATCH /api/users/me/settings` 응답. 게스트는 email이 null.
+ * preferredDifficulty는 미설정 시 null(설정 화면이 '자동'으로 표시) — 모르는 값도 null로 접어 미설정과 동일 취급한다.
+ */
 @Serializable
 internal data class UserResponseDto(
     val userId: Long,
     val role: String,
     val email: String? = null,
     val dailySessionSize: Int,
+    val preferredDifficulty: String? = null,
 ) {
     fun toDomain(): Account = Account(
         userId = userId,
         role = Role.from(role),
         email = email,
         dailySessionSize = dailySessionSize,
+        preferredDifficulty = preferredDifficulty?.let { PreferredDifficulty.from(it) },
     )
 }
 
@@ -58,10 +64,16 @@ internal data class LoginRequestDto(
     val password: String,
 )
 
-/** `PATCH /api/users/me/settings` 요청 본문. */
+/** `PATCH /api/users/me/settings` 요청 본문(세션 크기 변경 — 부분 갱신이라 이 필드만 보낸다). */
 @Serializable
 internal data class UpdateSettingsRequestDto(
     val dailySessionSize: Int,
+)
+
+/** `PATCH /api/users/me/settings` 요청 본문(선호 난이도 변경 — 부분 갱신이라 이 필드만 보낸다). */
+@Serializable
+internal data class UpdatePreferredDifficultyRequestDto(
+    val preferredDifficulty: String,
 )
 
 /**

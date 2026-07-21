@@ -18,6 +18,7 @@ import watson.bytecs.account.EmailAlreadyInUseException
 import watson.bytecs.account.GuestSession
 import watson.bytecs.account.InvalidCredentialsException
 import watson.bytecs.account.InvalidInputException
+import watson.bytecs.account.PreferredDifficulty
 import watson.bytecs.problem.data.platformApiBaseUrl
 
 /**
@@ -66,6 +67,14 @@ class KtorAccountRepository(
         val dto: UserResponseDto = client.patch("$baseUrl/api/users/me/settings") {
             contentType(ContentType.Application.Json)
             setBody(UpdateSettingsRequestDto(dailySessionSize))
+        }.body()
+        return dto.toDomain()
+    }
+
+    override suspend fun updatePreferredDifficulty(value: PreferredDifficulty): Account {
+        val dto: UserResponseDto = client.patch("$baseUrl/api/users/me/settings") {
+            contentType(ContentType.Application.Json)
+            setBody(UpdatePreferredDifficultyRequestDto(value.name))
         }.body()
         return dto.toDomain()
     }

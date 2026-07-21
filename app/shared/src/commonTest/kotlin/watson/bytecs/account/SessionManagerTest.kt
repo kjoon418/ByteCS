@@ -136,6 +136,20 @@ class SessionManagerTest {
         assertEquals(20, state.account?.dailySessionSize)
     }
 
+    @Test
+    fun updatePreferredDifficulty_refreshesMemberState() = runTest {
+        val tokenStore = store()
+        val repository = FakeAccountRepository()
+        val manager = SessionManager(repository, tokenStore)
+        manager.login("a@b.com", "pw12345678")
+
+        manager.updatePreferredDifficulty(PreferredDifficulty.HARD)
+
+        val state = manager.state.value
+        assertTrue(state is AuthState.Member)
+        assertEquals(PreferredDifficulty.HARD, state.account?.preferredDifficulty)
+    }
+
     // ── A: 오프라인 게스트 발급 실패는 막다른 길이 아니라 복구 가능한 BootstrapFailed ─────
 
     @Test

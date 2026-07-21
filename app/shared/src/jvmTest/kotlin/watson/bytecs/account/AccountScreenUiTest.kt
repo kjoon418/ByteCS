@@ -4,6 +4,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,6 +32,9 @@ class AccountScreenUiTest {
         isSettingsDirty = false,
         isSettingsSaving = false,
         sessionSizeAppliesNextSession = false,
+        preferredDifficulty = null,
+        isPreferredDifficultyDirty = false,
+        isPreferredDifficultySaving = false,
         themeMode = ThemeMode.SYSTEM,
         deletePhase = DeletePhase.None,
         isLoggingOut = false,
@@ -51,6 +55,7 @@ class AccountScreenUiTest {
         var cancelDelete = 0
         var confirmDelete = 0
         var openScrapList = 0
+        var preferredDifficultySelect = 0
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -68,6 +73,8 @@ class AccountScreenUiTest {
                     onOpenScrapList = { callbacks.openScrapList++ },
                     onSessionSizeChange = {},
                     onSaveSettings = {},
+                    onPreferredDifficultySelect = { callbacks.preferredDifficultySelect++ },
+                    onSavePreferredDifficulty = {},
                     onThemeSelect = {},
                     onLogout = { callbacks.logout++ },
                     onRequestDelete = { callbacks.requestDelete++ },
@@ -164,8 +171,9 @@ class AccountScreenUiTest {
     fun 가입자에게는_로그아웃과_안심_문구가_보인다() = runComposeUiTest {
         showScreen(memberState)
 
-        onNodeWithText("로그아웃").assertIsDisplayed()
-        onNodeWithText("다시 로그인하면 기록이 그대로예요.").assertIsDisplayed()
+        // 선호 난이도 항목이 늘어나 화면 밖으로 밀릴 수 있다 — 스크롤해 노출을 확인한다.
+        onNodeWithText("로그아웃").performScrollTo().assertIsDisplayed()
+        onNodeWithText("다시 로그인하면 기록이 그대로예요.").performScrollTo().assertIsDisplayed()
         onNodeWithText("가입하고 기록 지키기").assertDoesNotExist()
     }
 
@@ -177,7 +185,8 @@ class AccountScreenUiTest {
     fun 계정_삭제를_눌러도_확인_없이는_삭제가_실행되지_않는다() = runComposeUiTest {
         val callbacks = showScreen(memberState)
 
-        onNodeWithText("계정 삭제").assertIsDisplayed().performClick()
+        // 선호 난이도 항목이 늘어나 화면 밖으로 밀릴 수 있다 — 스크롤해 노출을 확인한다.
+        onNodeWithText("계정 삭제").performScrollTo().assertIsDisplayed().performClick()
 
         assertEquals(1, callbacks.requestDelete)
         assertEquals(0, callbacks.confirmDelete)
@@ -319,5 +328,76 @@ class AccountScreenUiTest {
         onNodeWithText("하루 세션에서 풀 문제 수예요").assertIsDisplayed()
         onNodeWithText("${memberState.sessionSize}문제").assertIsDisplayed()
         onNodeWithText("하루 학습 분량").assertDoesNotExist()
+    }
+
+    // ── 선호 난이도 설정 (난이도 조절 1차 · DF4 무낙인 상태 서술형) ────────────────
+
+    /** 4택 모두 상태 서술형 문구로 보인다 — "쉬움/보통/어려움" 같은 낙인 표현은 선택지에 없다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도는_상태_서술형_4택으로_보인다() = runComposeUiTest {
+        showScreen(memberState)
+
+        onNodeWithText("선호 난이도").assertIsDisplayed()
+        onNodeWithText("새 문제를 어떤 난이도로 더 자주 만날지 정해요").assertIsDisplayed()
+        onNodeWithText("CS를 이제 막 시작해요").assertIsDisplayed()
+        onNodeWithText("기본기를 다지는 중이에요").assertIsDisplayed()
+        onNodeWithText("도전적인 문제를 원해요").assertIsDisplayed()
+        onNodeWithText("자동으로 골고루 받을래요").assertIsDisplayed()
+    }
+
+    /** 미설정(null)이면 '자동으로 골고루 받을래요'가 현재 값으로 선택돼 있다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도_미설정이면_자동이_현재_값으로_표시된다() = runComposeUiTest {
+        showScreen(memberState.copy(preferredDifficulty = null))
+
+        onNodeWithText("자동으로 골고루 받을래요").assertIsDisplayed()
+    }
+
+    /** 이미 값을 골라둔 사용자는 그 항목이 현재 선택으로 보인다(세션 크기의 '현재 값 표시'와 동일 원칙). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도를_이미_정했으면_해당_항목이_현재_값으로_보인다() = runComposeUiTest {
+        showScreen(memberState.copy(preferredDifficulty = PreferredDifficulty.HARD))
+
+        onNodeWithText("도전적인 문제를 원해요").assertIsDisplayed()
+    }
+
+    /** 다른 항목을 고르면 콜백이 호출된다 — 저장은 별도 버튼(dirty일 때만 노출)의 몫이다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도_항목을_고르면_선택_콜백이_호출된다() = runComposeUiTest {
+        val callbacks = showScreen(memberState.copy(preferredDifficulty = null))
+
+        onNodeWithText("기본기를 다지는 중이에요").performClick()
+
+        assertEquals(1, callbacks.preferredDifficultySelect)
+    }
+
+    /** dirty일 때만 저장 버튼이 뜬다(세션 크기와 동일 패턴) — 평상시엔 뜨지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도가_dirty일_때만_저장_버튼이_보인다() = runComposeUiTest {
+        showScreen(memberState.copy(isPreferredDifficultyDirty = false))
+        onNodeWithText("저장하기").assertDoesNotExist()
+
+        showScreen(memberState.copy(isPreferredDifficultyDirty = true))
+        onNodeWithText("저장하기").assertIsDisplayed()
+    }
+
+    /**
+     * ⭐️ '자동'은 이미 선호를 정한 사용자에게는 선택할 수 있는 목표가 아니다 — 서버가 선호를 다시
+     * 미설정으로 되돌리는 동작을 지원하지 않으므로, 눌러도 아무 일도 일어나지 않는 죽은 선택지를
+     * 노출하는 대신 비활성화한다(막다른 길 금지).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 선호_난이도를_이미_정했으면_자동_선택지는_비활성화된다() = runComposeUiTest {
+        val callbacks = showScreen(memberState.copy(preferredDifficulty = PreferredDifficulty.EASY))
+
+        onNodeWithText("자동으로 골고루 받을래요").performClick()
+
+        assertEquals(0, callbacks.preferredDifficultySelect, "비활성화된 선택지는 눌러도 콜백이 없다")
     }
 }

@@ -89,6 +89,8 @@ fun AccountScreen(
         onOpenScrapList = onOpenScrapList,
         onSessionSizeChange = viewModel::onSessionSizeChange,
         onSaveSettings = viewModel::saveSettings,
+        onPreferredDifficultySelect = viewModel::onPreferredDifficultyChange,
+        onSavePreferredDifficulty = viewModel::savePreferredDifficulty,
         onThemeSelect = viewModel::setThemeMode,
         onLogout = viewModel::logout,
         onRequestDelete = viewModel::requestDelete,
@@ -107,6 +109,8 @@ internal fun AccountScreenContent(
     onOpenScrapList: () -> Unit,
     onSessionSizeChange: (Int) -> Unit,
     onSaveSettings: () -> Unit,
+    onPreferredDifficultySelect: (PreferredDifficulty) -> Unit,
+    onSavePreferredDifficulty: () -> Unit,
     onThemeSelect: (ThemeMode) -> Unit,
     onLogout: () -> Unit,
     onRequestDelete: () -> Unit,
@@ -179,6 +183,13 @@ internal fun AccountScreenContent(
                 if (state.sessionSizeAppliesNextSession) {
                     InfoNotice("변경한 세션 크기는 다음 세션부터 적용돼요.")
                 }
+                PreferredDifficultySetting(
+                    selected = state.preferredDifficulty,
+                    dirty = state.isPreferredDifficultyDirty,
+                    saving = state.isPreferredDifficultySaving,
+                    onSelect = onPreferredDifficultySelect,
+                    onSave = onSavePreferredDifficulty,
+                )
 
                 SectionTitle("화면 테마")
                 ThemeToggle(selected = state.themeMode, onSelect = onThemeSelect)
@@ -346,6 +357,105 @@ private fun StepperButton(
         contentAlignment = Alignment.Center,
     ) {
         Text(text = symbol, style = MaterialTheme.typography.titleMedium, color = contentColor)
+    }
+}
+
+/**
+ * 선호 난이도 4택. 상태 서술형 문구(무낙인, [preferredDifficultyStatement])로 감싼다.
+ * 현재 값과 같은 항목을 고르면 dirty가 아니므로 저장 버튼이 뜨지 않는다(세션 크기와 동일 패턴).
+ */
+@Composable
+private fun PreferredDifficultySetting(
+    selected: PreferredDifficulty?,
+    dirty: Boolean,
+    saving: Boolean,
+    onSelect: (PreferredDifficulty) -> Unit,
+    onSave: () -> Unit,
+) {
+    val colors = LocalBcsColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space3)) {
+        Text(
+            text = "선호 난이도",
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.textPrimary,
+        )
+        Text(
+            text = "새 문제를 어떤 난이도로 더 자주 만날지 정해요",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary,
+        )
+        Column(
+            modifier = Modifier.fillMaxWidth().selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+        ) {
+            PreferredDifficultyOption(
+                label = preferredDifficultyStatement(PreferredDifficulty.EASY),
+                isSelected = selected == PreferredDifficulty.EASY,
+                onClick = { onSelect(PreferredDifficulty.EASY) },
+            )
+            PreferredDifficultyOption(
+                label = preferredDifficultyStatement(PreferredDifficulty.MEDIUM),
+                isSelected = selected == PreferredDifficulty.MEDIUM,
+                onClick = { onSelect(PreferredDifficulty.MEDIUM) },
+            )
+            PreferredDifficultyOption(
+                label = preferredDifficultyStatement(PreferredDifficulty.HARD),
+                isSelected = selected == PreferredDifficulty.HARD,
+                onClick = { onSelect(PreferredDifficulty.HARD) },
+            )
+            // ⭐️ '자동'은 미설정 상태를 서술할 뿐, 선택해서 도달할 수 있는 목표가 아니다 — 서버 PATCH는
+            // 선호를 설정만 할 뿐 다시 미설정으로 되돌리는 동작을 지원하지 않는다([PreferredDifficulty] 주석
+            // 참고). 이미 선호를 정한 사용자에게 눌러도 아무 일도 일어나지 않는 죽은 선택지를 주지 않도록,
+            // 아직 미설정인 경우에만(=이미 이 상태인 경우에만) 표시하고 그 외에는 비활성화한다.
+            PreferredDifficultyOption(
+                label = preferredDifficultyStatement(null),
+                isSelected = selected == null,
+                enabled = selected == null,
+                onClick = {},
+            )
+        }
+        if (dirty) {
+            PrimaryButton(text = "저장하기", onClick = onSave, loading = saving)
+        }
+    }
+}
+
+@Composable
+private fun PreferredDifficultyOption(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val colors = LocalBcsColors.current
+    val primary = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusChip))
+            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else colors.surfaceSubtle)
+            .border(
+                BcsDimens.borderWidth,
+                if (isSelected) primary else colors.border,
+                RoundedCornerShape(BcsDimens.radiusChip),
+            )
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space3)
+            .semantics {
+                this.role = Role.RadioButton
+                this.selected = isSelected
+                this.stateDescription = if (isSelected) "선택됨" else "선택 안 됨"
+            },
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = when {
+                isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                enabled -> colors.textPrimary
+                else -> colors.textTertiary
+            },
+        )
     }
 }
 
