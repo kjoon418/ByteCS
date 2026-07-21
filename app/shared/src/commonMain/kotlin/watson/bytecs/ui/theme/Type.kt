@@ -39,18 +39,35 @@ fun rememberBcsFontFamily(): FontFamily = FontFamily(
  */
 val BcsCodeFontFamily: FontFamily = FontFamily.Monospace
 
-/** Material3 타입 스케일(§3.2). [fontFamily]를 Material 슬롯 전체에 적용한다. */
-fun bcsTypography(fontFamily: FontFamily): Typography = Typography(
-    displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp),
-    titleLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp),
-    titleMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 26.sp),
-    titleSmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 24.sp),
-    bodyLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
-    bodySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
-    labelLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
-    labelMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
-)
+/**
+ * Material3 타입 스케일(§3.2). [fontFamily]를 Material 슬롯 **전체**에 적용한다.
+ *
+ * ⚠️ 명시 정의하는 슬롯뿐 아니라 **모든 15개 슬롯**에 폰트를 입혀야 한다. 빠뜨린 슬롯은
+ * `FontFamily.Default`로 떨어지는데, 시스템 한글 폰트가 없는 웹(skiko 캔버스)에서는 한글이 두부(□)로
+ * 깨진다(모바일은 시스템 폰트라 안 깨져서 놓치기 쉽다 — 온보딩 'CS한입'이 headlineMedium을 써서 웹에서만
+ * 깨졌던 회귀가 이 자리다). 커스텀 사이즈를 주지 않는 슬롯(headline*·display L/M·labelSmall)은
+ * Material 기본 스케일을 유지하되 폰트만 덮어쓴다. 회귀 방지: `BcsTypographyFontTest`.
+ */
+fun bcsTypography(fontFamily: FontFamily): Typography {
+    val base = Typography()
+    return base.copy(
+        displayLarge = base.displayLarge.copy(fontFamily = fontFamily),
+        displayMedium = base.displayMedium.copy(fontFamily = fontFamily),
+        displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 24.sp, lineHeight = 32.sp),
+        headlineLarge = base.headlineLarge.copy(fontFamily = fontFamily),
+        headlineMedium = base.headlineMedium.copy(fontFamily = fontFamily),
+        headlineSmall = base.headlineSmall.copy(fontFamily = fontFamily),
+        titleLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp, lineHeight = 28.sp),
+        titleMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 26.sp),
+        titleSmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, lineHeight = 24.sp),
+        bodyLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
+        bodyMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 22.sp),
+        bodySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp),
+        labelLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+        labelMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+        labelSmall = base.labelSmall.copy(fontFamily = fontFamily),
+    )
+}
 
 /**
  * Material 슬롯 밖의 CS한입 고유 텍스트 스타일(§3.2).
