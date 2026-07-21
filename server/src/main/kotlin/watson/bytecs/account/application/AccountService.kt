@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.application.dto.GuestResponse
 import watson.bytecs.account.application.dto.TokenResponse
+import watson.bytecs.account.application.dto.UpdateSettingsCommand
 import watson.bytecs.account.application.dto.UserResponse
 import watson.bytecs.account.domain.Email
 import watson.bytecs.account.domain.EmailDuplicatedException
@@ -14,7 +15,6 @@ import watson.bytecs.account.domain.RawPassword
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.domain.UserRole
-import watson.bytecs.account.domain.UserSettings
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
 import watson.bytecs.report.infrastructure.ContentReportRepository
@@ -107,12 +107,17 @@ class AccountService(
     }
 
     @Transactional
-    fun updateSettings(userId: Long, dailySessionSize: Int): UserResponse {
+    fun updateSettings(userId: Long, command: UpdateSettingsCommand): UserResponse {
         val user = userRepository.findById(userId)
             .orElseThrow { UserNotFoundException.byId(userId) }
 
-        // 범위 검증은 UserSettings 생성 시점에 강제된다(위반 시 400).
-        user.updateSettings(UserSettings(dailySessionSize))
+        // 부분 갱신: 커맨드에 담긴 것만 반영한다. 각 도메인 메서드가 다른 설정을 보존하며 바꾼다(부분 갱신 의미).
+        // 세션 분량의 범위 검증은 UserSettings 생성 시점에 강제된다(위반 시 400).
+        command.dailySessionSize?.let { user.updateDailySessionSize(it) }
+        command.preferredDifficulty?.let { user.updatePreferredDifficulty(it) }
+        if (command.markDifficultyPromptDone) {
+            user.markDifficultyPromptDone()
+        }
         return responseMapper.toUserResponse(user)
     }
 

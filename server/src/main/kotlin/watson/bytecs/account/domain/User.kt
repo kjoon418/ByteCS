@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import watson.bytecs.problem.domain.Difficulty
 import java.time.LocalDate
 
 /**
@@ -41,6 +42,12 @@ class User private constructor(
     var id: Long = 0
         protected set
 
+    // 완료 화면 난이도 제안에 응답(선택 또는 거절)했는지. 설정값이 아니라 '제안 노출 상태'라 UserSettings가 아닌 User 직속 필드로 둔다.
+    // 게스트→회원 승격은 같은 id를 in-place 승격하므로 이 값도 자동으로 승계된다(별도 이관 없음).
+    @Column(name = "difficulty_prompt_done", nullable = false)
+    var difficultyPromptDone: Boolean = false
+        protected set
+
     val isMember: Boolean
         get() = role == UserRole.MEMBER
 
@@ -68,6 +75,32 @@ class User private constructor(
     fun updateSettings(settings: UserSettings) {
         this.settings = settings
     }
+
+    /** 일일 세션 분량만 바꾼다. 선호 난이도 등 다른 설정은 보존한다(부분 갱신 — 설정 하나를 바꿔도 나머지를 초기화하지 않는다). */
+    fun updateDailySessionSize(dailySessionSize: Int) {
+        this.settings = settings.copy(dailySessionSize = dailySessionSize)
+    }
+
+    /**
+     * 선호 난이도를 지정한다(가중 출제의 입력). 직접 지정한 사용자는 이미 자기 난이도를 아는 것으로 보아
+     * 완료 화면 제안 노출을 종료한다(promptDone=true — 이미 아는 사용자에게 다시 제안하지 않는다).
+     */
+    fun updatePreferredDifficulty(preferredDifficulty: Difficulty) {
+        this.settings = settings.copy(preferredDifficulty = preferredDifficulty)
+        this.difficultyPromptDone = true
+    }
+
+    /** 완료 화면 난이도 제안에 응답(거절 포함)했음을 기록한다. 어느 쪽이든 1회 응답하면 다시 묻지 않는다(잔소리 금지). */
+    fun markDifficultyPromptDone() {
+        this.difficultyPromptDone = true
+    }
+
+    /**
+     * 완료 화면에서 난이도 제안을 노출해야 하는지 판단한다(선호 미설정 && 아직 미응답).
+     * 클라이언트가 노출 조건을 재계산하지 않게 서버가 단일 출처로 판단한다(계획 §3.3·§4.2).
+     */
+    fun needsDifficultyPrompt(): Boolean =
+        settings.preferredDifficulty == null && !difficultyPromptDone
 
     companion object {
         fun createGuest(): User =

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import watson.bytecs.account.application.AccountService
+import watson.bytecs.account.application.dto.UpdateSettingsCommand
 import watson.bytecs.account.application.dto.UserResponse
 import watson.bytecs.account.presentation.request.UpdateSettingsRequest
 import watson.bytecs.account.security.AuthenticatedUser
@@ -36,7 +37,14 @@ class UserController(
         @Valid @RequestBody request: UpdateSettingsRequest,
         @AuthenticationPrincipal user: AuthenticatedUser,
     ): UserResponse =
-        accountService.updateSettings(user.userId, request.dailySessionSize!!)
+        accountService.updateSettings(
+            user.userId,
+            UpdateSettingsCommand(
+                dailySessionSize = request.dailySessionSize,
+                preferredDifficulty = request.preferredDifficulty,
+                markDifficultyPromptDone = request.difficultyPromptDone == true,
+            ),
+        )
 
     @DeleteMapping("/me")
     @ResponseStatus(HttpStatus.NO_CONTENT)

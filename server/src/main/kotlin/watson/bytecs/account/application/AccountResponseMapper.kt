@@ -18,6 +18,7 @@ class AccountResponseMapper {
             role = user.role.name,
             email = user.email,
             dailySessionSize = user.settings.dailySessionSize,
+            preferredDifficulty = user.settings.preferredDifficulty?.name,
         )
 
     fun toGuestResponse(token: String, user: User): GuestResponse =

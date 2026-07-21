@@ -194,6 +194,94 @@ class AccountControllerIntegrationTest(
     }
 
     @Test
+    fun `선호 난이도를 설정하면 200과 그 값을 반환하고 제안 응답도 완료로 기록된다`() {
+        val token = register(EMAIL, PASSWORD)
+
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"EASY"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.preferredDifficulty") { value("EASY") }
+        }
+
+        // 직접 설정한 사용자에게는 완료 화면에서 다시 제안하지 않는다(promptDone=true).
+        val stored = userRepository.findByEmail(EMAIL)!!
+        assertThat(stored.difficultyPromptDone).isTrue()
+        assertThat(stored.needsDifficultyPrompt()).isFalse()
+    }
+
+    @Test
+    fun `선호 난이도를 알 수 없는 값으로 보내면 400을 반환한다`() {
+        val token = register(EMAIL, PASSWORD)
+
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"IMPOSSIBLE"}"""
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun `제안 응답만 보내면 선호는 미설정으로 남고 다시 제안하지 않는다`() {
+        val token = register(EMAIL, PASSWORD)
+
+        // 완료 화면에서 '지금은 괜찮아요'(거절)를 누른 경우 — difficultyPromptDone만 true로 보낸다.
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"difficultyPromptDone":true}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.preferredDifficulty") { value(null) }
+        }
+
+        val stored = userRepository.findByEmail(EMAIL)!!
+        assertThat(stored.settings.preferredDifficulty).isNull()
+        assertThat(stored.difficultyPromptDone).isTrue()
+    }
+
+    @Test
+    fun `세션 분량만 바꾸면 이미 설정한 선호 난이도는 보존된다`() {
+        val token = register(EMAIL, PASSWORD)
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"HARD"}"""
+        }.andExpect { status { isOk() } }
+
+        // dailySessionSize만 담아 부분 갱신해도 선호 난이도는 초기화되지 않아야 한다.
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $token")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"dailySessionSize":15}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.dailySessionSize") { value(15) }
+            jsonPath("$.preferredDifficulty") { value("HARD") }
+        }
+    }
+
+    @Test
+    fun `게스트도 선호 난이도를 설정할 수 있다`() {
+        val guestResult = mockMvc.post("/api/guests").andReturn()
+        val guestToken = readField(guestResult, "token").asText()
+
+        mockMvc.patch("/api/users/me/settings") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $guestToken")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"preferredDifficulty":"MEDIUM"}"""
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.role") { value("GUEST") }
+            jsonPath("$.preferredDifficulty") { value("MEDIUM") }
+        }
+    }
+
+    @Test
     fun `탈퇴하면 204이고 이후 내 정보 조회는 404를 반환한다`() {
         val token = register(EMAIL, PASSWORD)
 

@@ -4,6 +4,7 @@ import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import watson.bytecs.problem.domain.Difficulty
 import java.time.LocalDate
 
 class UserTest {
@@ -50,6 +51,63 @@ class UserTest {
 
             assertThatThrownBy { member.promoteToMember(Email("other@bytecs.dev"), "hashed2") }
                 .isInstanceOf(InvalidUserStateException::class.java)
+        }
+
+        @Test
+        fun 승격해도_난이도_제안_응답_상태가_승계된다() {
+            val guest = User.createGuest()
+            guest.markDifficultyPromptDone()
+
+            guest.promoteToMember(Email("member@bytecs.dev"), "hashed")
+
+            // in-place 승격(같은 인스턴스·id)이라 제안 응답 상태가 그대로 남는다.
+            assertThat(guest.difficultyPromptDone).isTrue()
+        }
+    }
+
+    @Nested
+    inner class 선호_난이도와_제안_상태를_관리한다 {
+
+        @Test
+        fun 새_게스트는_선호_미설정이고_제안에_응답하지_않았다() {
+            val guest = User.createGuest()
+
+            assertThat(guest.settings.preferredDifficulty).isNull()
+            assertThat(guest.difficultyPromptDone).isFalse()
+            assertThat(guest.needsDifficultyPrompt()).isTrue()
+        }
+
+        @Test
+        fun 선호_난이도를_지정하면_제안_노출도_종료된다() {
+            val user = User.createGuest()
+
+            user.updatePreferredDifficulty(Difficulty.EASY)
+
+            assertThat(user.settings.preferredDifficulty).isEqualTo(Difficulty.EASY)
+            assertThat(user.difficultyPromptDone).isTrue()
+            assertThat(user.needsDifficultyPrompt()).isFalse()
+        }
+
+        @Test
+        fun 제안을_거절해_응답만_기록하면_선호는_미설정으로_남고_다시_묻지_않는다() {
+            val user = User.createGuest()
+
+            user.markDifficultyPromptDone()
+
+            assertThat(user.settings.preferredDifficulty).isNull()
+            assertThat(user.difficultyPromptDone).isTrue()
+            assertThat(user.needsDifficultyPrompt()).isFalse()
+        }
+
+        @Test
+        fun 세션_분량을_바꿔도_선호_난이도는_보존된다() {
+            val user = User.createGuest()
+            user.updatePreferredDifficulty(Difficulty.HARD)
+
+            user.updateDailySessionSize(20)
+
+            assertThat(user.settings.dailySessionSize).isEqualTo(20)
+            assertThat(user.settings.preferredDifficulty).isEqualTo(Difficulty.HARD)
         }
     }
 
