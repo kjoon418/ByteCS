@@ -85,12 +85,15 @@ class SessionService(
         session.markStarted(Instant.now(clock))
     }
 
-    /** 세션 상태 응답을 만든다. 홈 화면이 로드 시점에 바로 스트릭을 보여주도록 현재 스트릭을 함께 싣는다. */
+    /**
+     * 세션 상태 응답을 만든다. 홈 화면이 로드 시점에 바로 스트릭을 보여주도록 현재 스트릭을 함께 싣고,
+     * 완료 화면 난이도 제안 노출 여부(needsDifficultyPrompt)도 사용자 상태에서 단일 출처로 판단해 싣는다.
+     */
     private fun toStateResponse(userId: Long, session: Session): SessionStateResponse {
         val currentProblem = session.currentItemProblemId()?.let { loadProblem(it) }
-        val streak = loadUser(userId).streak
+        val user = loadUser(userId)
 
-        return responseMapper.toStateResponse(session, currentProblem, streak)
+        return responseMapper.toStateResponse(session, currentProblem, user.streak, user.needsDifficultyPrompt())
     }
 
     /**
@@ -133,18 +136,21 @@ class SessionService(
         }
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
+        // 완료 시에만 사용자를 로드해 스트릭을 올리고, 같은 사용자 상태에서 완료 화면 제안 노출 여부도 함께 판단한다.
+        var needsDifficultyPrompt = false
         val streak = if (session.isCompleted) {
             // 최초 완료 시각을 기록한다(테스터 지표). markCompleted가 멱등이라 재호출에도 최초 값을 지킨다.
             session.markCompleted(Instant.now(clock))
             val user = loadUser(userId)
             user.recordStudy(today())
+            needsDifficultyPrompt = user.needsDifficultyPrompt()
             user.streak
         } else {
             null
         }
 
         val nextProblem = session.currentItemProblemId()?.let { loadProblem(it) }
-        return responseMapper.toAttemptResponse(session, outcome, problem, nextProblem, streak)
+        return responseMapper.toAttemptResponse(session, outcome, problem, nextProblem, streak, needsDifficultyPrompt)
     }
 
     /**

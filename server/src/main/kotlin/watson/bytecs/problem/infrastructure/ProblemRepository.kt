@@ -3,6 +3,7 @@ package watson.bytecs.problem.infrastructure
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import watson.bytecs.problem.domain.ApprovalStatus
+import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
 
@@ -67,4 +68,22 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
             "where p.id in :ids",
     )
     fun findAllByIdWithConceptsAndEnrichment(ids: Collection<Long>): List<Problem>
+
+    /**
+     * 난이도 가중 출제([watson.bytecs.session.application.DifficultyWeightedShuffler])가 후보별 난이도를 알아야 해서,
+     * 승인된 후보 id의 (id, 난이도)만 프로젝션한다(엔티티 전체 로딩 회피). 난이도 미상(null)도 그대로 실어
+     * 셔플러가 '가장 먼 거리'로 취급하게 한다. 입력 ids는 이미 승인 게이트를 통과한 후보지만,
+     * 다른 서빙 쿼리와 동일하게 승인(APPROVED) 필터를 명시해 재확인한다.
+     */
+    @Query(
+        "select p.id as id, p.difficulty as difficulty from Problem p " +
+            "where p.id in :ids and p.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED",
+    )
+    fun findApprovedDifficultiesByIdIn(ids: Collection<Long>): List<ProblemDifficultyView>
+
+    /** JPQL 별칭 프로젝션 — [findApprovedDifficultiesByIdIn] 전용(가중 출제용 id·난이도 쌍). */
+    interface ProblemDifficultyView {
+        val id: Long
+        val difficulty: Difficulty?
+    }
 }

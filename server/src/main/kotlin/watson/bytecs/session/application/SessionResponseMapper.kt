@@ -42,7 +42,12 @@ class SessionResponseMapper {
             wrongAttemptCount = wrongAttemptCount,
         )
 
-    fun toStateResponse(session: Session, currentProblem: Problem?, streak: StudyStreak): SessionStateResponse =
+    fun toStateResponse(
+        session: Session,
+        currentProblem: Problem?,
+        streak: StudyStreak,
+        needsDifficultyPrompt: Boolean,
+    ): SessionStateResponse =
         SessionStateResponse(
             sessionId = session.id,
             sessionDate = session.sessionDate,
@@ -54,6 +59,7 @@ class SessionResponseMapper {
                 toProblemResponse(it, session.currentRevealedHintCount(), session.currentWrongAttemptCount())
             },
             streak = toStreakResponse(streak),
+            needsDifficultyPrompt = needsDifficultyPrompt,
         )
 
     /**
@@ -68,6 +74,7 @@ class SessionResponseMapper {
         attemptedProblem: Problem,
         nextProblem: Problem?,
         streak: StudyStreak?,
+        needsDifficultyPrompt: Boolean,
     ): SessionAttemptResponse {
         val correct = outcome.judgement == Judgement.CORRECT
 
@@ -87,6 +94,7 @@ class SessionResponseMapper {
                 toProblemResponse(it, session.currentRevealedHintCount(), session.currentWrongAttemptCount())
             },
             streak = streak?.let { toStreakResponse(it) },
+            needsDifficultyPrompt = needsDifficultyPrompt,
         )
     }
 

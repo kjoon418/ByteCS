@@ -28,6 +28,8 @@ class SessionCreator(
     private val reviewService: ReviewService,
     // 푼/배정 문제 풀은 [LearningHistory]로 조회한다(D6·D9 일원화 이후 세션 단독 출처).
     private val learningHistory: LearningHistory,
+    // 선호 난이도 설정 시 새 개념 후보를 난이도 가중으로 정렬한다(미설정이면 사용하지 않는다).
+    private val difficultyWeightedShuffler: DifficultyWeightedShuffler,
     // 새 개념 문제를 무작위로 뽑는 데 쓴다. 기본은 Random.Default이고, 테스트에서 시드 고정 Random을 주입해
     // 셔플 결과를 결정적으로 검증한다(운영에선 사용자마다·매일 다른 세션을 위해 매번 새 순서를 뽑는다).
     private val random: Random = Random.Default,
@@ -65,12 +67,11 @@ class SessionCreator(
         val assignedProblemIds = learningHistory.findAssignedProblemIds(user.id)
         val reviewProblemIds = reviewService.selectDueReviewProblemIds(user.id, today, assignedProblemIds, poolIds)
 
-        // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백. 두 경우 모두 무작위로 셔플한다.
+        // 2) 남은 칸을 채울 새 개념 후보: 아직 안 푼 문제 우선, 없으면 전체 풀 폴백.
         //    이미 푼 문제는 새 개념으로 다시 내지 않는다(같은 문제가 새 개념 배정으로 반복되지 않게).
         val solvedProblemIds = learningHistory.findSolvedProblemIds(user.id)
         val unseenProblemIds = allProblemIds.filter { it !in solvedProblemIds }
-        val newConceptCandidates =
-            (if (unseenProblemIds.isNotEmpty()) unseenProblemIds else allProblemIds).shuffled(random)
+        val newConceptCandidates = selectNewConceptCandidates(user, allProblemIds, unseenProblemIds)
 
         // 복습 먼저 배치 → 남은 칸을 새 개념으로. LinkedHashSet으로 선착순 중복 제거·순서 보존, 분량에서 절단한다.
         val chosen = LinkedHashSet<Long>()
@@ -88,5 +89,28 @@ class SessionCreator(
             throw ProblemNotFoundException.noneAvailable()
         }
         return chosen.toList()
+    }
+
+    /**
+     * 남은 칸을 채울 새 개념 후보의 순서를 정한다. 세 갈래다(계획 §3.2):
+     *  1. 안 푼 문제가 없으면 → 전체 풀을 균등 무작위로(D8 반복 폴백). **난이도 가중을 적용하지 않는다**(정착 보호·콘텐츠 고갈 방지).
+     *  2. 선호 난이도 미설정 → 안 푼 문제를 균등 무작위로(현행 경로 그대로, 회귀 0).
+     *  3. 선호 난이도 설정 → 안 푼 문제를 거리 기반 가중 무작위로(완전 배제 없음·후보 있는 난이도에만 가중).
+     * 복습 편입은 이 선정과 무관하다(호출부가 복습을 먼저 배치하고 남은 칸만 여기서 채운다 — 난이도 가중이 복습에 닿지 않는다).
+     */
+    private fun selectNewConceptCandidates(
+        user: User,
+        allProblemIds: List<Long>,
+        unseenProblemIds: List<Long>,
+    ): List<Long> {
+        if (unseenProblemIds.isEmpty()) {
+            // D8 반복 폴백: 난이도 가중 미적용. 기존 균등 셔플 그대로 둔다.
+            return allProblemIds.shuffled(random)
+        }
+        val preferred = user.settings.preferredDifficulty
+            ?: return unseenProblemIds.shuffled(random)
+        val difficultyByProblemId = problemRepository.findApprovedDifficultiesByIdIn(unseenProblemIds)
+            .associate { it.id to it.difficulty }
+        return difficultyWeightedShuffler.order(unseenProblemIds, difficultyByProblemId, preferred, random)
     }
 }

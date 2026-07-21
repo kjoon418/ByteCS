@@ -11,6 +11,7 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.AttemptOutcome
 import watson.bytecs.problem.domain.Concept
+import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
 import watson.bytecs.problem.domain.ProblemType
@@ -50,6 +51,19 @@ class SessionServiceTest {
         problemRepository,
         userRepository,
         responseMapper,
+        sessionCreator,
+        reviewService,
+        learningHistory,
+        clock,
+    )
+
+    // needsDifficultyPrompt(Stage 3)는 응답에 실린 값을 직접 단정해야 하므로, 실제 매퍼를 쓰는 서비스로 검증한다
+    // (목 매퍼는 전달 인자 검증에 Kotlin non-null 매처 제약이 걸려, 실 응답 단정이 더 간명하다).
+    private val realMapperService = SessionService(
+        sessionRepository,
+        problemRepository,
+        userRepository,
+        SessionResponseMapper(),
         sessionCreator,
         reviewService,
         learningHistory,
@@ -233,8 +247,8 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null이다.
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null)
+        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null·제안도 false다.
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null, false)
     }
 
     @Test
@@ -246,7 +260,68 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null)
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null, false)
+    }
+
+    // ── Stage 3: 완료 화면 난이도 제안 노출 여부(needsDifficultyPrompt) ─────────────────
+
+    @Test
+    fun `세션이 완료되면 선호 미설정·미응답 사용자에게 needsDifficultyPrompt를 true로 싣는다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        // 선호 미설정·제안 미응답 사용자(새 게스트) — 완료 화면에서 제안을 노출해야 한다.
+        stubSubmitWithUser(session, problem, User.createGuest())
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+
+        val response = realMapperService.submitAnswer(1L, AnswerText("정답"))
+
+        assertThat(response.status).isEqualTo("COMPLETED")
+        assertThat(response.needsDifficultyPrompt).isTrue()
+    }
+
+    @Test
+    fun `선호를 이미 설정한 사용자는 완료돼도 needsDifficultyPrompt가 false다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        val user = User.createGuest().apply { updatePreferredDifficulty(Difficulty.EASY) }
+        stubSubmitWithUser(session, problem, user)
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+
+        val response = realMapperService.submitAnswer(1L, AnswerText("정답"))
+
+        assertThat(response.status).isEqualTo("COMPLETED")
+        assertThat(response.needsDifficultyPrompt).isFalse()
+    }
+
+    @Test
+    fun `미완료 제출은 needsDifficultyPrompt가 false다`() {
+        // 두 문제 중 하나만 맞혀 세션이 완료되지 않은 상태 — 완료 화면이 아니므로 제안은 뜨지 않는다.
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val nextProblem = Problem(questionText = "다음 질문", concepts = listOf(Concept("다음 개념")), acceptableAnswers = setOf("답"), representativeAnswer = "답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id, NEXT_PROBLEM_ID))
+        stubSubmitWithUser(session, problem, User.createGuest())
+        // 첫 문제를 맞히면 커서가 다음 칸으로 이동하므로, 그 칸의 문제도 로드된다.
+        given(problemRepository.findById(NEXT_PROBLEM_ID)).willReturn(Optional.of(nextProblem))
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+
+        val response = realMapperService.submitAnswer(1L, AnswerText("정답"))
+
+        assertThat(response.status).isEqualTo("IN_PROGRESS")
+        assertThat(response.needsDifficultyPrompt).isFalse()
+    }
+
+    @Test
+    fun `상태 조회 응답도 선호 미설정 사용자에게 needsDifficultyPrompt를 true로 싣는다`() {
+        val existing = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        given(problemRepository.findById(10L)).willReturn(Optional.of(problem))
+        given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()))
+        given(userRepository.findWithLockById(1L)).willReturn(Optional.of(User.createGuest()))
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(existing)
+
+        val response = realMapperService.getOrCreateToday(1L)
+
+        assertThat(response.needsDifficultyPrompt).isTrue()
     }
 
     /** 유도형 문제(대표 정답 "o(n²)") — "o(n)"은 편집거리 1이지만 유형 관문에 막혀 평소엔 불일치다. */
@@ -264,6 +339,13 @@ class SessionServiceTest {
         given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(session)
         given(problemRepository.findById(problem.id)).willReturn(Optional.of(problem))
         given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()))
+    }
+
+    /** submitAnswer가 로드하는 오늘 세션·문제·사용자를 스텁하되, 사용자를 지정한다(needsDifficultyPrompt 판단용). */
+    private fun stubSubmitWithUser(session: Session, problem: Problem, user: User) {
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(session)
+        given(problemRepository.findById(problem.id)).willReturn(Optional.of(problem))
+        given(userRepository.findById(1L)).willReturn(Optional.of(user))
     }
 
     /** 상태 응답 변환이 로드하는 현재 문제·사용자와, M1 진입부의 사용자 행 잠금 조회를 스텁한다(responseMapper는 목이라 반환값은 관심사가 아니다). */
@@ -284,5 +366,8 @@ class SessionServiceTest {
     private companion object {
         // 이미 기록된 시작 시각(멱등 검증용) — 현재 클럭 시각과 구분되기만 하면 값 자체는 의미가 없다.
         val EARLIER_START: Instant = Instant.EPOCH
+
+        // 미완료 제출 검증에서 첫 문제를 맞힌 뒤 커서가 이동할 두 번째 칸의 문제 id.
+        const val NEXT_PROBLEM_ID = 99L
     }
 }

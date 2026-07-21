@@ -2,11 +2,15 @@ package watson.bytecs.session.application
 
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyList
 import org.mockito.BDDMockito.given
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.verify
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserSettings
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.review.application.ReviewService
 import watson.bytecs.session.domain.Session
@@ -30,6 +34,9 @@ class SessionCreatorTest {
 
     // 실제 LearningHistory로 세션 이력 경로를 그대로 태운다(D6·D9 일원화 이후 세션 단독 출처).
     private val learningHistory = LearningHistory(sessionRepository)
+
+    // 가중 셔플러는 실제 구현을 쓴다(순서화 규칙은 자체 단위 테스트가 검증하고, 여기선 분기·후보 보존을 본다).
+    private val difficultyWeightedShuffler = DifficultyWeightedShuffler()
 
     private companion object {
         const val USER_ID = 1L
@@ -110,6 +117,61 @@ class SessionCreatorTest {
         assertThat(sessions.distinct().size).isGreaterThan(1)
     }
 
+    // ── 선호 난이도 가중 출제(Stage 2) ────────────────────────────────────
+
+    @Test
+    fun `선호 난이도가 설정되면 난이도 조회로 가중 배정하고 안 푼 후보를 완전히 배제하지 않는다`() {
+        // 안 푼 5문제(난이도 혼재), 선호 EASY. 분량이 후보 수 이상이면 모든 후보가 포함돼야 한다(완전 배제 없음).
+        val difficulties = mapOf(
+            1L to Difficulty.EASY, 2L to Difficulty.MEDIUM, 3L to Difficulty.HARD,
+            4L to Difficulty.EASY, 5L to Difficulty.HARD,
+        )
+        val assignedIds = assign(
+            size = 5, all = listOf(1L, 2L, 3L, 4L, 5L), solved = emptyList(), reviews = emptyList(),
+            preferred = Difficulty.EASY, difficulties = difficulties,
+        )
+
+        assertThat(assignedIds).containsExactlyInAnyOrder(1L, 2L, 3L, 4L, 5L)
+        // 가중 경로는 후보 난이도를 조회한다(균등 경로였다면 호출되지 않는다).
+        verify(problemRepository).findApprovedDifficultiesByIdIn(anyList())
+    }
+
+    @Test
+    fun `선호 난이도 미설정이면 난이도 조회 없이 기존 균등 경로로 배정한다`() {
+        // preferred=null(기본) — 회귀 0: 난이도 조회 자체가 일어나지 않아야 한다.
+        assign(size = 3, all = listOf(1L, 2L, 3L, 4L, 5L), solved = emptyList(), reviews = emptyList())
+
+        verify(problemRepository, never()).findApprovedDifficultiesByIdIn(anyList())
+    }
+
+    @Test
+    fun `안 푼 문제가 없으면 선호가 있어도 D8 반복 폴백은 난이도 가중을 적용하지 않는다`() {
+        // 전부 이미 푼 상태 → D8 반복 폴백. 선호가 설정돼 있어도 난이도 조회 없이 균등 폴백이어야 한다.
+        val assignedIds = assign(
+            size = 2, all = listOf(1L, 2L, 3L), solved = listOf(1L, 2L, 3L), reviews = emptyList(),
+            preferred = Difficulty.HARD,
+            difficulties = mapOf(1L to Difficulty.HARD, 2L to Difficulty.EASY, 3L to Difficulty.MEDIUM),
+        )
+
+        assertThat(assignedIds).hasSize(2)
+        assertThat(assignedIds).allMatch { it in setOf(1L, 2L, 3L) }
+        verify(problemRepository, never()).findApprovedDifficultiesByIdIn(anyList())
+    }
+
+    @Test
+    fun `복습 편입은 선호 난이도와 무관하게 도래 순으로 먼저 배치된다`() {
+        // 선호 EASY라도 복습(30)은 가중과 무관하게 맨 앞에 고정되고, 남은 칸만 새 개념 가중으로 채운다.
+        val assignedIds = assign(
+            size = 2, all = listOf(1L, 2L, 3L, 4L, 30L), solved = listOf(30L), reviews = listOf(30L),
+            preferred = Difficulty.EASY,
+            difficulties = mapOf(1L to Difficulty.EASY, 2L to Difficulty.MEDIUM, 3L to Difficulty.HARD, 4L to Difficulty.EASY),
+        )
+
+        assertThat(assignedIds).hasSize(2)
+        assertThat(assignedIds.first()).isEqualTo(30L)
+        assertThat(assignedIds[1]).isIn(1L, 2L, 3L, 4L)
+    }
+
     /** 주어진 학습 상태를 stub하고 시드 고정 Random으로 create를 구동해, 배정된 본 문제 id를 순서대로 돌려준다. */
     private fun assign(
         size: Int,
@@ -117,8 +179,13 @@ class SessionCreatorTest {
         solved: List<Long>,
         reviews: List<Long>,
         seed: Long = SEED,
+        preferred: Difficulty? = null,
+        difficulties: Map<Long, Difficulty?> = emptyMap(),
     ): List<Long> {
-        val user = User.createGuest().apply { updateSettings(UserSettings(size)) }
+        val user = User.createGuest().apply {
+            updateSettings(UserSettings(size))
+            preferred?.let { updatePreferredDifficulty(it) }
+        }
 
         given(userRepository.findById(USER_ID)).willReturn(Optional.of(user))
         given(problemRepository.findApprovedIdsOrderByIdAsc()).willReturn(all)
@@ -129,10 +196,26 @@ class SessionCreatorTest {
             .willReturn(reviews)
         given(sessionRepository.save(org.mockito.ArgumentMatchers.any(Session::class.java)))
             .willAnswer { it.getArgument(0) }
+        // 가중 경로에서만 후보 난이도를 조회한다. 균등·D8 경로에서는 호출되지 않으므로 스텁도 필요 없다.
+        if (preferred != null) {
+            given(problemRepository.findApprovedDifficultiesByIdIn(anyList()))
+                .willReturn(difficultyViews(difficulties))
+        }
 
-        val creator =
-            SessionCreator(sessionRepository, problemRepository, userRepository, reviewService, learningHistory, Random(seed))
+        val creator = SessionCreator(
+            sessionRepository, problemRepository, userRepository, reviewService, learningHistory,
+            difficultyWeightedShuffler, Random(seed),
+        )
         val session = creator.create(USER_ID, TODAY)
         return session.items.map { it.problemId }
     }
+
+    /** id→난이도 맵을 프로젝션 뷰 목록으로 바꾼다(가중 셔플러가 후보별 난이도를 읽는 입력). */
+    private fun difficultyViews(difficulties: Map<Long, Difficulty?>): List<ProblemRepository.ProblemDifficultyView> =
+        difficulties.map { (problemId, difficulty) ->
+            object : ProblemRepository.ProblemDifficultyView {
+                override val id = problemId
+                override val difficulty = difficulty
+            }
+        }
 }
