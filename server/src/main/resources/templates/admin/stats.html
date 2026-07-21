@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CS한입 관리자 · 테스터 지표</title>
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f5f6f8; margin: 0; color: #1f2328; }
+        header { background: #fff; border-bottom: 1px solid #e2e4e8; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; }
+        header h1 { font-size: 1.05rem; margin: 0; }
+        header form { margin: 0; }
+        header .account { font-size: 0.85rem; color: #555; margin-right: 12px; }
+        header button { padding: 6px 12px; border: 1px solid #ccd0d6; border-radius: 6px; background: #fff; cursor: pointer; }
+        main { max-width: 960px; margin: 32px auto; padding: 0 24px; }
+        main h2 { font-size: 1.2rem; margin: 0 0 4px; }
+        main p.lead { color: #666; margin: 0 0 24px; font-size: 0.9rem; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+        .card { background: #fff; border: 1px solid #e2e4e8; border-radius: 12px; padding: 20px 24px; }
+        .card.primary { border-color: #b7c6ff; }
+        .card .label { font-size: 0.9rem; color: #555; margin: 0 0 8px; }
+        .card .value { font-size: 2rem; font-weight: 700; margin: 0; line-height: 1; }
+        .card .unit { font-size: 0.9rem; font-weight: 400; color: #777; margin-left: 4px; }
+        .card .hint { font-size: 0.78rem; color: #8a9099; margin: 8px 0 0; }
+        .section-title { font-size: 0.85rem; color: #8a9099; text-transform: uppercase; letter-spacing: 0.04em; margin: 28px 0 12px; }
+        .nav { margin-bottom: 20px; }
+        .nav a { font-size: 0.85rem; color: #3a5bd0; text-decoration: none; }
+        .nav a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+<header>
+    <h1>CS한입 관리자 · 테스터 지표</h1>
+    <div style="display: flex; align-items: center;">
+        <span class="account" th:text="${adminEmail}">admin@example.com</span>
+        <form th:action="@{/admin/logout}" method="post">
+            <button type="submit">로그아웃</button>
+        </form>
+    </div>
+</header>
+<main>
+    <div class="nav"><a th:href="@{/admin}">← 관리자 홈</a></div>
+    <h2>테스터 참여 지표</h2>
+    <p class="lead">각 지표는 중복을 제거한 사용자 수(DISTINCT)입니다.</p>
+
+    <div class="cards">
+        <div class="card primary">
+            <p class="label">1. 문제 풀이를 시작한 사용자</p>
+            <p class="value"><span th:text="${metrics.startedUserCount}">0</span><span class="unit">명</span></p>
+            <p class="hint">'시작하기'로 풀이 화면에 진입한 적 있는 사용자</p>
+        </div>
+        <div class="card primary">
+            <p class="label">2. 세션을 완료한 사용자</p>
+            <p class="value"><span th:text="${metrics.completedUserCount}">0</span><span class="unit">명</span></p>
+            <p class="hint">'오늘의 한입' 세션을 끝까지 완료한 사용자</p>
+        </div>
+        <div class="card primary">
+            <p class="label">3. 완료 후 더 푼 사용자</p>
+            <p class="value"><span th:text="${metrics.studiedMoreUserCount}">0</span><span class="unit">명</span></p>
+            <p class="hint">세션 완료 후 '조금 더 풀기'로 추가 학습까지 진입한 사용자</p>
+        </div>
+    </div>
+
+    <p class="section-title">참고 지표</p>
+    <div class="cards">
+        <div class="card">
+            <p class="label">전체 사용자 수</p>
+            <p class="value"><span th:text="${metrics.totalUserCount}">0</span><span class="unit">명</span></p>
+            <p class="hint">게스트 포함</p>
+        </div>
+        <div class="card">
+            <p class="label">전체 세션 수</p>
+            <p class="value"><span th:text="${metrics.totalSessionCount}">0</span><span class="unit">개</span></p>
+            <p class="hint">지금까지 만들어진 모든 세션</p>
+        </div>
+    </div>
+</main>
+</body>
+</html>

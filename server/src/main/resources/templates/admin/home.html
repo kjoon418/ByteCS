@@ -13,6 +13,11 @@
         header button { padding: 6px 12px; border: 1px solid #ccd0d6; border-radius: 6px; background: #fff; cursor: pointer; }
         main { max-width: 960px; margin: 32px auto; padding: 0 24px; }
         .placeholder { background: #fff; border: 1px dashed #ccd0d6; border-radius: 12px; padding: 40px; text-align: center; color: #666; }
+        .menu { list-style: none; padding: 0; margin: 0 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+        .menu a { display: block; background: #fff; border: 1px solid #e2e4e8; border-radius: 12px; padding: 20px 24px; text-decoration: none; color: #1f2328; }
+        .menu a:hover { border-color: #b7c6ff; }
+        .menu .title { font-weight: 600; }
+        .menu .desc { font-size: 0.82rem; color: #777; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -26,6 +31,14 @@
     </div>
 </header>
 <main>
+    <ul class="menu">
+        <li>
+            <a th:href="@{/admin/stats}">
+                <div class="title">테스터 지표</div>
+                <div class="desc">풀이 시작·세션 완료·완료 후 추가 학습 사용자 수</div>
+            </a>
+        </li>
+    </ul>
     <!-- Phase 2~4에서 대시보드·문제 목록·검수 큐·초안 반입·신고 콘솔·개념 관리가 이 자리를 채운다(구현 계획 §5.2). -->
     <div class="placeholder">
         관리자 기능 준비 중입니다. 문제 등록·검수 화면이 곧 추가됩니다.

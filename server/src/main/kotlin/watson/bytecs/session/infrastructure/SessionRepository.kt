@@ -53,6 +53,35 @@ interface SessionRepository : JpaRepository<Session, Long> {
     )
     fun findSolvedItemAnswers(userId: Long): List<SolvedItemAnswer>
 
+    /**
+     * 지표 1 — 풀이 화면에 진입한 적 있는(started_at 기록) DISTINCT 사용자 수.
+     * 세션 생성(배정)만으로는 started_at이 남지 않으므로, '시작하기'로 풀이 화면에 들어온 사용자만 센다.
+     */
+    @Query("select count(distinct s.userId) from Session s where s.startedAt is not null")
+    fun countUsersStarted(): Long
+
+    /** 지표 2 — 세션(오늘의 한입)을 완료한 적 있는(status=COMPLETED) DISTINCT 사용자 수. */
+    @Query(
+        "select count(distinct s.userId) from Session s " +
+            "where s.status = watson.bytecs.session.domain.SessionStatus.COMPLETED",
+    )
+    fun countUsersCompleted(): Long
+
+    /**
+     * 지표 3 — 세션 완료 후 추가로 문제를 더 푼 DISTINCT 사용자 수.
+     * 같은 (user_id, session_date) 안에서, 완료된 세션(completed)보다 나중에 만들어진 세션(later.id > completed.id)의
+     * 풀이 화면까지 진입한(later.startedAt is not null) 경우를 센다 — '조금 더 풀기'로 재진입해 실제로 풀기 시작한 사용자.
+     * 같은 사용자가 여러 날 그랬어도 distinct로 1명이다.
+     */
+    @Query(
+        "select count(distinct later.userId) from Session completed, Session later " +
+            "where later.userId = completed.userId and later.sessionDate = completed.sessionDate " +
+            "and later.id > completed.id " +
+            "and completed.status = watson.bytecs.session.domain.SessionStatus.COMPLETED " +
+            "and later.startedAt is not null",
+    )
+    fun countUsersStudiedMoreAfterCompletion(): Long
+
     /** JPQL 별칭 프로젝션 — [findSolvedItemAnswers] 전용. */
     interface SolvedItemAnswer {
         val problemId: Long
