@@ -23,6 +23,7 @@ import watson.bytecs.session.domain.SessionNotFoundException
 import watson.bytecs.session.infrastructure.SessionRepository
 import watson.bytecs.study.LearningHistory
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -70,6 +71,18 @@ class SessionService(
         lockUser(userId)
         val session = advanceOrCreateToday(userId)
         return toStateResponse(userId, session)
+    }
+
+    /**
+     * 풀이 화면 진입을 표시한다(테스터 지표 수집). 오늘 최신 세션(없으면 새로 배정)의 시작 시각을 최초 1회 기록한다.
+     * 멱등 — 이미 기록됐으면 아무 것도 바꾸지 않는다. 클라이언트는 풀이 화면 진입 시 한 번 호출한다(실패해도 풀이를 막지 않는다).
+     * 세션을 만들거나 상태를 바꿀 수 있으므로 쓰기 트랜잭션으로 두고, 생성 경합은 진입부의 사용자 행 잠금으로 직렬화한다.
+     */
+    @Transactional
+    fun markTodayStarted(userId: Long) {
+        lockUser(userId)
+        val session = findOrCreateToday(userId)
+        session.markStarted(Instant.now(clock))
     }
 
     /** 세션 상태 응답을 만든다. 홈 화면이 로드 시점에 바로 스트릭을 보여주도록 현재 스트릭을 함께 싣는다. */
@@ -121,6 +134,8 @@ class SessionService(
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
         val streak = if (session.isCompleted) {
+            // 최초 완료 시각을 기록한다(테스터 지표). markCompleted가 멱등이라 재호출에도 최초 값을 지킨다.
+            session.markCompleted(Instant.now(clock))
             val user = loadUser(userId)
             user.recordStudy(today())
             user.streak

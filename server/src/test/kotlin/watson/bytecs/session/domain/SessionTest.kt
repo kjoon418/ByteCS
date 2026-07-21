@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Judgement
+import java.time.Instant
 import java.time.LocalDate
 
 class SessionTest {
@@ -287,5 +288,44 @@ class SessionTest {
             assertThatThrownBy { session.pastItemAt(-1) }
                 .isInstanceOf(ItemNotViewableException::class.java)
         }
+    }
+
+    @Nested
+    inner class 시작_완료_시각을_기록한다 {
+
+        @Test
+        fun 배정_직후에는_시작_완료_시각이_비어_있다() {
+            val session = sessionOf(10L)
+
+            assertThat(session.startedAt).isNull()
+            assertThat(session.completedAt).isNull()
+        }
+
+        @Test
+        fun 시작_시각은_최초_한_번만_기록된다() {
+            val session = sessionOf(10L)
+
+            session.markStarted(FIRST_START)
+            session.markStarted(LATER_START)
+
+            assertThat(session.startedAt).isEqualTo(FIRST_START)
+        }
+
+        @Test
+        fun 완료_시각은_최초_한_번만_기록된다() {
+            val session = sessionOf(10L)
+
+            session.markCompleted(FIRST_COMPLETE)
+            session.markCompleted(LATER_COMPLETE)
+
+            assertThat(session.completedAt).isEqualTo(FIRST_COMPLETE)
+        }
+    }
+
+    private companion object {
+        val FIRST_START: Instant = Instant.parse("2026-07-14T00:10:00Z")
+        val LATER_START: Instant = Instant.parse("2026-07-14T00:20:00Z")
+        val FIRST_COMPLETE: Instant = Instant.parse("2026-07-14T00:30:00Z")
+        val LATER_COMPLETE: Instant = Instant.parse("2026-07-14T00:40:00Z")
     }
 }

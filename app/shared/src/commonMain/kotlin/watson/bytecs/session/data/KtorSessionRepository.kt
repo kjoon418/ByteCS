@@ -43,6 +43,12 @@ class KtorSessionRepository(
         return dto.toDomain()
     }
 
+    // 지표 기록만을 위한 호출이라 응답 본문(204 No Content)을 읽지 않는다. 실패 시 예외는 그대로 올려
+    // 뷰모델이 조용히 무시하게 한다(부수 효과 — 풀이 흐름을 막지 않는다).
+    override suspend fun markStarted() {
+        client.post("$baseUrl/api/sessions/today/start")
+    }
+
     override suspend fun submitAttempt(answer: String): AttemptOutcome = mapSessionErrors {
         val dto: SessionAttemptResponseDto = client.post("$baseUrl/api/sessions/today/attempts") {
             contentType(ContentType.Application.Json)

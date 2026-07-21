@@ -64,6 +64,35 @@ class SessionViewModelTest {
         assertTrue(viewModel.uiState.value is SessionUiState.Error)
     }
 
+    /** 풀이 화면 진입(활성 세션 로드) 시, 테스터 지표를 위해 시작을 서버에 표시한다. */
+    @Test
+    fun load_active_reportsStarted() = runTest {
+        val repo = FakeSessionRepository(today = activeSession())
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        assertEquals(1, repo.markStartedCount)
+        assertTrue(viewModel.uiState.value is SessionUiState.Active)
+    }
+
+    /** 지표 기록(markStarted) 실패는 부수 효과라 풀이 흐름을 막지 않는다 — 화면은 정상 활성 상태로 남는다. */
+    @Test
+    fun markStartedFailure_doesNotBreakSession() = runTest {
+        val repo = FakeSessionRepository(today = activeSession()).apply { markStartedError = RuntimeException("down") }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        assertEquals(1, repo.markStartedCount)
+        assertTrue(viewModel.uiState.value is SessionUiState.Active)
+    }
+
+    /** 이미 완료된 세션으로 진입하면 곧장 완료로 넘어가므로 풀이 시작으로 세지 않는다(지표 1 오염 방지). */
+    @Test
+    fun load_completed_doesNotReportStarted() = runTest {
+        val repo = FakeSessionRepository(today = completedSession(total = 3))
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        assertEquals(0, repo.markStartedCount)
+    }
+
     // ── D6·D9 일원화: '조금 더 풀기'(추가 학습 폐지, 새 세션 재진입) ─────────────
 
     /** startNext=true면 getToday가 아니라 startNextSession(POST /today/next)으로 진입한다. */

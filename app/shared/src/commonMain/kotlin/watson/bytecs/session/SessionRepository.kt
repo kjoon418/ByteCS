@@ -15,6 +15,12 @@ interface SessionRepository {
      */
     suspend fun startNextSession(): DailySession
 
+    /**
+     * 풀이 화면 진입을 서버에 표시한다(테스터 지표 수집). `POST /api/sessions/today/start`.
+     * 오늘 최신 세션의 시작 시각을 최초 1회 기록한다(멱등). 부수 효과이므로 응답 본문은 없고, 실패해도 풀이 흐름을 막지 않는다.
+     */
+    suspend fun markStarted()
+
     /** 현재 본 문제에 답을 제출하고 결과를 받는다. `POST /api/sessions/today/attempts`. */
     suspend fun submitAttempt(answer: String): AttemptOutcome
 

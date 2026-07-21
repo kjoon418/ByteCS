@@ -21,6 +21,7 @@ import watson.bytecs.session.domain.Session
 import watson.bytecs.session.infrastructure.SessionRepository
 import watson.bytecs.study.LearningHistory
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Optional
@@ -112,6 +113,67 @@ class SessionServiceTest {
         service.getOrCreateNext(1L)
 
         verify(sessionCreator).create(1L, today)
+    }
+
+    // ── 테스터 지표: 시작·완료 시각 기록 ─────────────────────────────────
+
+    @Test
+    fun `풀이 화면 진입 표시는 오늘 최신 세션의 시작 시각을 현재 시각으로 기록한다`() {
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
+        given(userRepository.findWithLockById(1L)).willReturn(Optional.of(User.createGuest()))
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(session)
+
+        service.markTodayStarted(1L)
+
+        assertThat(session.startedAt).isEqualTo(clock.instant())
+    }
+
+    @Test
+    fun `풀이 화면 진입 표시는 멱등이라 이미 기록된 시작 시각을 덮어쓰지 않는다`() {
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
+            .apply { markStarted(EARLIER_START) }
+        given(userRepository.findWithLockById(1L)).willReturn(Optional.of(User.createGuest()))
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(session)
+
+        service.markTodayStarted(1L)
+
+        assertThat(session.startedAt).isEqualTo(EARLIER_START)
+    }
+
+    @Test
+    fun `오늘 세션 조회만으로는 시작 시각이 기록되지 않는다`() {
+        val existing = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(10L))
+        stubProblemAndUser(problemId = 10L)
+        given(sessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(existing)
+
+        service.getOrCreateToday(1L)
+
+        assertThat(existing.startedAt).isNull()
+    }
+
+    @Test
+    fun `마지막 본 문제를 맞혀 세션이 완료되면 완료 시각을 현재 시각으로 기록한다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        stubSubmit(session, problem)
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+
+        service.submitAnswer(1L, AnswerText("정답"))
+
+        assertThat(session.isCompleted).isTrue()
+        assertThat(session.completedAt).isEqualTo(clock.instant())
+    }
+
+    @Test
+    fun `완료되지 않은 제출은 완료 시각을 기록하지 않는다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        stubSubmit(session, problem)
+
+        service.submitAnswer(1L, AnswerText("틀림"))
+
+        assertThat(session.isCompleted).isFalse()
+        assertThat(session.completedAt).isNull()
     }
 
     /**
@@ -218,4 +280,9 @@ class SessionServiceTest {
         Session.assign(userId = userId, sessionDate = today, problemIds = listOf(problemId)).apply {
             recordAttempt(Judgement.CORRECT, AnswerText("정답"))
         }
+
+    private companion object {
+        // 이미 기록된 시작 시각(멱등 검증용) — 현재 클럭 시각과 구분되기만 하면 값 자체는 의미가 없다.
+        val EARLIER_START: Instant = Instant.EPOCH
+    }
 }

@@ -16,6 +16,7 @@ import jakarta.persistence.Table
 import jakarta.persistence.Version
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Judgement
+import java.time.Instant
 import java.time.LocalDate
 
 /**
@@ -52,6 +53,17 @@ class Session private constructor(
     @Version
     @Column(name = "version", nullable = false)
     var version: Long = 0
+        protected set
+
+    // 풀이 화면 최초 진입 시각(테스터 지표). 세션 생성(배정)만으로는 기록되지 않고, '시작하기'로 풀이 화면에
+    // 진입할 때 서비스가 1회 기록한다. null이면 아직 풀이 화면에 진입한 적 없는 세션이다.
+    @Column(name = "started_at")
+    var startedAt: Instant? = null
+        protected set
+
+    // 세션 최초 완료 시각(테스터 지표). 마지막 본 문제를 맞혀 COMPLETED로 전이할 때 서비스가 1회 기록한다.
+    @Column(name = "completed_at")
+    var completedAt: Instant? = null
         protected set
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -148,6 +160,26 @@ class Session private constructor(
             current.revealNextHint()
         }
         return current.revealedHintCount
+    }
+
+    /**
+     * 풀이 화면 최초 진입 시각을 1회 기록한다(테스터 지표 수집). 멱등 — 이미 기록됐으면 그대로 둔다.
+     * '진입한 적 있음'만을 표시하므로 진행·완료 상태와 무관하게 처음 한 번만 시각을 남긴다.
+     */
+    fun markStarted(startedAt: Instant) {
+        if (this.startedAt == null) {
+            this.startedAt = startedAt
+        }
+    }
+
+    /**
+     * 세션 완료 시각을 1회 기록한다(테스터 지표 수집). 멱등 — 이미 기록됐으면 그대로 둔다.
+     * 완료 전이(recordAttempt)를 감지한 서비스가 최초 완료 시점에 호출한다.
+     */
+    fun markCompleted(completedAt: Instant) {
+        if (this.completedAt == null) {
+            this.completedAt = completedAt
+        }
     }
 
     /**

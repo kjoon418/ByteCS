@@ -12,6 +12,7 @@ class FakeSessionRepository(
 ) : SessionRepository {
 
     var getTodayError: Throwable? = null
+    var markStartedError: Throwable? = null
     var submitError: Throwable? = null
     var revealError: Throwable? = null
     var pastError: Throwable? = null
@@ -32,6 +33,7 @@ class FakeSessionRepository(
     }
 
     val submitted = mutableListOf<String>()
+    var markStartedCount = 0
     var submitCount = 0
     var revealCount = 0
     var revealHintCount = 0
@@ -50,6 +52,11 @@ class FakeSessionRepository(
         startNextCount++
         startNextError?.let { throw it }
         return nextSession ?: today
+    }
+
+    override suspend fun markStarted() {
+        markStartedCount++
+        markStartedError?.let { throw it }
     }
 
     override suspend fun submitAttempt(answer: String): AttemptOutcome {

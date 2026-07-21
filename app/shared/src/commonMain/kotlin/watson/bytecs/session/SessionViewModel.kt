@@ -67,10 +67,28 @@ class SessionViewModel(
                     solvedCount = session.solvedCount,
                     revealedHints = problem.revealedHints,
                 )
+                reportStarted()
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Throwable) {
                 _uiState.value = SessionUiState.Error
+            }
+        }
+    }
+
+    /**
+     * 풀이 화면 진입을 서버에 표시한다(테스터 지표 수집). 별도 코루틴으로 발사해 화면 렌더를 막지 않고,
+     * 실패해도 조용히 무시한다 — 지표 기록은 부수 효과이며 학습 흐름을 막지 않는다(무낙인). 서버가 멱등이라
+     * 재진입(홈↔세션 왕복·재시도)에 매번 불려도 최초 진입 시각만 남는다.
+     */
+    private fun reportStarted() {
+        viewModelScope.launch {
+            try {
+                repository.markStarted()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                // 지표 기록 실패는 풀이를 막지 않는다 — 조용히 무시한다.
             }
         }
     }

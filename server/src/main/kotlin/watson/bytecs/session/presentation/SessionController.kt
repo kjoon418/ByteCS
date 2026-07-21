@@ -1,12 +1,14 @@
 package watson.bytecs.session.presentation
 
 import jakarta.validation.Valid
+import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import watson.bytecs.account.security.AuthenticatedUser
 import watson.bytecs.session.application.SessionService
@@ -45,6 +47,18 @@ class SessionController(
         @AuthenticationPrincipal user: AuthenticatedUser,
     ): SessionStateResponse =
         sessionService.getOrCreateNext(user.userId)
+
+    /**
+     * 풀이 화면 진입 표시(테스터 지표): 오늘 최신 세션의 시작 시각을 최초 1회 기록한다. 멱등이라 재호출은 no-op이다.
+     * 클라이언트는 풀이 화면 진입 시 부수적으로 한 번 호출하며, 실패해도 풀이 흐름을 막지 않는다. 본문 없이 204로 응답한다.
+     */
+    @PostMapping("/today/start")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun startToday(
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ) {
+        sessionService.markTodayStarted(user.userId)
+    }
 
     @PostMapping("/today/attempts")
     fun submitAttempt(
