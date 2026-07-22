@@ -3,6 +3,7 @@ package watson.bytecs.problem.infrastructure
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.springframework.boot.CommandLineRunner
 import org.springframework.context.annotation.Profile
+import org.springframework.core.annotation.Order
 import org.springframework.core.io.ClassPathResource
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -36,6 +37,7 @@ import watson.bytecs.problem.domain.ProblemType
  */
 @Component
 @Profile("local", "tester")
+@Order(1)
 class ProblemDataLoader(
     private val conceptRepository: ConceptRepository,
     private val problemRepository: ProblemRepository,
