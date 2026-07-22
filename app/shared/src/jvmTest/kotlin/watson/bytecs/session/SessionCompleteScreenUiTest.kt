@@ -1,13 +1,17 @@
 package watson.bytecs.session
 
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SkikoComposeUiTest
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
+import androidx.compose.ui.test.v2.runSkikoComposeUiTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import watson.bytecs.account.PreferredDifficulty
 import watson.bytecs.ui.theme.BcsTheme
 
 /**
@@ -33,22 +37,46 @@ class SessionCompleteScreenUiTest {
         mainClock.advanceTimeBy(2_000)
     }
 
+    /**
+     * 제안 카드 테스트용 — 카드 끝까지 스크롤 없이 전부 보이는 긴 캔버스로 띄운다.
+     * ⚠️ 이 화면 테스트에서 performScrollTo를 쓰면 안 된다: [settleCelebration]이 mainClock을 멈춘
+     * 상태라 skiko 테스트의 scrollToNode가 스크롤 애니메이션 프레임을 영원히 기다리며 무한 재시도해
+     * 실행기가 힙 고갈(OOM)로 죽는다(2026-07-22, 스레드 덤프로 확인 — Actions.kt scrollToNode 루프).
+     */
+    @OptIn(ExperimentalTestApi::class)
+    private fun runTallComposeUiTest(block: suspend SkikoComposeUiTest.() -> Unit) =
+        runSkikoComposeUiTest(size = Size(1024f, 2400f), block = block)
+
+    /** 카드 콜백 호출 횟수를 세는 하네스(선택·거절이 정확히 의도한 만큼만 나가는지 증명). */
+    private class PromptCallbacks {
+        var selected: PreferredDifficulty? = null
+        var dismissed = 0
+        var dismissNoticeFinished = 0
+    }
+
     @OptIn(ExperimentalTestApi::class)
     private fun androidx.compose.ui.test.ComposeUiTest.showScreen(
         summary: CompletionSummary = this@SessionCompleteScreenUiTest.summary,
+        promptState: DifficultyPromptUiState = DifficultyPromptUiState(visible = false),
         onDone: () -> Unit = {},
         onMore: () -> Unit = {},
-    ) {
+        promptCallbacks: PromptCallbacks = PromptCallbacks(),
+    ): PromptCallbacks {
         setContent {
             BcsTheme(darkTheme = false) {
-                SessionCompleteScreen(
+                SessionCompleteScreenContent(
                     summary = summary,
+                    promptState = promptState,
                     onDone = onDone,
                     onMore = onMore,
+                    onSelectDifficulty = { promptCallbacks.selected = it },
+                    onDismissPrompt = { promptCallbacks.dismissed++ },
+                    onDismissNoticeFinished = { promptCallbacks.dismissNoticeFinished++ },
                 )
             }
         }
         settleCelebration()
+        return promptCallbacks
     }
 
     // ── 완결 축하 헤더 ────────────────────────────────────────────────────────
@@ -210,5 +238,105 @@ class SessionCompleteScreenUiTest {
         showScreen()
 
         assertEquals(0, onAllNodesWithText("가입", substring = true).fetchSemanticsNodes().size)
+    }
+
+    // ── 선호 난이도 제안 카드 (난이도 조절 1차 · 구성 8 · DF1) ────────────────────
+
+    /** 노출 신호(visible=false)가 없으면 카드는 아예 렌더되지 않는다 — 이미 선호를 정했거나 응답한 사용자. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 노출_신호가_없으면_난이도_제안_카드가_보이지_않는다() = runComposeUiTest {
+        showScreen(promptState = DifficultyPromptUiState(visible = false))
+
+        onNodeWithText("CS를 이제 막 시작해요").assertDoesNotExist()
+        onNodeWithText("지금은 괜찮아요").assertDoesNotExist()
+    }
+
+    /** 서버 신호(visible=true)가 있으면 상태 서술형 3택 + 거절이 모두 보인다(무낙인 문구, DF4). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 노출_신호가_있으면_상태_서술형_3택과_거절이_보인다() = runTallComposeUiTest {
+        showScreen(promptState = DifficultyPromptUiState(visible = true))
+
+        onNodeWithText("새 문제, 어떤 난이도로 만나고 싶은지 골라볼까요?").assertIsDisplayed()
+        onNodeWithText("CS를 이제 막 시작해요").assertIsDisplayed()
+        onNodeWithText("기본기를 다지는 중이에요").assertIsDisplayed()
+        onNodeWithText("도전적인 문제를 원해요").assertIsDisplayed()
+        onNodeWithText("지금은 괜찮아요").assertIsDisplayed()
+    }
+
+    /** ⛔ 수준 평가 뉘앙스("실력에 맞는" 등) 금지 — 조절 주체가 사용자임을 드러내는 문구만 쓴다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 제안_카드는_수준_평가_뉘앙스를_쓰지_않는다() = runComposeUiTest {
+        showScreen(promptState = DifficultyPromptUiState(visible = true))
+
+        listOf("실력에 맞는", "당신의 수준", "레벨").forEach { forbidden ->
+            assertEquals(
+                0,
+                onAllNodesWithText(forbidden, substring = true).fetchSemanticsNodes().size,
+                "수준 평가 뉘앙스('$forbidden')가 있으면 안 된다",
+            )
+        }
+    }
+
+    /** 3택 중 하나를 고르면 그 값 그대로 선택 콜백이 나간다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 난이도_항목을_고르면_선택_콜백이_그_값으로_나간다() = runTallComposeUiTest {
+        val callbacks = showScreen(promptState = DifficultyPromptUiState(visible = true))
+
+        onNodeWithText("도전적인 문제를 원해요").performClick()
+
+        assertEquals(PreferredDifficulty.HARD, callbacks.selected)
+    }
+
+    /** "지금은 괜찮아요"를 누르면 거절 콜백이 나간다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 지금은_괜찮아요를_누르면_거절_콜백이_나간다() = runTallComposeUiTest {
+        val callbacks = showScreen(promptState = DifficultyPromptUiState(visible = true))
+
+        onNodeWithText("지금은 괜찮아요").performClick()
+
+        assertEquals(1, callbacks.dismissed)
+    }
+
+    /** 거절 저장 성공 직후엔 선택지 대신 은은한 안내만 보인다("닫기" 전 잠깐 보여주는 상태). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 거절_저장에_성공하면_선택지_대신_안내_문구를_보여준다() = runTallComposeUiTest {
+        showScreen(promptState = DifficultyPromptUiState(visible = true, dismissedNotice = true))
+
+        onNodeWithText("설정에서 언제든 바꿀 수 있어요").assertIsDisplayed()
+        onNodeWithText("CS를 이제 막 시작해요").assertDoesNotExist()
+        onNodeWithText("지금은 괜찮아요").assertDoesNotExist()
+    }
+
+    /** 저장 실패는 카드를 유지한 채(사라지지 않고) 비처벌 안내만 보여준다 — 재시도 가능해야 한다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 저장_실패는_카드를_유지한_채_안내를_보여준다() = runTallComposeUiTest {
+        showScreen(
+            promptState = DifficultyPromptUiState(
+                visible = true,
+                error = "저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
+            ),
+        )
+
+        onNodeWithText("저장하지 못했어요. 잠시 후 다시 시도해 주세요.").assertIsDisplayed()
+        // 재시도할 수 있도록 선택지가 여전히 남아 있다.
+        onNodeWithText("CS를 이제 막 시작해요").assertIsDisplayed()
+    }
+
+    /** ⭐️ 가벼운 초대 원칙 — 카드가 떠도 완결 축하 헤더·스트릭의 위계를 가리지 않는다(둘 다 그대로 보인다). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 제안_카드가_떠도_완결_축하_위계를_가리지_않는다() = runComposeUiTest {
+        showScreen(promptState = DifficultyPromptUiState(visible = true))
+
+        onNodeWithText("오늘 CS 한입 완료!").assertIsDisplayed()
+        onNodeWithText("3일 연속 학습 중").assertIsDisplayed()
+        onNodeWithText("오늘은 여기까지").assertIsDisplayed()
     }
 }

@@ -185,3 +185,9 @@ kotlin {
 dependencies {
     androidRuntimeClasspath(libs.compose.uiTooling)
 }
+
+// Compose UI 테스트(jvmTest)는 skiko로 실제 컴포지션을 그려 스위트가 커질수록 힙을 많이 쓴다.
+// Gradle 기본 포크 힙(512MB)으로는 400개+ 테스트에서 OutOfMemoryError로 실행기가 죽는다.
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "2g"
+}

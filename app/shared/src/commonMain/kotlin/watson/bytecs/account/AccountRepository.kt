@@ -30,6 +30,13 @@ interface AccountRepository {
      */
     suspend fun updatePreferredDifficulty(value: PreferredDifficulty): Account
 
+    /**
+     * 세션 완료 화면의 난이도 제안 카드에서 "지금은 괜찮아요"(거절)를 눌렀을 때 기록한다.
+     * `PATCH /api/users/me/settings`(인증 필요, 부분 갱신 — `difficultyPromptDone`만 보낸다).
+     * 선호는 바꾸지 않는다 — 응답했다는 사실만 남겨, 서버가 이후 완료 화면에서 다시 제안하지 않게 한다.
+     */
+    suspend fun dismissDifficultyPrompt(): Account
+
     /** 본인 계정 삭제. `DELETE /api/users/me`(인증 필요). */
     suspend fun deleteMe()
 }

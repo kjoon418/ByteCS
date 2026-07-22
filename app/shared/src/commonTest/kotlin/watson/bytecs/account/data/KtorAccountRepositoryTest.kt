@@ -244,6 +244,29 @@ class KtorAccountRepositoryTest {
     }
 
     @Test
+    fun dismissDifficultyPrompt_patchesBodyAndPath_andMapsResponse() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Patch, request.method)
+            assertEquals("http://test/api/users/me/settings", request.url.toString())
+            val body = (request.body as TextContent).text
+            assertTrue(body.contains("\"difficultyPromptDone\""))
+            assertTrue(body.contains("true"))
+            // 거절은 선호를 바꾸지 않는다 — 부분 갱신 계약상 이 필드는 함께 보내지 않는다.
+            assertTrue(!body.contains("preferredDifficulty"))
+            respond(
+                content = """{"userId":42,"role":"MEMBER","email":"a@b.com","dailySessionSize":5,"preferredDifficulty":null}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val repository = KtorAccountRepository(authedClient("member-jwt", engine), baseUrl)
+
+        val account = repository.dismissDifficultyPrompt()
+
+        assertNull(account.preferredDifficulty, "거절은 선호를 미설정으로 남겨둔다")
+    }
+
+    @Test
     fun deleteMe_sendsDeleteWithBearer() = runTest {
         var seenMethod: HttpMethod? = null
         val engine = MockEngine { request ->

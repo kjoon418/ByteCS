@@ -19,11 +19,13 @@ class FakeAccountRepository(
     var getMeError: Throwable? = null
     var updateSettingsError: Throwable? = null
     var updatePreferredDifficultyError: Throwable? = null
+    var dismissDifficultyPromptError: Throwable? = null
     var deleteMeError: Throwable? = null
 
     var deleteMeCount = 0
     var lastUpdatedSize: Int? = null
     var lastUpdatedPreferredDifficulty: PreferredDifficulty? = null
+    var dismissDifficultyPromptCount = 0
 
     override suspend fun issueGuest(): GuestSession {
         calls += "issueGuest"
@@ -78,6 +80,15 @@ class FakeAccountRepository(
         lastUpdatedPreferredDifficulty = value
         current = account.copy(preferredDifficulty = value)
         return current!!
+    }
+
+    override suspend fun dismissDifficultyPrompt(): Account {
+        calls += "dismissDifficultyPrompt"
+        dismissDifficultyPromptError?.let { throw it }
+        val account = current ?: throw IllegalStateException("no current user")
+        dismissDifficultyPromptCount++
+        // 선호는 건드리지 않는다 — 거절은 응답했다는 사실만 남긴다(서버 도메인 규칙과 동형).
+        return account
     }
 
     override suspend fun deleteMe() {

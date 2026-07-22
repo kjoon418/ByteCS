@@ -131,6 +131,51 @@ class KtorSessionRepositoryTest {
         assertNull(session.streak, "streak 필드가 없으면 null(그레이스풀)")
     }
 
+    // ── 난이도 조절 1차: 완료 화면 선호 난이도 제안 카드(DF1) ────────────────────
+
+    @Test
+    fun getToday_mapsNeedsDifficultyPrompt() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"sessionId":1,"sessionDate":"2026-07-21","status":"COMPLETED","solvedCount":5,"totalCount":5,"position":5,"needsDifficultyPrompt":true}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val session = KtorSessionRepository(client("t", engine), baseUrl).getToday()
+
+        assertTrue(session.needsDifficultyPrompt)
+    }
+
+    /** 필드가 없는(구버전 서버 등) 응답도 그레이스풀하게 false로 떨어진다 — 하위호환. */
+    @Test
+    fun getToday_withoutNeedsDifficultyPromptField_defaultsToFalse() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"sessionId":1,"sessionDate":"2026-07-14","status":"IN_PROGRESS","solvedCount":0,"totalCount":5,"position":0,"currentProblem":{"id":1,"question":"Q","difficulty":null,"codeSnippet":null}}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val session = KtorSessionRepository(client(null, engine), baseUrl).getToday()
+
+        assertFalse(session.needsDifficultyPrompt, "필드 부재는 하위호환으로 false")
+    }
+
+    @Test
+    fun submitAttempt_completing_mapsNeedsDifficultyPrompt() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"result":"CORRECT","status":"COMPLETED","solvedCount":3,"totalCount":3,"position":3,"concepts":["스택"],"explanation":"LIFO","currentProblem":null,"streak":null,"needsDifficultyPrompt":true}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val outcome = KtorSessionRepository(client("t", engine), baseUrl).submitAttempt("스택")
+
+        assertTrue(outcome.needsDifficultyPrompt)
+    }
+
     /**
      * '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지). 오늘 최신이 완료 상태면 새 세션을, 진행 중이면 그 세션을
      * 그대로 돌려주는 계약이라 응답 형태는 `GET /today`와 동일하다(재사용).

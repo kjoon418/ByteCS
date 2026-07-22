@@ -112,6 +112,7 @@ class FakeSessionRepository(
             solved: Int = 0,
             problem: SessionProblem? = problem(1L),
             streak: Streak? = null,
+            needsDifficultyPrompt: Boolean = false,
         ) = DailySession(
             sessionId = 1L,
             sessionDate = "2026-07-14",
@@ -121,9 +122,14 @@ class FakeSessionRepository(
             position = position,
             currentProblem = problem,
             streak = streak,
+            needsDifficultyPrompt = needsDifficultyPrompt,
         )
 
-        fun completedSession(total: Int = 3, streak: Streak? = Streak(5, "2026-07-14")) = DailySession(
+        fun completedSession(
+            total: Int = 3,
+            streak: Streak? = Streak(5, "2026-07-14"),
+            needsDifficultyPrompt: Boolean = false,
+        ) = DailySession(
             sessionId = 1L,
             sessionDate = "2026-07-14",
             status = SessionStatus.COMPLETED,
@@ -132,6 +138,7 @@ class FakeSessionRepository(
             position = total,
             currentProblem = null,
             streak = streak,
+            needsDifficultyPrompt = needsDifficultyPrompt,
         )
 
         fun correctOutcome(
@@ -143,6 +150,7 @@ class FakeSessionRepository(
             streak: Streak? = null,
             enrichment: Enrichment? = null,
             representativeAnswer: String? = "대표정답",
+            needsDifficultyPrompt: Boolean = false,
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
             status = if (completed) SessionStatus.COMPLETED else SessionStatus.IN_PROGRESS,
@@ -155,6 +163,7 @@ class FakeSessionRepository(
             streak = streak,
             enrichment = enrichment,
             representativeAnswer = representativeAnswer,
+            needsDifficultyPrompt = needsDifficultyPrompt,
         )
 
         fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(

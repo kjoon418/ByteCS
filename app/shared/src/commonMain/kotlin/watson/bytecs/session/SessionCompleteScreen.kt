@@ -8,6 +8,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,9 +39,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import watson.bytecs.account.PreferredDifficulty
+import watson.bytecs.account.preferredDifficultyStatement
 import watson.bytecs.ui.components.BcsScaffold
+import watson.bytecs.ui.components.GhostButton
 import watson.bytecs.ui.components.InfoCard
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.SecondaryButton
@@ -50,6 +60,9 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
+
+/** 거절 안내("설정에서 언제든 바꿀 수 있어요")를 보여준 뒤 카드를 닫기까지의 시간. */
+private const val DISMISS_NOTICE_DURATION_MS = 1_800L
 
 /**
  * 04 세션 완료. 오늘의 한입을 다 마쳤을 때의 완결 화면.
@@ -63,15 +76,46 @@ import kotlin.random.Random
  * ⭐️ 가입 유도는 이 화면에 두지 않는다(2026-07-16 오너 결정) — 홈의 가입 유도(GuestUpgradeBanner)로
  * 접점을 일원화해, 완료의 순간은 성취에만 집중한다.
  *
+ * @param viewModel 선호 난이도 제안 카드(구성 8, DF1) 상태 홀더. 노출 여부는 [CompletionSummary.needsDifficultyPrompt]로
+ * 생성 시 정해진다 — 서버가 준 신호를 그대로 따른다(클라 조건 재계산 금지).
  * @param summary 완료 요약(푼 문제 수·스트릭). 세션 완료 이벤트로 전달된다.
  * @param onDone [오늘은 여기까지] → 02 홈.
  * @param onMore [조금 더 풀기] → 새 세션으로 03 세션 풀이에 재진입(D6·D9 일원화 — 추가 학습 폐지).
  */
 @Composable
 fun SessionCompleteScreen(
+    viewModel: SessionCompleteViewModel,
     summary: CompletionSummary,
     onDone: () -> Unit,
     onMore: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val promptState by viewModel.uiState.collectAsStateWithLifecycle()
+    SessionCompleteScreenContent(
+        summary = summary,
+        promptState = promptState,
+        onDone = onDone,
+        onMore = onMore,
+        onSelectDifficulty = viewModel::select,
+        onDismissPrompt = viewModel::dismiss,
+        onDismissNoticeFinished = viewModel::closeAfterDismissNotice,
+        modifier = modifier,
+    )
+}
+
+/**
+ * [SessionCompleteScreen]의 순수 렌더 본체 — 뷰모델 없이 상태를 직접 받아 UI 테스트에서 쓴다
+ * (계정·설정 화면의 AccountScreen/AccountScreenContent와 같은 분리 관례).
+ */
+@Composable
+internal fun SessionCompleteScreenContent(
+    summary: CompletionSummary,
+    promptState: DifficultyPromptUiState,
+    onDone: () -> Unit,
+    onMore: () -> Unit,
+    onSelectDifficulty: (PreferredDifficulty) -> Unit,
+    onDismissPrompt: () -> Unit,
+    onDismissNoticeFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalBcsColors.current
@@ -154,7 +198,121 @@ fun SessionCompleteScreen(
                     color = colors.textPrimary,
                 )
             }
+
+            // 선호 난이도 제안 카드(구성 8, DF1) — 완결 축하·스트릭 아래 얹히는 '가벼운 초대'.
+            // 노출 여부는 promptState.visible 하나만 따른다(서버가 준 신호, 클라 재계산 없음).
+            if (promptState.visible) {
+                DifficultyPromptCard(
+                    state = promptState,
+                    onSelect = onSelectDifficulty,
+                    onDismiss = onDismissPrompt,
+                    onDismissNoticeFinished = onDismissNoticeFinished,
+                )
+            }
         }
+    }
+}
+
+/**
+ * 선호 난이도 제안 카드 본체. 완결 축하 위계를 가리지 않도록 중립 톤(surfaceSubtle)만 쓰고,
+ * danger·강조색은 쓰지 않는다. 저장 실패는 카드를 유지한 채 안내만 남겨 재시도를 열어둔다
+ * (UX 에러 응답 가이드 — 해결 방법을 알려준다·부정적 감정 최소화).
+ */
+@Composable
+private fun DifficultyPromptCard(
+    state: DifficultyPromptUiState,
+    onSelect: (PreferredDifficulty) -> Unit,
+    onDismiss: () -> Unit,
+    onDismissNoticeFinished: () -> Unit,
+) {
+    val colors = LocalBcsColors.current
+
+    // 거절 안내는 은은히 보여준 뒤 스스로 닫는다(04 §8 "안내 후 닫기").
+    LaunchedEffect(state.dismissedNotice) {
+        if (state.dismissedNotice) {
+            delay(DISMISS_NOTICE_DURATION_MS)
+            onDismissNoticeFinished()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusCard))
+            .background(colors.surfaceSubtle)
+            .padding(BcsDimens.space5)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space3),
+    ) {
+        if (state.dismissedNotice) {
+            Text(
+                text = "설정에서 언제든 바꿀 수 있어요",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textSecondary,
+            )
+        } else {
+            // ⭐️ 조절 주체가 사용자임을 드러내는 문구 — "실력에 맞는" 같은 평가 뉘앙스 금지(04 §8 DF4).
+            Text(
+                text = "새 문제, 어떤 난이도로 만나고 싶은지 골라볼까요?",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.textPrimary,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(BcsDimens.space2)) {
+                DifficultyPromptOption(
+                    label = preferredDifficultyStatement(PreferredDifficulty.EASY),
+                    enabled = !state.saving,
+                    onClick = { onSelect(PreferredDifficulty.EASY) },
+                )
+                DifficultyPromptOption(
+                    label = preferredDifficultyStatement(PreferredDifficulty.MEDIUM),
+                    enabled = !state.saving,
+                    onClick = { onSelect(PreferredDifficulty.MEDIUM) },
+                )
+                DifficultyPromptOption(
+                    label = preferredDifficultyStatement(PreferredDifficulty.HARD),
+                    enabled = !state.saving,
+                    onClick = { onSelect(PreferredDifficulty.HARD) },
+                )
+            }
+            if (state.error != null) {
+                Text(
+                    text = state.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+            }
+            GhostButton(
+                text = "지금은 괜찮아요",
+                onClick = onDismiss,
+                enabled = !state.saving,
+                contentColor = colors.textSecondary,
+            )
+        }
+    }
+}
+
+/** 제안 카드의 선택지 하나. 톤은 설정 화면(06)의 같은 문구 선택지와 맞춘다(눈에 익은 시각 언어). */
+@Composable
+private fun DifficultyPromptOption(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val colors = LocalBcsColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusChip))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(BcsDimens.borderWidth, colors.border, RoundedCornerShape(BcsDimens.radiusChip))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space3),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (enabled) colors.textPrimary else colors.textTertiary,
+        )
     }
 }
 

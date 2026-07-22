@@ -150,6 +150,19 @@ class SessionManagerTest {
         assertEquals(PreferredDifficulty.HARD, state.account?.preferredDifficulty)
     }
 
+    @Test
+    fun dismissDifficultyPrompt_refreshesMemberState() = runTest {
+        val tokenStore = store()
+        val repository = FakeAccountRepository()
+        val manager = SessionManager(repository, tokenStore)
+        manager.login("a@b.com", "pw12345678")
+
+        manager.dismissDifficultyPrompt()
+
+        assertEquals(1, repository.dismissDifficultyPromptCount)
+        assertTrue(manager.state.value is AuthState.Member, "거절 후에도 계정 상태는 유지된다")
+    }
+
     // ── A: 오프라인 게스트 발급 실패는 막다른 길이 아니라 복구 가능한 BootstrapFailed ─────
 
     @Test

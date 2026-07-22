@@ -77,6 +77,17 @@ internal data class UpdatePreferredDifficultyRequestDto(
 )
 
 /**
+ * `PATCH /api/users/me/settings` 요청 본문(난이도 제안 거절 기록 — 부분 갱신이라 이 필드만 보낸다).
+ * `true`만 의미가 있다(응답했음 = 다시 묻지 않음).
+ * ⭐️ 기본값을 주면 안 된다 — 클라 Json은 encodeDefaults=false라 기본값 필드가 직렬화에서 빠져
+ * 본문이 `{}`(무동작 PATCH)가 된다. 항상 명시적으로 넣어 필드가 반드시 인코딩되게 한다.
+ */
+@Serializable
+internal data class DismissDifficultyPromptRequestDto(
+    val difficultyPromptDone: Boolean,
+)
+
+/**
  * 비-2xx 응답 본문(서버 `common.error.ErrorResponse`와 대응). 400(INVALID_INPUT) 번역 시
  * 서버가 만든 상세 메시지를 그대로 안내하기 위해 파싱한다.
  */

@@ -149,6 +149,55 @@ class SessionViewModelTest {
         assertEquals(3, event.summary.streak?.count)
     }
 
+    // ── 난이도 조절 1차: 완료 화면 선호 난이도 제안 카드(DF1) 신호 전달 ────────────
+
+    /** 서버의 needsDifficultyPrompt 신호가 완료 요약에 그대로 실린다 — 클라가 조건을 재계산하지 않는다. */
+    @Test
+    fun alreadyCompletedOnLoad_carriesNeedsDifficultyPrompt() = runTest {
+        val repo = FakeSessionRepository(today = completedSession(total = 5, needsDifficultyPrompt = true))
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        val event = viewModel.events.first()
+        assertTrue(event is SessionEvent.Completed)
+        assertTrue(event.summary.needsDifficultyPrompt)
+    }
+
+    /** 기본(false)은 완료 요약에서도 그대로 false로 남는다 — 이미 선호를 정했거나 응답한 사용자. */
+    @Test
+    fun alreadyCompletedOnLoad_withoutPrompt_doesNotCarryPrompt() = runTest {
+        val repo = FakeSessionRepository(today = completedSession(total = 5))
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        val event = viewModel.events.first()
+        assertTrue(event is SessionEvent.Completed)
+        assertFalse(event.summary.needsDifficultyPrompt)
+    }
+
+    /** finishSession 경로(마지막 문제를 맞혀 완료)도 제출 응답의 신호를 그대로 완료 요약에 싣는다. */
+    @Test
+    fun finishSession_carriesNeedsDifficultyPrompt_fromAttemptResponse() = runTest {
+        val repo = FakeSessionRepository(today = activeSession(position = 2, total = 3, solved = 2))
+        repo.onSubmit = {
+            correctOutcome(
+                next = null,
+                position = 3,
+                solved = 3,
+                total = 3,
+                completed = true,
+                needsDifficultyPrompt = true,
+            )
+        }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("정답")
+        viewModel.submit()
+        viewModel.finishSession()
+
+        val event = viewModel.events.first()
+        assertTrue(event is SessionEvent.Completed)
+        assertTrue(event.summary.needsDifficultyPrompt)
+    }
+
     @Test
     fun mismatch_yieldsNeutralFeedback_andRetainsInput() = runTest {
         val repo = FakeSessionRepository().apply { onSubmit = { mismatchOutcome() } }

@@ -66,7 +66,10 @@ internal data class StreakDto(
     fun toDomain(): Streak = Streak(count, lastStudyDate)
 }
 
-/** `GET /api/sessions/today` 응답. streak는 백엔드가 read 경로에 실어 주면 채워진다(아직 미제공이면 null). */
+/**
+ * `GET /api/sessions/today` 응답. streak는 백엔드가 read 경로에 실어 주면 채워진다(아직 미제공이면 null).
+ * needsDifficultyPrompt는 완료 화면 난이도 제안 카드 노출 여부(DF1) — 서버 단일 출처.
+ */
 @Serializable
 internal data class SessionStateDto(
     val sessionId: Long,
@@ -77,6 +80,7 @@ internal data class SessionStateDto(
     val position: Int,
     val currentProblem: SessionProblemDto? = null,
     val streak: StreakDto? = null,
+    val needsDifficultyPrompt: Boolean = false,
 ) {
     fun toDomain(): DailySession = DailySession(
         sessionId = sessionId,
@@ -87,6 +91,7 @@ internal data class SessionStateDto(
         position = position,
         currentProblem = currentProblem?.toDomain(),
         streak = streak?.toDomain(),
+        needsDifficultyPrompt = needsDifficultyPrompt,
     )
 }
 
@@ -106,6 +111,8 @@ internal data class SessionAttemptResponseDto(
     val enrichment: EnrichmentDto? = null,
     // 화면 표시용 대표 정답. 서버가 CORRECT일 때만 채워 보낸다(무낙인·정답 비노출 연장).
     val representativeAnswer: String? = null,
+    // 이 제출로 완료됐고 난이도 제안을 노출해야 할 때만 true(미완료 제출은 항상 false).
+    val needsDifficultyPrompt: Boolean = false,
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -120,6 +127,7 @@ internal data class SessionAttemptResponseDto(
         misconceptionHint = misconceptionHint,
         enrichment = enrichment?.toDomain(),
         representativeAnswer = representativeAnswer,
+        needsDifficultyPrompt = needsDifficultyPrompt,
     )
 }
 

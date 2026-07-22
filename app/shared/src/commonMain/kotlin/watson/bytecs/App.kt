@@ -50,6 +50,7 @@ import watson.bytecs.session.CompletionSummary
 import watson.bytecs.session.HomeScreen
 import watson.bytecs.session.HomeViewModel
 import watson.bytecs.session.SessionCompleteScreen
+import watson.bytecs.session.SessionCompleteViewModel
 import watson.bytecs.session.SessionRepository
 import watson.bytecs.session.SessionScreen
 import watson.bytecs.session.SessionViewModel
@@ -217,7 +218,11 @@ private fun AppNavHost(dependencies: AppDependencies) {
         }
 
         is Screen.SessionComplete -> {
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
+                SessionCompleteViewModel(dependencies.sessionManager, screen.summary.needsDifficultyPrompt)
+            }
             SessionCompleteScreen(
+                viewModel = viewModel,
                 summary = screen.summary,
                 onDone = { back() },
                 // '조금 더 풀기'(D6·D9 일원화) — 완료 화면을 먼저 걷어낸 뒤 새 세션으로 재진입한다.
@@ -556,6 +561,10 @@ internal fun detailViewModelKey(screen: Screen): String? = when (screen) {
     is Screen.CategoryHistoryDetail -> "category-history-detail:${screen.category}"
     is Screen.CategoryHistoryProblemDetail ->
         "category-history-problem:${screen.category}:${screen.problemId}"
+    // ⭐️ key 없으면 전역 ViewModelStore가 클래스 단위로 캐시해, '조금 더 풀기'로 완료 화면을 다시 봐도
+    // 이전 인스턴스의 이미 닫힌 난이도 제안 카드 상태(SessionCompleteViewModel)가 재사용된다.
+    // summary 내용으로 키를 분리해 완료마다 새 인스턴스를 받게 한다.
+    is Screen.SessionComplete -> "session-complete:${screen.summary}"
     else -> null
 }
 

@@ -324,8 +324,8 @@ class SessionViewModel(
         )
     }
 
-    private fun DailySession.toSummary() = CompletionSummary(solvedCount, totalCount, streak)
-    private fun AttemptOutcome.toSummary() = CompletionSummary(solvedCount, totalCount, streak)
+    private fun DailySession.toSummary() = CompletionSummary(solvedCount, totalCount, streak, needsDifficultyPrompt)
+    private fun AttemptOutcome.toSummary() = CompletionSummary(solvedCount, totalCount, streak, needsDifficultyPrompt)
 }
 
 /** 03 세션 풀이 화면 상태. */
@@ -426,9 +426,14 @@ sealed interface SessionEvent {
     data class Completed(val summary: CompletionSummary) : SessionEvent
 }
 
-/** 04 완료 화면에 넘길 요약. */
+/**
+ * 04 완료 화면에 넘길 요약.
+ *  - [needsDifficultyPrompt]: 선호 난이도 제안 카드(구성 8, DF1) 노출 여부 — 서버가 준 단일 출처 신호를
+ *    그대로 실어 나른다(클라이언트가 조건을 재계산하지 않는다).
+ */
 data class CompletionSummary(
     val solvedCount: Int,
     val totalCount: Int,
     val streak: Streak?,
+    val needsDifficultyPrompt: Boolean = false,
 )

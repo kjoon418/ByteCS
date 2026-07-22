@@ -68,6 +68,8 @@ data class HintReveal(
  * 오늘의 세션 상태. Home(02)과 세션 풀이(03)의 진입 상태.
  *  - [position]: 지금 풀어야 할 칸(=완료한 본 문제 수), [currentProblem]: 그 칸의 무낙인 문제(완료 시 null).
  *  - [streak]: 백엔드가 read 경로에 실어 주면 채워진다(아직 미제공이면 null → Home은 스트릭을 숨긴다).
+ *  - [needsDifficultyPrompt]: 완료 화면에서 선호 난이도 제안 카드를 노출할지(DF1) — 서버가 단일 출처로
+ *    판단한다(선호 미설정 && 미응답). 진행 중에도 실려 오지만 완료 화면에서만 쓴다.
  */
 data class DailySession(
     val sessionId: Long,
@@ -78,6 +80,7 @@ data class DailySession(
     val position: Int,
     val currentProblem: SessionProblem?,
     val streak: Streak? = null,
+    val needsDifficultyPrompt: Boolean = false,
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }
@@ -93,6 +96,8 @@ data class DailySession(
  *  - [misconceptionHint]: 비정답이고 제출이 예상 오답(큐레이션됨)과 일치할 때만 채워진다(push·자동, 기능 2.5).
  *    없는 게 정상이다 — 큐레이션 안 된 오답은 일반 불일치로 흐른다(막다른 길 없음). 서버는 매칭 시 결과를
  *    MISMATCH로 확정한다(NEAR_MISS보다 우선). 무낙인: 있어도 오답 확정 아님, 정답 비노출.
+ *  - [needsDifficultyPrompt]: 이 제출로 완료됐고 완료 화면에서 난이도 제안을 노출해야 할 때만 true다
+ *    (선호 미설정 && 미응답). 미완료 제출에서는 항상 false다.
  */
 data class AttemptOutcome(
     val result: JudgeResult,
@@ -107,6 +112,7 @@ data class AttemptOutcome(
     val misconceptionHint: String? = null,
     val enrichment: Enrichment? = null,
     val representativeAnswer: String? = null,
+    val needsDifficultyPrompt: Boolean = false,
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }
