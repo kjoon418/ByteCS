@@ -17,6 +17,7 @@ import watson.bytecs.session.application.dto.PastItemResponse
 import watson.bytecs.session.application.dto.RevealResponse
 import watson.bytecs.session.application.dto.SessionAttemptResponse
 import watson.bytecs.session.application.dto.SessionStateResponse
+import watson.bytecs.session.application.dto.UnlockedIntegrationResponse
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.domain.SessionAlreadyCompletedException
 import watson.bytecs.session.domain.SessionNotFoundException
@@ -45,6 +46,7 @@ class SessionService(
     private val sessionCreator: SessionCreator,
     private val reviewService: ReviewService,
     private val learningHistory: LearningHistory,
+    private val integrationUnlockCalculator: IntegrationUnlockCalculator,
     private val clock: Clock,
 ) {
 
@@ -138,19 +140,25 @@ class SessionService(
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
         // 완료 시에만 사용자를 로드해 스트릭을 올리고, 같은 사용자 상태에서 완료 화면 제안 노출 여부도 함께 판단한다.
         var needsDifficultyPrompt = false
+        var unlockedIntegrations = emptyList<UnlockedIntegrationResponse>()
         val streak = if (session.isCompleted) {
             // 최초 완료 시각을 기록한다(테스터 지표). markCompleted가 멱등이라 재호출에도 최초 값을 지킨다.
             session.markCompleted(Instant.now(clock))
             val user = loadUser(userId)
             user.recordStudy(today())
             needsDifficultyPrompt = user.needsDifficultyPrompt()
+            // 이 세션 완료로 새로 열린 지정 연결 문제를 계산해 완료 응답에 싣는다(D2). 개념 숙련도(recordSolve)가 이미
+            // 이 트랜잭션에 반영된 뒤라, 이력 재계산이 방금 통과한 개념까지 결정적으로 본다.
+            unlockedIntegrations = integrationUnlockCalculator.calculate(userId, session)
             user.streak
         } else {
             null
         }
 
         val nextProblem = session.currentItemProblemId()?.let { loadProblem(it) }
-        return responseMapper.toAttemptResponse(session, outcome, problem, nextProblem, streak, needsDifficultyPrompt)
+        return responseMapper.toAttemptResponse(
+            session, outcome, problem, nextProblem, streak, needsDifficultyPrompt, unlockedIntegrations,
+        )
     }
 
     /**

@@ -151,6 +151,8 @@ class FakeSessionRepository(
             enrichment: Enrichment? = null,
             representativeAnswer: String? = "대표정답",
             needsDifficultyPrompt: Boolean = false,
+            // 이 제출로 완료되며 새로 열린 지정 연결 문제(D2). 기본은 없음 — 완료 스크립트에서 필요할 때만 넣는다.
+            unlockedIntegrations: List<UnlockedIntegration> = emptyList(),
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
             status = if (completed) SessionStatus.COMPLETED else SessionStatus.IN_PROGRESS,
@@ -164,6 +166,7 @@ class FakeSessionRepository(
             enrichment = enrichment,
             representativeAnswer = representativeAnswer,
             needsDifficultyPrompt = needsDifficultyPrompt,
+            unlockedIntegrations = unlockedIntegrations,
         )
 
         fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(

@@ -26,6 +26,17 @@ interface SessionRepository : JpaRepository<Session, Long> {
     fun findSolvedProblemIds(userId: Long): List<Long>
 
     /**
+     * 사용자가 '이 세션이 아닌' 다른 세션에서 정답으로 통과한 본 문제 id들(중복 제거).
+     * 연결 문제 잠금 해제 계산(D2)에서 '이 세션에서 처음 만난 개념'을 가리는 기준 — 다른 세션에서 이미 푼 문제(그 개념)는
+     * 이번에 처음 만난 것이 아니다(복습·D8 재출제로 이 세션에 다시 나와도 마찬가지, s.id 제외로 배제된다).
+     */
+    @Query(
+        "select distinct item.problemId from Session s join s.mutableItems item " +
+            "where s.userId = :userId and item.solved = true and s.id <> :sessionId",
+    )
+    fun findSolvedProblemIdsExcludingSession(userId: Long, sessionId: Long): List<Long>
+
+    /**
      * 사용자가 지금까지 어떤 세션에서든 '배정받은'(풀었든 아니든) 본 문제 id들(중복 제거).
      * 유도형 복습 예외에서 '아직 배정된 적 없는 다른 문제'를 가리는 기준이다.
      */

@@ -184,6 +184,13 @@ internal fun SessionCompleteScreenContent(
             // 스트릭(백엔드가 실어 줄 때만). 색·카피 규칙은 공용 StreakBadge(§5.16)에 있다.
             summary.streak?.let { StreakBadge(days = it.count) }
 
+            // 연결 문제 잠금 해제 안내(D2, 디자인 04의 4-b) — 스트릭 아래, success 옅은 톤으로 담백하게(신규 색 금지).
+            // 이 세션 완료로 새로 열린 지정 연결 문제만(서버가 계산해 내려준다). 여러 건이면 각각 한 배지로.
+            // 완결 축하의 위계를 침범하지 않는다(옅은 강도). 없으면 아무 것도 그리지 않는다.
+            summary.unlockedIntegrations.forEach { integration ->
+                IntegrationUnlockBadge(concepts = integration.concepts)
+            }
+
             // 정착 연결 안내 — ⚠️ 시점을 단정하지 않는다("3일 뒤" 금지). 복습은 개념별 간격 반복이라
             // 세션 단위로 다음 만남을 약속할 수 없다(지킬 수 없는 약속 금지).
             InfoCard {
@@ -366,6 +373,39 @@ private fun SolvedSummaryCard(solved: Int) {
         Text(
             text = "${solved}개",
             style = MaterialTheme.typography.titleLarge,
+            color = colors.textPrimary,
+        )
+    }
+}
+
+/**
+ * 연결 문제 잠금 해제 배지(D2, 디자인 04의 4-b · DESIGN_SYSTEM §5.17 계열). 이 세션 완료로 새로 열린 지정 연결 문제 하나를
+ * "○○ · △△ — 모두 배웠어요 / 이제 이 개념들을 잇는 문제를 만날 수 있어요"로 담백하게 안내한다.
+ *
+ * ⭐️ success 옅은 톤(successContainer)만 쓰고 신규 색을 도입하지 않는다 — 완결 축하·컨페티보다 낮은 시각 강도(스트릭과 비슷한 절제).
+ * ⭐️ 구성 개념명만 보여준다(문제 지문 비노출 — 풀기 전 선노출 금지). 문구는 개념 수에 무관하게 자연스럽도록 '이 개념들'로 일반화한다
+ *    (연결 문제는 보통 두 개념이지만 셋 이상도 가능하다 — 조사·수 오류를 피한다). 스크린리더가 한 덩이로 읽도록 시맨틱을 합친다.
+ */
+@Composable
+private fun IntegrationUnlockBadge(concepts: List<String>) {
+    val colors = LocalBcsColors.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(BcsDimens.radiusCard))
+            .background(colors.successContainer)
+            .padding(BcsDimens.space5)
+            .semantics(mergeDescendants = true) {},
+        verticalArrangement = Arrangement.spacedBy(BcsDimens.space1),
+    ) {
+        Text(
+            text = "${concepts.joinToString(" · ")} — 모두 배웠어요",
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSuccessContainer,
+        )
+        Text(
+            text = "이제 이 개념들을 잇는 문제를 만날 수 있어요",
+            style = MaterialTheme.typography.bodyMedium,
             color = colors.textPrimary,
         )
     }

@@ -12,6 +12,7 @@ import watson.bytecs.session.SessionHint
 import watson.bytecs.session.SessionProblem
 import watson.bytecs.session.SessionStatus
 import watson.bytecs.session.Streak
+import watson.bytecs.session.UnlockedIntegration
 
 /**
  * 백엔드 `/api/sessions` 계약과 1:1 대응하는 유선(wire) DTO. 도메인 모델과 분리해, API 형태가 바뀌어도
@@ -95,6 +96,14 @@ internal data class SessionStateDto(
     )
 }
 
+/** 세션 완료로 새로 열린 지정 연결 문제 하나(D2) — 구성 개념명 목록만(태깅 순). */
+@Serializable
+internal data class UnlockedIntegrationDto(
+    val concepts: List<String> = emptyList(),
+) {
+    fun toDomain(): UnlockedIntegration = UnlockedIntegration(concepts)
+}
+
 /** `POST /api/sessions/today/attempts` 응답. */
 @Serializable
 internal data class SessionAttemptResponseDto(
@@ -113,6 +122,8 @@ internal data class SessionAttemptResponseDto(
     val representativeAnswer: String? = null,
     // 이 제출로 완료됐고 난이도 제안을 노출해야 할 때만 true(미완료 제출은 항상 false).
     val needsDifficultyPrompt: Boolean = false,
+    // 이 제출로 완료되며 새로 열린 지정 연결 문제들(D2). 미완료·해제 없음이면 빈 목록(서버가 생략하면 기본값).
+    val unlockedIntegrations: List<UnlockedIntegrationDto> = emptyList(),
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -128,6 +139,7 @@ internal data class SessionAttemptResponseDto(
         enrichment = enrichment?.toDomain(),
         representativeAnswer = representativeAnswer,
         needsDifficultyPrompt = needsDifficultyPrompt,
+        unlockedIntegrations = unlockedIntegrations.map { it.toDomain() },
     )
 }
 

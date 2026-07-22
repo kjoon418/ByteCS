@@ -31,4 +31,11 @@ class LearningHistory(
      */
     fun findAssignedProblemIds(userId: Long): Set<Long> =
         sessionRepository.findAssignedProblemIds(userId).toSet()
+
+    /**
+     * 사용자가 '이 세션이 아닌' 다른 세션에서 정답으로 통과한 본 문제 id 집합(연결 문제 잠금 해제 계산, D2).
+     * 이 세션에서 처음 만난 개념을 가릴 때, 다른 세션에서 이미 푼 문제는 '이전에 만난 것'으로 친다.
+     */
+    fun findSolvedProblemIdsExcept(userId: Long, sessionId: Long): Set<Long> =
+        sessionRepository.findSolvedProblemIdsExcludingSession(userId, sessionId).toSet()
 }

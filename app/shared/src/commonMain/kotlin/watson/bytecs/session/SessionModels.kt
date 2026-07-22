@@ -113,9 +113,20 @@ data class AttemptOutcome(
     val enrichment: Enrichment? = null,
     val representativeAnswer: String? = null,
     val needsDifficultyPrompt: Boolean = false,
+    // 이 제출로 세션이 완료되며 새로 열린 지정 연결 문제들(D2). 미완료·해제 없음이면 빈 목록 — 04 완료 화면이 잠금 해제 배지로 쓴다.
+    val unlockedIntegrations: List<UnlockedIntegration> = emptyList(),
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }
+
+/**
+ * 세션 완료로 새로 열린 지정 연결 문제 하나(D2 · DI12). 구성 개념명 목록만 담는다(태깅 순 — 첫 번째가 대표 개념).
+ * 04 완료 화면이 잠금 해제 배지로 담백하게 안내한다("○○·△△를 모두 배웠어요 — 이제 이 개념들을 잇는 문제를 만날 수 있어요").
+ * 문제 지문은 담지 않는다(풀기 전 선노출 금지·no-leak 보수 — 서버가 개념명만 내려준다).
+ */
+data class UnlockedIntegration(
+    val concepts: List<String>,
+)
 
 /**
  * 정답 공개(안전판) 결과. 공개 후에도 [representativeAnswer]를 **직접 따라 입력**해야 다음으로 넘어간다.

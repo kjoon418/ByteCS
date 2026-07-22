@@ -324,8 +324,10 @@ class SessionViewModel(
         )
     }
 
+    // DailySession(GET /today)에는 잠금 해제가 실리지 않는다 — 재진입한 완료 세션에서 배지를 다시 축하하지 않도록 빈 목록으로 둔다(D2).
     private fun DailySession.toSummary() = CompletionSummary(solvedCount, totalCount, streak, needsDifficultyPrompt)
-    private fun AttemptOutcome.toSummary() = CompletionSummary(solvedCount, totalCount, streak, needsDifficultyPrompt)
+    private fun AttemptOutcome.toSummary() =
+        CompletionSummary(solvedCount, totalCount, streak, needsDifficultyPrompt, unlockedIntegrations)
 }
 
 /** 03 세션 풀이 화면 상태. */
@@ -436,4 +438,6 @@ data class CompletionSummary(
     val totalCount: Int,
     val streak: Streak?,
     val needsDifficultyPrompt: Boolean = false,
+    // 이 세션 완료로 새로 열린 지정 연결 문제들(D2). 완료 화면이 스트릭 아래 잠금 해제 배지로 담백하게 안내한다.
+    val unlockedIntegrations: List<UnlockedIntegration> = emptyList(),
 )

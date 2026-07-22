@@ -13,6 +13,8 @@ import watson.bytecs.problem.application.dto.EnrichmentResponse
  *  - streak: 이 제출로 세션이 완료됐을 때만 갱신된 스트릭을 싣는다(그 외 null).
  *  - needsDifficultyPrompt: 이 제출로 완료됐고 완료 화면에서 난이도 제안을 노출해야 할 때만 true다(선호 미설정 && 미응답).
  *    미완료 제출에서는 항상 false다(제안은 완료 화면에서만 뜬다).
+ *  - unlockedIntegrations: 이 제출로 세션이 완료되며 **새로 열린** 지정 연결 문제들(계획 §3.2 · D2). 미완료·해제 없음이면 빈 목록.
+ *    각 항목은 구성 개념명 목록이며, 완료 화면이 잠금 해제 배지로 담백하게 안내한다(디자인 04의 4-b).
  */
 data class SessionAttemptResponse(
     val result: String,
@@ -28,4 +30,5 @@ data class SessionAttemptResponse(
     val currentProblem: SessionProblemResponse?,
     val streak: StreakResponse?,
     val needsDifficultyPrompt: Boolean,
+    val unlockedIntegrations: List<UnlockedIntegrationResponse>,
 )

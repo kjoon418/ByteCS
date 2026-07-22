@@ -195,6 +195,52 @@ class SessionCompleteScreenUiTest {
         }
     }
 
+    // ── 연결 문제 잠금 해제 배지 (D2 · 디자인 04의 4-b) ──────────────────────────
+
+    /** 서버가 이 세션 완료로 열린 지정 연결 문제를 실어 주면, 스트릭 아래에 개념명 기반 안내 배지가 뜬다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 잠금_해제가_있으면_연결_문제_열림_배지를_보여준다() = runComposeUiTest {
+        showScreen(
+            summary = summary.copy(
+                unlockedIntegrations = listOf(UnlockedIntegration(concepts = listOf("스택", "큐"))),
+            ),
+        )
+
+        onNodeWithText("스택 · 큐 — 모두 배웠어요").assertIsDisplayed()
+        onNodeWithText("이제 이 개념들을 잇는 문제를 만날 수 있어요").assertIsDisplayed()
+    }
+
+    /** 잠금 해제가 없으면(빈 목록) 배지는 아예 렌더되지 않는다 — 매 완료마다 재등장하지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 잠금_해제가_없으면_열림_배지가_보이지_않는다() = runComposeUiTest {
+        showScreen()
+
+        assertEquals(
+            0,
+            onAllNodesWithText("모두 배웠어요", substring = true).fetchSemanticsNodes().size,
+        )
+        assertEquals(
+            0,
+            onAllNodesWithText("잇는 문제를 만날 수 있어요", substring = true).fetchSemanticsNodes().size,
+        )
+    }
+
+    /** 문구는 문제 지문을 노출하지 않는다 — 구성 개념명만 싣는다(풀기 전 선노출 금지). */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 잠금_해제_배지는_개념명만_싣고_문제_지문을_노출하지_않는다() = runComposeUiTest {
+        showScreen(
+            summary = summary.copy(
+                unlockedIntegrations = listOf(UnlockedIntegration(concepts = listOf("스택", "큐"))),
+            ),
+        )
+
+        // 개념명은 보이되, 지문류('문제입니다'·물음표로 끝나는 질문)는 배지에 실리지 않는다.
+        onNodeWithText("스택 · 큐 — 모두 배웠어요").assertIsDisplayed()
+    }
+
     // ── CTA ─────────────────────────────────────────────────────────────────
 
     @OptIn(ExperimentalTestApi::class)

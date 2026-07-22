@@ -464,6 +464,26 @@ class SessionControllerIntegrationTest(
             jsonPath("$.currentProblem") { value(nullValue()) }
             jsonPath("$.streak.count") { value(1) }
             jsonPath("$.streak.lastStudyDate") { value(DAY1.toString()) }
+            // 지정 연결 문제가 없는 기본 시드 완료 — 잠금 해제 목록은 비어 있다(D2).
+            jsonPath("$.unlockedIntegrations.length()") { value(0) }
+        }
+    }
+
+    @Test
+    fun `세션 완료로 지정 연결 문제가 열리면 완료 응답에 잠금 해제가 실린다`() {
+        // 단일 개념 스택·큐를 이 세션에서 처음 배워 통과하면, 둘을 잇는 지정 연결 문제가 새로 열려 완료 응답에 실린다(D2).
+        reseedIntegrationUnlockScenario()
+        getToday(token)
+
+        // 연결 문제는 게이트로 배정에서 빠지고, 단일 개념 둘만 id 오름차순으로 배정된다(FixedClock 결정적 셔플).
+        submit(token, "스택답")
+        submit(token, "큐답").andExpect {
+            status { isOk() }
+            jsonPath("$.status") { value("COMPLETED") }
+            jsonPath("$.unlockedIntegrations.length()") { value(1) }
+            // 구성 개념명만, 태깅 순서(대표 개념이 먼저)로 실린다.
+            jsonPath("$.unlockedIntegrations[0].concepts[0]") { value("스택") }
+            jsonPath("$.unlockedIntegrations[0].concepts[1]") { value("큐") }
         }
     }
 
@@ -940,6 +960,35 @@ class SessionControllerIntegrationTest(
             ),
         )
     }
+
+    /**
+     * 기존 시드(p1~p3)를 지우고, 단일 개념 문제 둘(스택·큐)과 그 둘을 잇는 지정 연결 문제 하나를 남긴다(D2 잠금 해제 검증).
+     * 연결 문제는 하드 게이트로 새 개념 배정에서 빠지고, 두 단일 개념을 이 세션에서 처음 배워 통과하면 완료 응답에 잠금 해제로 실린다.
+     */
+    private fun reseedIntegrationUnlockScenario() {
+        sessionRepository.deleteAll()
+        problemRepository.deleteAll()
+        conceptRepository.deleteAll()
+
+        val stack = conceptRepository.save(Concept("스택"))
+        val queue = conceptRepository.save(Concept("큐"))
+        seedApprovedProblem("스택 질문", listOf(stack), "스택답", integration = false)
+        seedApprovedProblem("큐 질문", listOf(queue), "큐답", integration = false)
+        // 두 개념을 잇는 지정 연결 문제. 계단(단일 개념 문제)이 위에 있으므로 게이트 통과 후 열릴 수 있다.
+        seedApprovedProblem("연결 질문", listOf(stack, queue), "연결답", integration = true)
+    }
+
+    private fun seedApprovedProblem(question: String, concepts: List<Concept>, answer: String, integration: Boolean): Long =
+        problemRepository.save(
+            Problem(
+                approvalStatus = ApprovalStatus.APPROVED,
+                questionText = question,
+                concepts = concepts,
+                integration = integration,
+                acceptableAnswers = setOf(answer),
+                representativeAnswer = answer,
+            ),
+        ).id
 
     /**
      * 기존 시드(p1~p3)를 지우고, 심화 정보를 가진 문제 하나만 남긴다.

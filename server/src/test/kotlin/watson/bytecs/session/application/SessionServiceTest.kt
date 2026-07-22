@@ -41,6 +41,8 @@ class SessionServiceTest {
     private val sessionCreator: SessionCreator = mock(SessionCreator::class.java)
     private val reviewService: ReviewService = mock(ReviewService::class.java)
     private val learningHistory: LearningHistory = mock(LearningHistory::class.java)
+    // 잠금 해제 계산기는 목 — 완료 분기에서 호출되며, 스텁 없이 빈 목록을 돌려준다(D2 계산 자체는 IntegrationUnlockCalculatorTest가 검증).
+    private val integrationUnlockCalculator: IntegrationUnlockCalculator = mock(IntegrationUnlockCalculator::class.java)
 
     private val zone: ZoneId = ZoneId.of("Asia/Seoul")
     private val today: LocalDate = LocalDate.of(2026, 7, 14)
@@ -54,6 +56,7 @@ class SessionServiceTest {
         sessionCreator,
         reviewService,
         learningHistory,
+        integrationUnlockCalculator,
         clock,
     )
 
@@ -67,6 +70,7 @@ class SessionServiceTest {
         sessionCreator,
         reviewService,
         learningHistory,
+        integrationUnlockCalculator,
         clock,
     )
 
@@ -247,8 +251,8 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null·제안도 false다.
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null, false)
+        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null·제안도 false·해제 목록은 빈 목록이다.
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null, false, emptyList())
     }
 
     @Test
@@ -260,7 +264,7 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null, false)
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null, false, emptyList())
     }
 
     // ── Stage 3: 완료 화면 난이도 제안 노출 여부(needsDifficultyPrompt) ─────────────────

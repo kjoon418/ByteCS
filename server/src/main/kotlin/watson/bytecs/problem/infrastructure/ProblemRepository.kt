@@ -100,7 +100,27 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
     )
     fun findConceptIdsOfIntegrationProblems(ids: Collection<Long>): List<ProblemConceptView>
 
-    /** JPQL 별칭 프로젝션 — [findConceptIdsOfIntegrationProblems] 전용(게이트 판정용 문제 id·개념 id 쌍). */
+    /**
+     * 후보 문제별 구성 개념 id를 (문제 id, 개념 id) 쌍으로 한 번에 조회한다(연결 문제 잠금 해제 계산 D2).
+     * 이 세션·다른 세션에서 푼 문제들의 개념을 배치로 모아 '이 세션에서 처음 만난 개념'을 판정할 때 쓴다.
+     * 승인 여부와 무관하게 조회한다 — 이미 푼 문제는 학습 이력이라(회수됐어도 '만난 적'은 사실) 개념 귀속이 유효하다.
+     */
+    @Query("select p.id as problemId, c.id as conceptId from Problem p join p.concepts c where p.id in :ids")
+    fun findConceptIdsByProblemIdIn(ids: Collection<Long>): List<ProblemConceptView>
+
+    /**
+     * 승인된 **지정 연결 문제(integration=true)**를 구성 개념까지 함께 로드한다(연결 문제 잠금 해제 계산 D2).
+     * 개념을 join fetch해 [watson.bytecs.problem.domain.Problem.conceptIds]·conceptNames를 태깅 순서대로 쓸 수 있게 한다(N+1 없이 1쿼리).
+     * 지정 연결 문제는 소수의 큐레이션 콘텐츠라 전량 로드해도 비용이 유계다. 미승인(초안·회수 등)은 서빙되지 않으므로 제외한다
+     * (열려도 만날 수 없는 문제를 축하하지 않는다). @OrderColumn 컬렉션 하나만 페치하므로 MultipleBagFetch 대상이 아니다.
+     */
+    @Query(
+        "select distinct p from Problem p join fetch p.concepts " +
+            "where p.integration = true and p.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED",
+    )
+    fun findApprovedIntegrationProblemsWithConcepts(): List<Problem>
+
+    /** JPQL 별칭 프로젝션 — [findConceptIdsOfIntegrationProblems]·[findConceptIdsByProblemIdIn] 전용(문제 id·개념 id 쌍). */
     interface ProblemConceptView {
         val problemId: Long
         val conceptId: Long

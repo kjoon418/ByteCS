@@ -15,6 +15,7 @@ import watson.bytecs.session.application.dto.SessionAttemptResponse
 import watson.bytecs.session.application.dto.SessionProblemResponse
 import watson.bytecs.session.application.dto.SessionStateResponse
 import watson.bytecs.session.application.dto.StreakResponse
+import watson.bytecs.session.application.dto.UnlockedIntegrationResponse
 import watson.bytecs.session.domain.Session
 import watson.bytecs.session.domain.SessionItem
 
@@ -75,6 +76,7 @@ class SessionResponseMapper {
         nextProblem: Problem?,
         streak: StudyStreak?,
         needsDifficultyPrompt: Boolean,
+        unlockedIntegrations: List<UnlockedIntegrationResponse>,
     ): SessionAttemptResponse {
         val correct = outcome.judgement == Judgement.CORRECT
 
@@ -95,6 +97,7 @@ class SessionResponseMapper {
             },
             streak = streak?.let { toStreakResponse(it) },
             needsDifficultyPrompt = needsDifficultyPrompt,
+            unlockedIntegrations = unlockedIntegrations,
         )
     }
 
