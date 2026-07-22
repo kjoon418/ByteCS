@@ -321,6 +321,12 @@ val BcsTypography = Typography(
   - **StreakBadge**(04 완료 화면 등 보조 맥락) — 축하 요약 안의 알약 배지로 존치. 상승은 `streak`(불꽃) 톤.
   - ⚠️ 두 형태 모두 `streak` 토큰은 스트릭 표시에만 쓰고, 끊김(0일)에 `danger`·상실 공포 연출(불이 꺼진다 등)·죄책감 연출 금지 — 끊겨도 "다시 시작해요" 중립·격려 톤(불꽃 아이콘 대신 중립 글리프).
 
+### 5.17 면접 세션 — RubricChecklistResult / GradingLoading / PromotionInlineLine / InterviewUnlockSummaryCard (신규, `면접 대비 가치 구현 계획.md` 반영)
+- **RubricChecklistResult**(결과 체크리스트, 08 면접 세션) — 루브릭 포인트별 충족 여부를 나열하는 리스트. BcsCard(bg `surface`, border `borderSubtle`, radius 16) 위에: 상단 집계 한 줄 "짚은 포인트 n개 / 보완하면 좋은 포인트 m개"(⭐️ **점수·퍼센트·합격선 문구 금지** — 무낙인) → 포인트별 행(충족=체크 글리프+`success`, 미충족=중립 아웃라인 글리프+`neutralNudge` 안내 톤 텍스트, **빨강·× 금지**) → (있으면) AI 한 줄 코멘트. 원칙 5(무낙인)의 연장 — 실패가 아니라 다음 재도전 안내로 읽혀야 한다.
+- **GradingLoading**(채점 로딩, 08) — 채점은 수 초 걸리는 **명시적 대기**라 스켈레톤보다 스피너+문구 조합이 맞다(§5.11 원칙의 의도적 예외 — "콘텐츠가 아직 없음"이 아니라 "처리 중"임을 알려야 함). `CircularProgressIndicator`(`primary`) + "설명을 채점하고 있어요…" (`bodyM`). 취소 UI 없음(짧은 대기). 실패 시 별도 에러 배너로 튀지 않고 결과 화면이 그대로 폴백 콘텐츠(모범 설명 + 안내 문구)로 전환된다.
+- **PromotionInlineLine**(승급 인라인 라인, 03 정답 확인 라인 바로 아래) — 카드가 아닌 인라인 한 줄(옅은 배경 또는 무배경) + 작은 아이콘(잠금 해제류) + `bodyS` 텍스트("이 개념의 면접 연습이 열렸어요"). 확인 라인(success, 진한 강도)보다 **낮은 시각 강도**로 담백하게 — 확인 라인 위에 얹히는 부가 정보이지 새로운 축하가 아니다. `newlyEligibleConcepts` 존재 시에만 렌더. 스크린리더 라이브리전, **1회만** 낭독(재조합 시 중복 낭독 금지 — key 고정 등은 구현 판단).
+- **InterviewUnlockSummaryCard**(면접 열림 요약 카드, 04 세션 완료) — BcsCard 변형. 작은 아이콘 타일 + "오늘 스스로 맞힌 개념 N개의 면접 연습이 열렸어요" 한 줄 + (선택) "면접 연습하러 가기" TextLink. 완결 축하·컨페티보다 낮은 시각 강도 — 스트릭 카드와 비슷한 절제된 톤(신규 색 토큰 도입 없이 `primary`/`info` 계열 재사용). `newlyEligibleConcepts` 비어 있으면 표시하지 않는다.
+
 ---
 
 ## 6. 도메인 시각 매핑 (Domain Visual Mapping)
@@ -387,6 +393,7 @@ val BcsTypography = Typography(
 | 05 로그인·가입 | 헤더, AnswerTextField(이메일/비번 재사용 스타일), PrimaryButton, TextLink(로그인↔가입 전환), Snackbar(실패) | 600dp 중앙 |
 | 06 계정·설정 | 계정 상태 카드, 테마 토글(라이트/다크/시스템), 로그아웃, 계정 삭제(ConfirmDialog·danger) | 600dp 중앙 |
 | 07 콘텐츠 오류 신고 | ReportSheet(바텀시트): 유형 단일 선택 + 서술 + PrimaryButton + 감사 피드백 | 바텀시트 |
+| 08 면접 세션(신규) | SessionProgress, ExplanationTextField(멀티라인), PrimaryButton("설명 제출하기"/"다음 질문으로"/"면접 연습 마치기"), GradingLoading, RubricChecklistResult, ModelAnswerBlock, 재열람 링크(스크랩 재열람 패턴 재사용), ReportSheet 진입 | 600dp 중앙 |
 
 ### 8.1 히어로 와이어프레임 — 03 문제 풀이 (구성 예시)
 ```
@@ -437,3 +444,6 @@ val BcsTypography = Typography(
 - [ ] 정답 공개 후 직접 입력(TypeAlongField) 통과해야 진행, 정답 처리 후 [더 알아보기] 바로 노출(토글 없음).
 - [ ] 스크랩 토글·목록, 지난 문제 다시 보기 동작. 완료 화면 축하 연출 또렷.
 - [ ] 오답·불일치·근접·스트릭 끊김에 빨강/경고/죄책감 연출 0건.
+- [ ] 면접 세션 결과(RubricChecklistResult)에 점수·퍼센트·합격선·빨강/× 0건(무낙인 — 미충족은 "보완하면 좋은 포인트" 톤만).
+- [ ] 채점 로딩(GradingLoading)이 빈 화면·모호한 스피너가 아니라 명시적 문구를 동반.
+- [ ] 승급 인라인 라인(03)·면접 열림 요약 카드(04)가 각각의 축하/확인 라인보다 낮은 시각 강도로, 관련 응답 필드가 있을 때만 노출.
