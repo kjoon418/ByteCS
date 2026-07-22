@@ -109,7 +109,7 @@ internal fun AccountScreenContent(
     onOpenScrapList: () -> Unit,
     onSessionSizeChange: (Int) -> Unit,
     onSaveSettings: () -> Unit,
-    onPreferredDifficultySelect: (PreferredDifficulty) -> Unit,
+    onPreferredDifficultySelect: (PreferredDifficulty?) -> Unit,
     onSavePreferredDifficulty: () -> Unit,
     onThemeSelect: (ThemeMode) -> Unit,
     onLogout: () -> Unit,
@@ -369,7 +369,7 @@ private fun PreferredDifficultySetting(
     selected: PreferredDifficulty?,
     dirty: Boolean,
     saving: Boolean,
-    onSelect: (PreferredDifficulty) -> Unit,
+    onSelect: (PreferredDifficulty?) -> Unit,
     onSave: () -> Unit,
 ) {
     val colors = LocalBcsColors.current
@@ -403,15 +403,12 @@ private fun PreferredDifficultySetting(
                 isSelected = selected == PreferredDifficulty.HARD,
                 onClick = { onSelect(PreferredDifficulty.HARD) },
             )
-            // ⭐️ '자동'은 미설정 상태를 서술할 뿐, 선택해서 도달할 수 있는 목표가 아니다 — 서버 PATCH는
-            // 선호를 설정만 할 뿐 다시 미설정으로 되돌리는 동작을 지원하지 않는다([PreferredDifficulty] 주석
-            // 참고). 이미 선호를 정한 사용자에게 눌러도 아무 일도 일어나지 않는 죽은 선택지를 주지 않도록,
-            // 아직 미설정인 경우에만(=이미 이 상태인 경우에만) 표시하고 그 외에는 비활성화한다.
+            // '자동'도 선택 가능한 상태다 — 이미 선호를 정한 사용자가 미설정(균등 배정)으로 되돌릴 수
+            // 있다(서버 전용 리셋 플래그, [PreferredDifficulty] 주석 참고). null 선택으로 표현한다.
             PreferredDifficultyOption(
                 label = preferredDifficultyStatement(null),
                 isSelected = selected == null,
-                enabled = selected == null,
-                onClick = {},
+                onClick = { onSelect(null) },
             )
         }
         if (dirty) {
@@ -425,7 +422,6 @@ private fun PreferredDifficultyOption(
     label: String,
     isSelected: Boolean,
     onClick: () -> Unit,
-    enabled: Boolean = true,
 ) {
     val colors = LocalBcsColors.current
     val primary = MaterialTheme.colorScheme.primary
@@ -439,7 +435,7 @@ private fun PreferredDifficultyOption(
                 if (isSelected) primary else colors.border,
                 RoundedCornerShape(BcsDimens.radiusChip),
             )
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(onClick = onClick)
             .padding(horizontal = BcsDimens.space4, vertical = BcsDimens.space3)
             .semantics {
                 this.role = Role.RadioButton
@@ -450,11 +446,7 @@ private fun PreferredDifficultyOption(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = when {
-                isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                enabled -> colors.textPrimary
-                else -> colors.textTertiary
-            },
+            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else colors.textPrimary,
         )
     }
 }

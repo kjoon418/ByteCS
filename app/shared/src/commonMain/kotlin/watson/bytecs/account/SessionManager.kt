@@ -80,6 +80,12 @@ class SessionManager(
         _state.value = account.toState()
     }
 
+    /** 선호 난이도를 미설정(자동)으로 되돌리고, 갱신된 프로필로 상태를 다시 그린다. */
+    suspend fun resetPreferredDifficulty() {
+        val account = repository.resetPreferredDifficulty()
+        _state.value = account.toState()
+    }
+
     /** 세션 완료 화면의 난이도 제안 거절을 기록하고, 갱신된 프로필로 상태를 다시 그린다. */
     suspend fun dismissDifficultyPrompt() {
         val account = repository.dismissDifficultyPrompt()

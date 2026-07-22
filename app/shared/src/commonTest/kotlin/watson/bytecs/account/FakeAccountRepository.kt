@@ -19,12 +19,14 @@ class FakeAccountRepository(
     var getMeError: Throwable? = null
     var updateSettingsError: Throwable? = null
     var updatePreferredDifficultyError: Throwable? = null
+    var resetPreferredDifficultyError: Throwable? = null
     var dismissDifficultyPromptError: Throwable? = null
     var deleteMeError: Throwable? = null
 
     var deleteMeCount = 0
     var lastUpdatedSize: Int? = null
     var lastUpdatedPreferredDifficulty: PreferredDifficulty? = null
+    var resetPreferredDifficultyCount = 0
     var dismissDifficultyPromptCount = 0
 
     override suspend fun issueGuest(): GuestSession {
@@ -79,6 +81,16 @@ class FakeAccountRepository(
         val account = current ?: throw IllegalStateException("no current user")
         lastUpdatedPreferredDifficulty = value
         current = account.copy(preferredDifficulty = value)
+        return current!!
+    }
+
+    override suspend fun resetPreferredDifficulty(): Account {
+        calls += "resetPreferredDifficulty"
+        resetPreferredDifficultyError?.let { throw it }
+        val account = current ?: throw IllegalStateException("no current user")
+        resetPreferredDifficultyCount++
+        // 서버 계약과 동형: 선호만 미설정으로 되돌린다(제안 응답 기록은 불변 — 제안이 부활하지 않는다).
+        current = account.copy(preferredDifficulty = null)
         return current!!
     }
 

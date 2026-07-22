@@ -244,6 +244,29 @@ class KtorAccountRepositoryTest {
     }
 
     @Test
+    fun resetPreferredDifficulty_sendsOnlyResetFlag_andMapsNullPreference() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals(HttpMethod.Patch, request.method)
+            assertEquals("http://test/api/users/me/settings", request.url.toString())
+            val body = (request.body as TextContent).text
+            assertTrue(body.contains("\"resetPreferredDifficulty\""), "리셋 플래그가 반드시 인코딩돼야 한다(기본값 생략 금지)")
+            assertTrue(body.contains("true"))
+            // ⭐️ 서버는 리셋 플래그와 값 설정의 동시 지정을 400으로 거른다 — 값 필드는 절대 함께 보내지 않는다.
+            assertTrue(!body.contains("\"preferredDifficulty\""), "값 설정 필드를 동시에 보내면 안 된다")
+            respond(
+                content = """{"userId":42,"role":"MEMBER","email":"a@b.com","dailySessionSize":5,"preferredDifficulty":null}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val repository = KtorAccountRepository(authedClient("member-jwt", engine), baseUrl)
+
+        val account = repository.resetPreferredDifficulty()
+
+        assertNull(account.preferredDifficulty, "리셋 응답은 미설정(자동)으로 매핑된다")
+    }
+
+    @Test
     fun dismissDifficultyPrompt_patchesBodyAndPath_andMapsResponse() = runTest {
         val engine = MockEngine { request ->
             assertEquals(HttpMethod.Patch, request.method)

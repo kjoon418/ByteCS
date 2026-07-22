@@ -97,21 +97,23 @@ class AccountViewModel(
     }
 
     /**
-     * 선호 난이도 선택 편집. EASY/MEDIUM/HARD 중 하나만 선택할 수 있다 — [PreferredDifficulty]는
-     * '미설정(자동)'을 표현하지 못하므로([AccountModels] 참고), 이미 선호를 정한 사용자가 다시
-     * 자동으로 되돌리는 편집은 이 메서드로 시작될 수 없다(화면이 그 선택지를 비활성화해 걸러낸다).
+     * 선호 난이도 선택 편집. EASY/MEDIUM/HARD 또는 null(='자동으로 골고루 받을래요' — 미설정으로
+     * 되돌리기)을 받는다. null 편집은 [PreferredDifficultyEdit]로 감싸 '편집 안 함'과 구분한다.
      */
-    fun onPreferredDifficultyChange(value: PreferredDifficulty) {
-        transient.update { it.copy(preferredDifficultyDraft = value, noticeError = null) }
+    fun onPreferredDifficultyChange(value: PreferredDifficulty?) {
+        transient.update { it.copy(preferredDifficultyDraft = PreferredDifficultyEdit(value), noticeError = null) }
     }
 
-    /** 선호 난이도 저장(PATCH). 전송 중이거나 서버 값과 같으면(=되돌린 경우) 아무 일도 하지 않는다. */
+    /**
+     * 선호 난이도 저장(PATCH). 전송 중이거나 서버 값과 같으면(=되돌린 경우) 아무 일도 하지 않는다.
+     * ⭐️ '자동'(null)은 값 설정과 다른 유선 계약이다 — 전용 리셋 플래그만 보낸다(동시 지정은 서버 400).
+     */
     fun savePreferredDifficulty() {
         val local = transient.value
         val draft = local.preferredDifficultyDraft ?: return
         if (local.preferredDifficultySaving) return
 
-        if (draft == currentAccount()?.preferredDifficulty) {
+        if (draft.value == currentAccount()?.preferredDifficulty) {
             transient.update { it.copy(preferredDifficultyDraft = null) }
             return
         }
@@ -119,7 +121,12 @@ class AccountViewModel(
         transient.update { it.copy(preferredDifficultySaving = true, noticeError = null) }
         viewModelScope.launch {
             try {
-                sessionManager.updatePreferredDifficulty(draft)
+                val value = draft.value
+                if (value == null) {
+                    sessionManager.resetPreferredDifficulty()
+                } else {
+                    sessionManager.updatePreferredDifficulty(value)
+                }
                 transient.update { it.copy(preferredDifficultyDraft = null, preferredDifficultySaving = false) }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -206,10 +213,12 @@ class AccountViewModel(
                 local.sessionSizeError == null,
             isSettingsSaving = local.settingsSaving,
             sessionSizeAppliesNextSession = local.sessionSizeSaved,
-            preferredDifficulty = local.preferredDifficultyDraft ?: account?.preferredDifficulty,
+            // 편집이 있으면 편집값(null='자동' 포함), 없으면 서버 값. `?:`로 못 쓰는 이유: 편집값 자체가
+            // null일 수 있어(자동으로 되돌리기) '편집 없음'과 구분해야 한다.
+            preferredDifficulty = local.preferredDifficultyDraft.let { if (it != null) it.value else account?.preferredDifficulty },
             // 같은 근거로 선호 난이도도 서버 값과 비교해 dirty를 판단한다.
             isPreferredDifficultyDirty = local.preferredDifficultyDraft != null &&
-                local.preferredDifficultyDraft != account?.preferredDifficulty,
+                local.preferredDifficultyDraft.value != account?.preferredDifficulty,
             isPreferredDifficultySaving = local.preferredDifficultySaving,
             themeMode = theme,
             deletePhase = local.deletePhase,
@@ -234,7 +243,7 @@ class AccountViewModel(
         val settingsSaving: Boolean = false,
         // 저장 직후 '다음 세션부터 적용' 안내 노출 여부. 새 편집·화면 재진입 시 걷힌다.
         val sessionSizeSaved: Boolean = false,
-        val preferredDifficultyDraft: PreferredDifficulty? = null,
+        val preferredDifficultyDraft: PreferredDifficultyEdit? = null,
         val preferredDifficultySaving: Boolean = false,
         val loggingOut: Boolean = false,
         val deletePhase: DeletePhase = DeletePhase.None,
@@ -246,6 +255,12 @@ class AccountViewModel(
         /** 로그아웃·삭제전송 등 되돌릴 수 없는 작업이 진행 중인지. 중복 트리거를 막는 가드에 쓴다. */
         val busy: Boolean get() = loggingOut || deletePhase == DeletePhase.Deleting
     }
+
+    /**
+     * 선호 난이도 편집값 래퍼. [value]=null은 '자동으로 골고루 받을래요'(미설정으로 되돌리기)라는
+     * 유효한 편집이다 — 래퍼 없이 nullable 필드 하나로는 '편집 안 함'과 구분할 수 없어 둔다.
+     */
+    private data class PreferredDifficultyEdit(val value: PreferredDifficulty?)
 
     companion object {
         // 서버 도메인 VO(UserSettings)의 MINIMUM..MAXIMUM과 동기화된 값.

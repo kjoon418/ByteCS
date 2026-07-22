@@ -77,6 +77,16 @@ internal data class UpdatePreferredDifficultyRequestDto(
 )
 
 /**
+ * `PATCH /api/users/me/settings` 요청 본문(선호 난이도를 미설정(자동)으로 되돌리는 전용 액션 플래그).
+ * `preferredDifficulty`와 동시 지정하면 서버가 400으로 거르므로 이 필드만 단독으로 보낸다.
+ * ⭐️ 기본값 금지 — encodeDefaults=false라 기본값 필드는 직렬화에서 빠져 본문이 `{}`(무동작)가 된다.
+ */
+@Serializable
+internal data class ResetPreferredDifficultyRequestDto(
+    val resetPreferredDifficulty: Boolean,
+)
+
+/**
  * `PATCH /api/users/me/settings` 요청 본문(난이도 제안 거절 기록 — 부분 갱신이라 이 필드만 보낸다).
  * `true`만 의미가 있다(응답했음 = 다시 묻지 않음).
  * ⭐️ 기본값을 주면 안 된다 — 클라 Json은 encodeDefaults=false라 기본값 필드가 직렬화에서 빠져

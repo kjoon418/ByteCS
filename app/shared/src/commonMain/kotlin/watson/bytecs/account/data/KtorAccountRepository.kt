@@ -79,6 +79,14 @@ class KtorAccountRepository(
         return dto.toDomain()
     }
 
+    override suspend fun resetPreferredDifficulty(): Account {
+        val dto: UserResponseDto = client.patch("$baseUrl/api/users/me/settings") {
+            contentType(ContentType.Application.Json)
+            setBody(ResetPreferredDifficultyRequestDto(resetPreferredDifficulty = true))
+        }.body()
+        return dto.toDomain()
+    }
+
     override suspend fun dismissDifficultyPrompt(): Account {
         val dto: UserResponseDto = client.patch("$baseUrl/api/users/me/settings") {
             contentType(ContentType.Application.Json)

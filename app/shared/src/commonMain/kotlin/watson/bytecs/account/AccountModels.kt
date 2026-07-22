@@ -37,10 +37,10 @@ data class Account(
  * 선호 난이도. 서버 `Difficulty` enum(EASY/MEDIUM/HARD)과 이름으로 대조한다.
  * 미설정 상태는 이 타입이 아니라 `null`로 표현한다([Account.preferredDifficulty]).
  *
- * ⭐️ 서버 `PATCH /me/settings`는 값을 **설정**만 할 뿐, 미설정으로 되돌리는 동작은 지원하지 않는다
- * (부분 갱신 계약 — 필드를 보내면 그 값으로 바뀌고, 보내지 않으면 기존 값을 보존한다. "지우기"라는
- * 세 번째 의미는 없다). 그래서 이 타입 자체가 null을 만들 수 없게 두어, "자동으로 되돌리기"가 API로
- * 표현 불가능하다는 사실을 타입 수준에서 드러낸다 — 설정 화면은 이 계약을 그대로 따라야 한다.
+ * ⭐️ 서버 `PATCH /me/settings`의 부분 갱신 계약에서 `preferredDifficulty` 필드는 값을 **설정**만 한다
+ * (보내면 그 값으로, 안 보내면 보존 — 필드 자체에 "지우기"라는 세 번째 의미는 없다). 미설정(자동)으로
+ * 되돌리기는 전용 액션 플래그 `resetPreferredDifficulty: true`로만 표현한다
+ * ([AccountRepository.resetPreferredDifficulty] — 값 설정과 동시 지정하면 서버가 400으로 거른다).
  */
 enum class PreferredDifficulty {
     EASY,

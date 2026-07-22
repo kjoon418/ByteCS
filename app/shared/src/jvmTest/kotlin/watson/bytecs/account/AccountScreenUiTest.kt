@@ -56,6 +56,9 @@ class AccountScreenUiTest {
         var confirmDelete = 0
         var openScrapList = 0
         var preferredDifficultySelect = 0
+
+        /** 마지막 선택 콜백의 값. '자동'(null) 선택과 콜백 미발생을 구분하려면 [preferredDifficultySelect]와 함께 본다. */
+        var lastPreferredDifficultySelected: PreferredDifficulty? = null
     }
 
     @OptIn(ExperimentalTestApi::class)
@@ -73,7 +76,10 @@ class AccountScreenUiTest {
                     onOpenScrapList = { callbacks.openScrapList++ },
                     onSessionSizeChange = {},
                     onSaveSettings = {},
-                    onPreferredDifficultySelect = { callbacks.preferredDifficultySelect++ },
+                    onPreferredDifficultySelect = {
+                        callbacks.preferredDifficultySelect++
+                        callbacks.lastPreferredDifficultySelected = it
+                    },
                     onSavePreferredDifficulty = {},
                     onThemeSelect = {},
                     onLogout = { callbacks.logout++ },
@@ -387,17 +393,17 @@ class AccountScreenUiTest {
     }
 
     /**
-     * ⭐️ '자동'은 이미 선호를 정한 사용자에게는 선택할 수 있는 목표가 아니다 — 서버가 선호를 다시
-     * 미설정으로 되돌리는 동작을 지원하지 않으므로, 눌러도 아무 일도 일어나지 않는 죽은 선택지를
-     * 노출하는 대신 비활성화한다(막다른 길 금지).
+     * 이미 선호를 정한 사용자도 '자동'을 골라 미설정(균등 배정)으로 되돌릴 수 있다 — 선택 콜백이
+     * null로 나간다(서버 전용 리셋 플래그 계약은 뷰모델·리포지토리 몫).
      */
     @OptIn(ExperimentalTestApi::class)
     @Test
-    fun 선호_난이도를_이미_정했으면_자동_선택지는_비활성화된다() = runComposeUiTest {
+    fun 선호_난이도를_이미_정했어도_자동을_고르면_null_선택_콜백이_나간다() = runComposeUiTest {
         val callbacks = showScreen(memberState.copy(preferredDifficulty = PreferredDifficulty.EASY))
 
         onNodeWithText("자동으로 골고루 받을래요").performClick()
 
-        assertEquals(0, callbacks.preferredDifficultySelect, "비활성화된 선택지는 눌러도 콜백이 없다")
+        assertEquals(1, callbacks.preferredDifficultySelect, "'자동'도 선택 가능한 상태다")
+        assertEquals(null, callbacks.lastPreferredDifficultySelected, "'자동' 선택은 null로 전달된다")
     }
 }

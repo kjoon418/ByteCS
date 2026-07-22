@@ -206,6 +206,56 @@ class AccountViewModelTest {
         assertFalse(viewModel.uiState.value.isPreferredDifficultySaving)
     }
 
+    /** 이미 선호를 정한 사용자가 '자동'(null)으로 되돌리면 값 설정이 아니라 전용 리셋 경로를 탄다. */
+    @Test
+    fun preferredDifficultyReset_backToAutomatic_usesResetPath() = runTest {
+        val (viewModel, repository) = memberViewModel()
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.HARD)
+        viewModel.savePreferredDifficulty()
+        assertEquals(PreferredDifficulty.HARD, viewModel.uiState.value.preferredDifficulty)
+
+        repository.lastUpdatedPreferredDifficulty = null
+        viewModel.onPreferredDifficultyChange(null)
+        assertTrue(viewModel.uiState.value.isPreferredDifficultyDirty, "값→자동도 변경이다")
+        assertNull(viewModel.uiState.value.preferredDifficulty, "편집 중에도 '자동'이 현재 선택으로 보인다")
+
+        viewModel.savePreferredDifficulty()
+
+        assertEquals(1, repository.resetPreferredDifficultyCount, "리셋 전용 경로를 탄다")
+        assertNull(repository.lastUpdatedPreferredDifficulty, "값 설정 PATCH는 나가지 않는다(동시 지정 400 계약)")
+        assertNull(viewModel.uiState.value.preferredDifficulty)
+        assertFalse(viewModel.uiState.value.isPreferredDifficultyDirty)
+    }
+
+    /** 서버 값이 이미 미설정이면 '자동' 선택은 변경이 아니다 — 리셋 요청도 나가지 않는다. */
+    @Test
+    fun preferredDifficultyReset_whenAlreadyAutomatic_skipsRequest() = runTest {
+        val (viewModel, repository) = memberViewModel() // 서버 값은 미설정(null)
+
+        viewModel.onPreferredDifficultyChange(null)
+        assertFalse(viewModel.uiState.value.isPreferredDifficultyDirty, "이미 자동이면 변경 아님")
+
+        viewModel.savePreferredDifficulty()
+
+        assertEquals(0, repository.resetPreferredDifficultyCount, "변경 없으면 요청하지 않는다")
+    }
+
+    /** 리셋 실패도 값 설정 실패와 같은 비처벌 안내 경로를 탄다(막다른 길 없음 — 재시도 가능). */
+    @Test
+    fun preferredDifficultyReset_failure_showsNotice() = runTest {
+        val (viewModel, repository) = memberViewModel()
+        viewModel.onPreferredDifficultyChange(PreferredDifficulty.EASY)
+        viewModel.savePreferredDifficulty()
+        repository.resetPreferredDifficultyError = RuntimeException("down")
+
+        viewModel.onPreferredDifficultyChange(null)
+        viewModel.savePreferredDifficulty()
+
+        assertNotNull(viewModel.uiState.value.noticeError, "리셋 실패도 비처벌 안내로 남는다")
+        assertFalse(viewModel.uiState.value.isPreferredDifficultySaving)
+        assertNull(viewModel.uiState.value.preferredDifficulty, "실패해도 편집값('자동')은 유지돼 재시도할 수 있다")
+    }
+
     @Test
     fun delete_requiresTwoStepConfirm() = runTest {
         val (viewModel, repository) = memberViewModel()

@@ -31,6 +31,14 @@ interface AccountRepository {
     suspend fun updatePreferredDifficulty(value: PreferredDifficulty): Account
 
     /**
+     * 선호 난이도를 미설정(자동)으로 되돌린다. `PATCH /api/users/me/settings`(인증 필요)에 전용 액션
+     * 플래그 `resetPreferredDifficulty: true`만 보낸다 — `preferredDifficulty`와 동시 지정은 서버가
+     * 400으로 거르므로 함께 보내면 안 된다. 리셋해도 제안 응답 기록(difficultyPromptDone)은 불변이라
+     * 완료 화면 제안이 부활하지 않으며, 이후 배정은 균등 무작위로 돌아간다.
+     */
+    suspend fun resetPreferredDifficulty(): Account
+
+    /**
      * 세션 완료 화면의 난이도 제안 카드에서 "지금은 괜찮아요"(거절)를 눌렀을 때 기록한다.
      * `PATCH /api/users/me/settings`(인증 필요, 부분 갱신 — `difficultyPromptDone`만 보낸다).
      * 선호는 바꾸지 않는다 — 응답했다는 사실만 남겨, 서버가 이후 완료 화면에서 다시 제안하지 않게 한다.

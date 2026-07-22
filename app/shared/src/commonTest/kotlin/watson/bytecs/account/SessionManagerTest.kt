@@ -151,6 +151,22 @@ class SessionManagerTest {
     }
 
     @Test
+    fun resetPreferredDifficulty_refreshesStateToAutomatic() = runTest {
+        val tokenStore = store()
+        val repository = FakeAccountRepository()
+        val manager = SessionManager(repository, tokenStore)
+        manager.login("a@b.com", "pw12345678")
+        manager.updatePreferredDifficulty(PreferredDifficulty.HARD)
+
+        manager.resetPreferredDifficulty()
+
+        assertEquals(1, repository.resetPreferredDifficultyCount)
+        val state = manager.state.value
+        assertTrue(state is AuthState.Member)
+        assertNull(state.account?.preferredDifficulty, "리셋 후 상태는 미설정(자동)으로 갱신된다")
+    }
+
+    @Test
     fun dismissDifficultyPrompt_refreshesMemberState() = runTest {
         val tokenStore = store()
         val repository = FakeAccountRepository()
