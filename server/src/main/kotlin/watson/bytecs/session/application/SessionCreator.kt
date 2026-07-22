@@ -96,7 +96,14 @@ class SessionCreator(
      *  1. 안 푼 문제가 없으면 → 전체 풀을 균등 무작위로(D8 반복 폴백). **난이도 가중을 적용하지 않는다**(정착 보호·콘텐츠 고갈 방지).
      *  2. 선호 난이도 미설정 → 안 푼 문제를 균등 무작위로(현행 경로 그대로, 회귀 0).
      *  3. 선호 난이도 설정 → 안 푼 문제를 거리 기반 가중 무작위로(완전 배제 없음·후보 있는 난이도에만 가중).
-     * 복습 편입은 이 선정과 무관하다(호출부가 복습을 먼저 배치하고 남은 칸만 여기서 채운다 — 난이도 가중이 복습에 닿지 않는다).
+     * 어느 경우든 안 푼 후보에는 먼저 **연결 문제 하드 게이트**([filterUnlockedConnectedProblems], 계획 §3.2 · DI12)를
+     * 적용해, 지정된 연결 문제 중 구성 개념을 모두 학습하지 못한 것을 걸러낸 뒤 순서화한다(**필터 → 가중** 순서 유지).
+     * 게이트는 새 개념 후보에만 작용한다 — D8 반복 폴백(1)은 이미 푼 문제 재출제라 게이트 밖이고,
+     * 복습 편입도 이 선정과 무관하다(호출부가 복습을 먼저 배치하고 남은 칸만 여기서 채운다 — 게이트·난이도 가중이 복습에 닿지 않는다).
+     *
+     * **게이트는 후보가 남는 한에서만 작용한다** — 게이트로 후보가 전부 빠지면(안 푼 문제가 전부 잠긴 연결 문제) 반복 폴백으로
+     * 내려간다(막다른 길 없음, 세션 생성을 404로 깨뜨리지 않기 위한 최후 폴백. 신규 사용자+전량 연결 콘텐츠라는 병리적 구성에서는
+     * 게이트가 완화되는 것을 수용). 이때도 D8 분기와 동일 취급이라 난이도 가중을 적용하지 않는다.
      */
     private fun selectNewConceptCandidates(
         user: User,
@@ -104,13 +111,45 @@ class SessionCreator(
         unseenProblemIds: List<Long>,
     ): List<Long> {
         if (unseenProblemIds.isEmpty()) {
-            // D8 반복 폴백: 난이도 가중 미적용. 기존 균등 셔플 그대로 둔다.
+            // D8 반복 폴백: 이미 푼 문제 재출제라 게이트·난이도 가중 모두 미적용. 기존 균등 셔플 그대로 둔다.
+            return allProblemIds.shuffled(random)
+        }
+        // 연결 문제 하드 게이트: 순서화(균등·가중) 앞에서 먼저 후보를 좁힌다(필터 → 가중).
+        val gatedUnseen = filterUnlockedConnectedProblems(user.id, unseenProblemIds)
+        if (gatedUnseen.isEmpty()) {
+            // 안 푼 후보가 전부 게이트에 걸려 비었다 → 막다른 길을 만들지 않도록 D8 반복 폴백과 동일하게 처리한다.
             return allProblemIds.shuffled(random)
         }
         val preferred = user.settings.preferredDifficulty
-            ?: return unseenProblemIds.shuffled(random)
-        val difficultyByProblemId = problemRepository.findApprovedDifficultiesByIdIn(unseenProblemIds)
+            ?: return gatedUnseen.shuffled(random)
+        val difficultyByProblemId = problemRepository.findApprovedDifficultiesByIdIn(gatedUnseen)
             .associate { it.id to it.difficulty }
-        return difficultyWeightedShuffler.order(unseenProblemIds, difficultyByProblemId, preferred, random)
+        return difficultyWeightedShuffler.order(gatedUnseen, difficultyByProblemId, preferred, random)
+    }
+
+    /**
+     * 연결 문제 하드 게이트(계획 §3.2 · DI12). 새 개념 후보에서, **연결 문제로 지정된(integration=true)** 문제는
+     * 그 문제의 **모든** 구성 개념에 대해 이 사용자의 학습 이력(숙련도 행)이 있을 때만 남긴다.
+     * '학습했다'는 정답 처리로 숙련도 행이 존재한다는 뜻이다(레벨 무관 — 승급 임계 레벨≥1과 다른 기준).
+     * **미지정 문제는 개념 수와 무관하게 그대로 통과한다** — 다개념이어도 플래그가 없으면 게이트 밖이다(DI12: 판별을 태깅 수에서 명시 속성으로 이관).
+     * 입력 순서를 보존해 뒤이은 순서화(균등·가중)가 맡는다.
+     *
+     * 성능: 후보별 개별 조회(N+1) 대신, 보유 개념([ReviewService.findMasteredConceptIds])과
+     * 지정된 연결 문제의 개념 매핑([ProblemRepository.findConceptIdsOfIntegrationProblems])을 각각 1회 조회해 메모리에서 접는다.
+     * 매핑에 없는 문제(미지정)는 게이트 대상이 아니므로 통과시킨다.
+     */
+    private fun filterUnlockedConnectedProblems(userId: Long, unseenProblemIds: List<Long>): List<Long> {
+        val conceptIdsByIntegrationProblem = problemRepository.findConceptIdsOfIntegrationProblems(unseenProblemIds)
+            .groupBy({ it.problemId }, { it.conceptId })
+        if (conceptIdsByIntegrationProblem.isEmpty()) {
+            // 후보에 지정된 연결 문제가 하나도 없으면 게이트가 걸릴 것이 없다 — 보유 개념 조회도 아낀다.
+            return unseenProblemIds
+        }
+        val masteredConceptIds = reviewService.findMasteredConceptIds(userId)
+        return unseenProblemIds.filter { problemId ->
+            val conceptIds = conceptIdsByIntegrationProblem[problemId]
+            // 미지정 문제(매핑에 없음)는 통과. 지정된 연결 문제는 전 구성 개념을 학습했을 때만 통과.
+            conceptIds == null || masteredConceptIds.containsAll(conceptIds)
+        }
     }
 }

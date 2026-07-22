@@ -1,0 +1,26 @@
+{
+  "problems": [
+    {
+      "question": "스택과 큐를 함께 쓰는 구조를 설명하는 문제",
+      "type": "DEFINITION_RECALL",
+      "concepts": ["스택", "큐"],
+      "integration": true,
+      "acceptableAnswers": ["연결"],
+      "representativeAnswer": "연결"
+    },
+    {
+      "question": "가장 나중에 넣은 데이터가 먼저 나오는 후입선출 자료구조는?",
+      "type": "DEFINITION_RECALL",
+      "concepts": ["스택"],
+      "acceptableAnswers": ["스택"],
+      "representativeAnswer": "스택"
+    },
+    {
+      "question": "가장 먼저 넣은 데이터가 먼저 나오는 선입선출 자료구조는?",
+      "type": "DEFINITION_RECALL",
+      "concepts": ["큐"],
+      "acceptableAnswers": ["큐"],
+      "representativeAnswer": "큐"
+    }
+  ]
+}

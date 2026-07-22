@@ -364,6 +364,45 @@ class ProblemDataLoaderTest {
         }
     }
 
+    @Nested
+    inner class 연결_문제_속성을_로드한다 {
+
+        @Test
+        fun integration_필드가_없으면_false로_로드된다() {
+            // 하위 호환(DI12): 필드가 없는 기존 시드는 모두 미지정(integration=false)으로 로드된다.
+            val problems = allFixtureProblems()
+
+            assertThat(problems).isNotEmpty()
+            assertThat(problems).allMatch { !it.integration }
+        }
+
+        @Test
+        fun 계단을_갖춘_연결_문제는_지정_상태로_로드된다() {
+            // 연결 문제의 각 구성 개념이 단일 개념 문제로도 다뤄지면(계단 존재) 정상 로드된다.
+            val problems = loadProblemsFrom("seed/integration-with-stair.json")
+
+            val integrationProblem = problems.single { it.integration }
+            assertThat(integrationProblem.concepts.size).isGreaterThanOrEqualTo(2)
+        }
+
+        @Test
+        fun 계단_없는_연결_문제_시드는_기동을_실패시킨다() {
+            // 연결 문제의 구성 개념을 단일 개념 문제로도 다루지 않으면(계단 없음) 영구 잠금이 되므로 기동이 실패한다.
+            val stairMissingLoader = ProblemDataLoader(
+                conceptRepository,
+                problemRepository,
+                jacksonObjectMapper(),
+                resourcePath = "seed/integration-without-stair.json",
+            )
+            given(problemRepository.count()).willReturn(0L)
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            assertThatThrownBy { stairMissingLoader.run() }
+                .isInstanceOf(IllegalArgumentException::class.java)
+        }
+    }
+
     @Test
     fun 이미_문제가_있으면_로드하지_않는다() {
         // given
@@ -443,6 +482,21 @@ class ProblemDataLoaderTest {
         given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
 
         problemDataLoader.run()
+
+        val loadedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
+        verify(problemRepository).saveAll(loadedProblems.capture())
+        return loadedProblems.value
+    }
+
+    /** 지정한 리소스 경로의 시드를 구동해, 저장 직전 로드된 전체 문제를 꺼낸다. */
+    @Suppress("UNCHECKED_CAST")
+    private fun loadProblemsFrom(resourcePath: String): List<Problem> {
+        val loader = ProblemDataLoader(conceptRepository, problemRepository, jacksonObjectMapper(), resourcePath = resourcePath)
+        given(problemRepository.count()).willReturn(0L)
+        given(conceptRepository.findByName(anyString())).willReturn(null)
+        given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+        loader.run()
 
         val loadedProblems = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
         verify(problemRepository).saveAll(loadedProblems.capture())

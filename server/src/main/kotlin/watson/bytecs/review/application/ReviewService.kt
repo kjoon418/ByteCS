@@ -52,6 +52,16 @@ class ReviewService(
     }
 
     /**
+     * 그 사용자가 학습한(정답 통과로 숙련도 행이 존재하는) 개념 id 집합.
+     * 연결 문제 하드 게이트(계획 §3.2 · DI7)의 입력이다 — 세션 배정([watson.bytecs.session.application.SessionCreator])이
+     * 새 개념 후보 필터에 쓴다. **레벨과 무관하게** '만난 적 있는' 개념이면 포함된다(승급 임계 레벨≥1과 다른 기준).
+     * 후보별 개별 조회(N+1) 대신 사용자당 1회로 보유 개념을 가져와, 세션 배정 슬라이스가 리뷰의 저장소를 직접 알지 않도록
+     * 이 서비스 경계로만 노출한다(SessionCreator↔ReviewService 협력 관례).
+     */
+    fun findMasteredConceptIds(userId: Long): Set<Long> =
+        conceptMasteryRepository.findConceptIdsByUserId(userId).toSet()
+
+    /**
      * 복습 시점이 도래한 개념들의 복습 문제 id를, 도래 우선·개념 id 순으로 돌려준다(중복은 선착순 제거).
      *  - 기본: 그 개념을 마지막으로 갱신한 문제([ConceptMastery.lastProblemId]) = '그때 푼 그 문제'를 재출제.
      *  - 예외(유도형): lastProblemId가 유도형이고, 그 개념에 이 사용자에게 **아직 배정된 적 없는** 문제가 있으면

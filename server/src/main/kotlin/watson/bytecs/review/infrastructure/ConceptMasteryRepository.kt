@@ -1,6 +1,7 @@
 package watson.bytecs.review.infrastructure
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import watson.bytecs.review.domain.ConceptMastery
 import java.time.LocalDate
 
@@ -8,6 +9,15 @@ interface ConceptMasteryRepository : JpaRepository<ConceptMastery, Long> {
 
     /** 사용자·개념 쌍의 숙련도. 갱신 시 신규/기존을 가르는 조회 축(유니크 제약과 짝을 이룬다). */
     fun findByUserIdAndConceptId(userId: Long, conceptId: Long): ConceptMastery?
+
+    /**
+     * 그 사용자가 학습 이력을 가진(정답 통과로 숙련도 행이 존재하는) 개념 id를 조회한다.
+     * 연결 문제 하드 게이트(계획 §3.2)가 '구성 개념을 모두 만난 적 있는가'를 판정하는 입력이다 —
+     * **레벨과 무관하게** 행 존재만 본다(승급 임계 레벨≥1과 다른 기준). 문제별 개별 조회(N+1)를
+     * 피하려고 보유 개념을 사용자당 1회로 펼쳐, 애플리케이션에서 후보 필터에 쓴다.
+     */
+    @Query("select cm.conceptId from ConceptMastery cm where cm.userId = :userId")
+    fun findConceptIdsByUserId(userId: Long): List<Long>
 
     /**
      * 복습 시점이 도래한(nextReviewDate <= 오늘) 그 사용자의 숙련도를,

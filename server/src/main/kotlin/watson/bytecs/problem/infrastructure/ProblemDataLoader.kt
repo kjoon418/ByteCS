@@ -55,9 +55,32 @@ class ProblemDataLoader(
         val conceptCategories = seedFile.conceptCategories.mapValues { (_, category) -> category?.let { ProblemCategory.valueOf(it) } }
 
         val problems = seedFile.problems.map { toProblem(it, conceptCache, conceptCategories) }
-        // 승인 상태로 곧장 만든 시드가 승인 요건(유형 태깅·no-leak)을 실제로 충족하는지, 저장 전에 단정한다.
+        // 승인 상태로 곧장 만든 시드가 승인 요건(유형 태깅·no-leak·연결 문제 개념 수)을 실제로 충족하는지, 저장 전에 단정한다.
         problems.forEach { it.assertStructurallyApprovable() }
+        // 연결 문제(DI12)의 계단 보장: 각 구성 개념이 같은 시드의 단일 개념 문제로도 다뤄져야 한다(위반 시 기동 실패).
+        validateIntegrationProblemsAreStaged(problems)
         problemRepository.saveAll(problems)
+    }
+
+    /**
+     * 연결 문제(DI12)의 '계단 보장' 파일 단위 검증. 연결 문제로 지정된 문제의 각 구성 개념은, 같은 시드 안에서
+     * **단일 개념 문제로도** 다뤄져야 한다 — 그래야 사용자가 그 개념을 먼저 익혀(게이트 통과) 연결 문제에 도달할 수 있다.
+     * 계단이 없으면 연결 문제는 어떤 사용자에게도 영구 잠금이 되므로, 조용히 스킵하지 않고 기동을 실패시킨다(콘텐츠 결함).
+     * 개념은 로더 안에서 이름으로 공유되므로([findOrCreateConcept]) 이름 기준으로 단일 개념 커버리지를 판정한다.
+     */
+    private fun validateIntegrationProblemsAreStaged(problems: List<Problem>) {
+        val singleConceptCoverage = problems
+            .filter { it.concepts.size == 1 }
+            .map { it.concepts.first().name }
+            .toSet()
+        problems.filter { it.integration }.forEach { problem ->
+            problem.concepts.forEach { concept ->
+                require(concept.name in singleConceptCoverage) {
+                    "연결 문제 '${problem.questionText}'의 구성 개념 '${concept.name}'은(는) " +
+                        "같은 시드의 단일 개념 문제로도 다뤄져야 합니다(계단 없는 연결 문제 금지)."
+                }
+            }
+        }
     }
 
     private fun loadSeedFile(): ProblemSeedFile {
@@ -82,6 +105,7 @@ class ProblemDataLoader(
             approvalStatus = ApprovalStatus.APPROVED,
             questionText = dto.question,
             concepts = dto.concepts.map { findOrCreateConcept(it, conceptCache, conceptCategories) },
+            integration = dto.integration,
             acceptableAnswers = dto.acceptableAnswers.toSet(),
             representativeAnswer = dto.representativeAnswer,
             type = dto.type?.let { ProblemType.valueOf(it) },

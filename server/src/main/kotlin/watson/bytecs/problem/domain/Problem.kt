@@ -76,6 +76,16 @@ class Problem(
     @Column(name = "difficulty")
     val difficulty: Difficulty? = null,
 
+    /**
+     * 연결 문제 여부(DI12). **큐레이터가 명시적으로 지정하는 속성**이다 — 여러 개념을 실제로 잇도록 저작된 문제만 true로 둔다.
+     * 다개념 태깅 자체는 이 플래그와 무관하다: 복습 축을 위한 태깅은 풍부할수록 좋으므로, '개념 2개 이상=연결 문제' 기준(폐기)이
+     * 만들던 태깅 기피 유인을 없앤다. true인 문제만 새 개념 배정의 하드 게이트·잠금 해제 연출 대상이다
+     * ([watson.bytecs.session.application.SessionCreator]). 승인 요건으로 '개념 2개 이상'을 요구하며(아래 [validateApprovable]),
+     * '각 구성 개념이 단일 개념 문제로도 다뤄질 것'(계단 보장)은 시드 로더가 파일 단위로 검증한다.
+     */
+    @Column(name = "is_integration", nullable = false)
+    val integration: Boolean = false,
+
     @Column(name = "code_snippet", columnDefinition = "text")
     val codeSnippet: String? = null,
 
@@ -206,6 +216,11 @@ class Problem(
         if (type == null) {
             throw InvalidApprovalStateException(TYPE_REQUIRED_MESSAGE)
         }
+        // 연결 문제(DI12)는 여러 개념을 잇는다는 정의상 개념 2개 이상이어야 한다. 지정만 하고 개념이 1개면 게이트가
+        // '모든 개념 학습' 조건을 단일 개념으로 만족시켜 사실상 잠금이 무의미해지므로, 지정 자체를 승인에서 막는다.
+        if (integration && concepts.size < 2) {
+            throw InvalidApprovalStateException(INTEGRATION_CONCEPTS_MESSAGE)
+        }
 
         val normalizedAnswers = acceptableAnswers.map { AnswerText(it).value }
         val curatedTexts = hints.map { it.text } + misconceptionHints.map { it.message }
@@ -309,6 +324,7 @@ class Problem(
     companion object {
         const val TYPE_REQUIRED_MESSAGE = "승인하려면 문제 유형(정의 재생형/유도형) 태깅이 있어야 합니다."
         const val ANSWER_LEAK_MESSAGE = "힌트·오답 교정 힌트가 정답을 노출하는 문제는 승인할 수 없습니다."
+        const val INTEGRATION_CONCEPTS_MESSAGE = "연결 문제로 지정하려면 개념이 2개 이상이어야 합니다."
 
         // 수정 후 재검수 경로(반려·회수)를 포함해, 검수를 시작할 수 있는 상태들.
         private val REVIEWABLE_STATUSES =

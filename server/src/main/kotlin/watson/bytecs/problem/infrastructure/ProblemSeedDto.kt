@@ -26,6 +26,8 @@ data class ProblemSeedDto(
     val difficulty: String? = null,
     val codeSnippet: String? = null,
     val concepts: List<String> = emptyList(),
+    // 연결 문제 여부(DI12). 생략 시 false — 기존 시드(problems-generated.json 등)를 무변경으로 로드하는 하위 호환.
+    val integration: Boolean = false,
     val acceptableAnswers: List<String> = emptyList(),
     val representativeAnswer: String,
     val explanation: String? = null,

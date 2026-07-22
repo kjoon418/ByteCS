@@ -922,6 +922,8 @@ class SessionControllerIntegrationTest(
         problemRepository.deleteAll()
         conceptRepository.deleteAll()
 
+        // 다개념 문제이지만 연결 문제로 지정하지 않는다(integration 기본 false) — DI12 이후 미지정 다개념 문제는
+        // 게이트 밖이라 시딩만으로 새 개념 후보가 된다(개념 학습 이력 없이도 배정).
         val primary = conceptRepository.save(Concept("대표개념"))
         val secondary = conceptRepository.save(Concept("보조개념"))
         problemRepository.save(

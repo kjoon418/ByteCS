@@ -86,4 +86,23 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
         val id: Long
         val difficulty: Difficulty?
     }
+
+    /**
+     * 후보 중 **연결 문제(integration=true)**의 구성 개념 id만 (문제 id, 개념 id) 쌍으로 한 번에 조회한다
+     * (연결 문제 하드 게이트, 계획 §3.2 · DI12). 문제당 개별 조회(N+1)를 피하려고 후보 id 집합을 한 쿼리로 펼쳐,
+     * 애플리케이션([watson.bytecs.session.application.SessionCreator])이 문제별로 접어 '전 개념 학습' 게이트를 판정한다.
+     * 결과에 없는 문제(미지정 = 개념 수 무관)는 게이트 밖이라 그대로 통과한다 — DI12로 판별을 태깅 수에서 명시 플래그로 옮긴 핵심.
+     * @ManyToMany 조인이라 id만 프로젝션한다. 입력 ids는 이미 승인 게이트([findApprovedIdsOrderByIdAsc])를 통과한 후보다.
+     */
+    @Query(
+        "select p.id as problemId, c.id as conceptId from Problem p join p.concepts c " +
+            "where p.id in :ids and p.integration = true",
+    )
+    fun findConceptIdsOfIntegrationProblems(ids: Collection<Long>): List<ProblemConceptView>
+
+    /** JPQL 별칭 프로젝션 — [findConceptIdsOfIntegrationProblems] 전용(게이트 판정용 문제 id·개념 id 쌍). */
+    interface ProblemConceptView {
+        val problemId: Long
+        val conceptId: Long
+    }
 }
