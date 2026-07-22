@@ -65,6 +65,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import watson.bytecs.ImeSubmitEnterKey
 import watson.bytecs.ui.theme.BcsDimens
 import watson.bytecs.ui.theme.BcsMotion
 import watson.bytecs.ui.theme.LocalBcsColors
@@ -154,6 +155,10 @@ fun AnswerTextField(
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
     val borderColor = if (focused) MaterialTheme.colorScheme.primary else colors.border
+
+    // ⭐️ 웹 한글 IME 이중 Enter 우회 — 포커스 중 조합 Enter를 조합 확정 후 제출로 잇는다(§ ImeSubmitEnterKey).
+    //    조합이 아닌 Enter는 아래 keyboardActions(ImeAction.Done)가 그대로 처리한다. 웹 외 플랫폼은 no-op.
+    ImeSubmitEnterKey(enabled = focused, onSubmit = onImeSubmit)
 
     BasicTextField(
         value = value,
@@ -296,6 +301,9 @@ fun BcsTextField(
                 color = colors.textLabel,
             )
         }
+        // ⭐️ 웹 한글 IME 이중 Enter 우회 — 포커스 중 조합 Enter를 조합 확정 후 IME 액션으로 잇는다
+        //    (§ ImeSubmitEnterKey). 조합이 아닌 Enter는 아래 keyboardActions가 처리한다. 웹 외 플랫폼은 no-op.
+        ImeSubmitEnterKey(enabled = focused && enabled, onSubmit = onImeAction)
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
