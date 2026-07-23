@@ -173,8 +173,11 @@ class InterviewSessionService(
 
     private fun updateReadiness(userId: Long, conceptId: Long, satisfiedPoints: List<Boolean>, updatedAt: Instant) {
         val readiness = interviewReadinessRepository.findByUserIdAndConceptId(userId, conceptId)
-            ?: InterviewReadiness.initial(userId, conceptId).also { interviewReadinessRepository.save(it) }
+            ?: InterviewReadiness.initial(userId, conceptId)
+        // applyResult로 상태·updatedAt(NOT NULL)을 채운 뒤에 저장한다 — 신규 행을 채우기 전에 먼저 save하면
+        // updatedAt(lateinit) 미초기화 상태로 INSERT돼 제약 위반이 난다(실서버 스모크로 발견).
         readiness.applyResult(satisfiedPoints.count { it }, satisfiedPoints.size, updatedAt)
+        interviewReadinessRepository.save(readiness)
     }
 
     /** 복습 시점을 면접일+1일로 당긴다(당김 전용, DI11) — 그 개념의 숙련도 행이 없으면(있어야 정상이나) 조용히 건너뛴다. */

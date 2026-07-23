@@ -43,15 +43,32 @@ class InterviewPromptDataLoaderTest {
     }
 
     @Test
-    fun `빈 시드는 예외 없이 기동한다(콘텐츠는 후속 저작)`() {
+    fun `빈 시드는 예외 없이 기동한다(graceful)`() {
         given(interviewPromptRepository.count()).willReturn(0L)
 
-        // 운영 기본 시드는 빈 prompts 배열이다 — 빈 파일이어도 정상 기동해야 한다(graceful).
-        val saved = runAndCapture("seed/interview-prompts.json")
+        // 빈 파일이어도 정상 기동해야 한다 — 운영 기본 시드는 이제 콘텐츠가 채워져 있으므로(아래 테스트), 이 케이스는
+        // 전용 빈 픽스처로 검증한다.
+        val saved = runAndCapture("seed/interview-prompts-empty-fixture.json")
 
         assertThat(saved).isEmpty()
         // 빈 시드는 개념을 참조할 일이 없다.
         verifyNoInteractions(conceptRepository)
+    }
+
+    @Test
+    fun `운영 시드는 문제 시드의 69개 개념 전체를 커버해 전부 조립된다`() {
+        given(interviewPromptRepository.count()).willReturn(0L)
+        // 문제 시드가 만드는 모든 개념이 존재한다고 가정하고(실제 존재 여부는 InterviewPromptSeedContentTest가 검증),
+        // 요청받은 이름 그대로의 개념을 돌려주는 동적 스텁으로 69개 전부의 조립 가능성만 확인한다.
+        given(conceptRepository.findByName(anyString())).willAnswer { invocation ->
+            Concept(invocation.getArgument(0))
+        }
+
+        val saved = runAndCapture("seed/interview-prompts.json")
+
+        assertThat(saved).hasSize(69)
+        assertThat(saved).allMatch { it.approvalStatus == ApprovalStatus.APPROVED }
+        assertThat(saved.map { it.concept.name }.toSet()).hasSize(69)
     }
 
     @Test
