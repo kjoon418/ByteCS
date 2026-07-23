@@ -20,6 +20,13 @@ interface ConceptMasteryRepository : JpaRepository<ConceptMastery, Long> {
     fun findConceptIdsByUserId(userId: Long): List<Long>
 
     /**
+     * 그 사용자가 승급 임계(레벨 ≥ [minLevel])에 도달한 개념 id를 조회한다(면접 세션 승급 후보 산정, 계획 §3.3 · DI8).
+     * 레벨은 매 조회 시점의 최신 값이라, 레벨이 0으로 떨어지면 다음 조회에서 자연히 후보에서 빠진다(별도 상태 관리 없음).
+     */
+    @Query("select cm.conceptId from ConceptMastery cm where cm.userId = :userId and cm.level >= :minLevel")
+    fun findConceptIdsByUserIdAndLevelGreaterThanEqual(userId: Long, minLevel: Int): List<Long>
+
+    /**
      * 복습 시점이 도래한(nextReviewDate <= 오늘) 그 사용자의 숙련도를,
      * 도래 우선(nextReviewDate asc)·개념 id 순으로 결정적으로 조회한다(§3 세션 편입).
      */

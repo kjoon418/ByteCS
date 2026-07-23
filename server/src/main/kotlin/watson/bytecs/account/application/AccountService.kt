@@ -17,6 +17,8 @@ import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.domain.UserRole
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.account.security.JwtTokenProvider
+import watson.bytecs.interview.infrastructure.InterviewReadinessRepository
+import watson.bytecs.interview.infrastructure.InterviewSessionRepository
 import watson.bytecs.report.infrastructure.ContentReportRepository
 import watson.bytecs.review.infrastructure.ConceptMasteryRepository
 import watson.bytecs.scrap.infrastructure.ScrapRepository
@@ -38,6 +40,8 @@ class AccountService(
     private val sessionRepository: SessionRepository,
     private val conceptMasteryRepository: ConceptMasteryRepository,
     private val contentReportRepository: ContentReportRepository,
+    private val interviewSessionRepository: InterviewSessionRepository,
+    private val interviewReadinessRepository: InterviewReadinessRepository,
 ) {
 
     @Transactional
@@ -134,6 +138,9 @@ class AccountService(
         scrapRepository.deleteByUserId(userId)
         sessionRepository.deleteByUserId(userId)
         conceptMasteryRepository.deleteByUserId(userId)
+        // 면접 세션·준비도도 학습 상태라 함께 삭제한다(계획 §4.2). 면접 질문 콘텐츠는 공용 자산이라 무관.
+        interviewSessionRepository.deleteByUserId(userId)
+        interviewReadinessRepository.deleteByUserId(userId)
         // 신고는 학습 상태가 아니라 콘텐츠 품질 운영 데이터라 삭제하지 않고 익명화만 한다(D10).
         contentReportRepository.anonymizeByUserId(userId)
         userRepository.delete(user)

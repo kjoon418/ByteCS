@@ -69,6 +69,17 @@ class ConceptMastery private constructor(
         lastProblemId = problemId
     }
 
+    /**
+     * 복습 시점을 [candidate]로 당긴다 — [candidate]가 기존 예정일보다 이를 때만 갱신한다(당김 전용, DI11).
+     * 면접 세션에서 '검증됨' 미달로 채점된 개념의 다음 복습을 min(기존 예정일, 면접일+1)로 당길 때 쓴다.
+     * 레벨·간격 사다리는 절대 바꾸지 않는다 — 당겨진 복습에서의 정답은 기존 규칙(applySolve)대로 처리된다.
+     */
+    fun pullReviewDateForward(candidate: LocalDate) {
+        if (candidate.isBefore(nextReviewDate)) {
+            nextReviewDate = candidate
+        }
+    }
+
     companion object {
         // 간격 사다리(일). level(0~4)을 인덱스로 접근한다. [구현 노트 — 오너 튜닝 대상]
         val INTERVAL_LADDER = listOf(1, 3, 7, 14, 30)

@@ -99,6 +99,39 @@ class ConceptMasteryTest {
         }
     }
 
+    @Nested
+    inner class 복습_당김_전용_예외_DI11 {
+
+        @Test
+        fun `당길 날짜가 기존 예정일보다 이르면 당긴다`() {
+            val mastery = firstSolve(MasterySignal.UNAIDED) // nextReviewDate = SOLVED_ON + 3일
+
+            mastery.pullReviewDateForward(SOLVED_ON.plusDays(1))
+
+            assertThat(mastery.nextReviewDate).isEqualTo(SOLVED_ON.plusDays(1))
+        }
+
+        @Test
+        fun `당길 날짜가 기존 예정일보다 늦으면 무변경이다(미루는 방향 없음)`() {
+            val mastery = firstSolve(MasterySignal.UNAIDED) // nextReviewDate = SOLVED_ON + 3일
+            val original = mastery.nextReviewDate
+
+            mastery.pullReviewDateForward(SOLVED_ON.plusDays(10))
+
+            assertThat(mastery.nextReviewDate).isEqualTo(original)
+        }
+
+        @Test
+        fun `당김은 레벨과 사다리 위치를 바꾸지 않는다`() {
+            val mastery = firstSolve(MasterySignal.UNAIDED)
+            val levelBefore = mastery.level
+
+            mastery.pullReviewDateForward(SOLVED_ON.plusDays(1))
+
+            assertThat(mastery.level).isEqualTo(levelBefore)
+        }
+    }
+
     private fun firstSolve(signal: MasterySignal): ConceptMastery =
         ConceptMastery.firstSolve(USER_ID, CONCEPT_ID, signal, SOLVED_ON, PROBLEM_ID)
 }

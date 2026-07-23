@@ -15,6 +15,11 @@ import watson.bytecs.account.domain.EmailDuplicatedException
 import watson.bytecs.account.domain.InvalidCredentialsException
 import watson.bytecs.account.domain.InvalidUserStateException
 import watson.bytecs.account.domain.UserNotFoundException
+import watson.bytecs.interview.domain.InterviewMemberOnlyException
+import watson.bytecs.interview.domain.InterviewNoCandidateException
+import watson.bytecs.interview.domain.InterviewQuotaExceededException
+import watson.bytecs.interview.domain.InterviewSessionAlreadyCompletedException
+import watson.bytecs.interview.domain.InterviewSessionNotFoundException
 import watson.bytecs.problem.domain.InvalidApprovalStateException
 import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.scrap.domain.ScrapNotFoundException
@@ -116,6 +121,48 @@ class GlobalExceptionHandler {
         log.warn("[Conflict] {}", exception.message)
 
         val response = ErrorResponse(exception.message ?: "허용되지 않는 승인 상태 전이입니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(InterviewMemberOnlyException::class)
+    fun handleInterviewMemberOnly(exception: InterviewMemberOnlyException): ResponseEntity<ErrorResponse> {
+        log.warn("[Forbidden] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "면접 세션은 회원만 이용할 수 있습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response)
+    }
+
+    @ExceptionHandler(InterviewQuotaExceededException::class)
+    fun handleInterviewQuotaExceeded(exception: InterviewQuotaExceededException): ResponseEntity<ErrorResponse> {
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "오늘의 면접 세션을 모두 사용했습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
+    }
+
+    @ExceptionHandler(InterviewNoCandidateException::class)
+    fun handleInterviewNoCandidate(exception: InterviewNoCandidateException): ResponseEntity<ErrorResponse> {
+        log.warn("[Not Found] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "면접 연습을 시작할 개념이 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
+    }
+
+    @ExceptionHandler(InterviewSessionNotFoundException::class)
+    fun handleInterviewSessionNotFound(exception: InterviewSessionNotFoundException): ResponseEntity<ErrorResponse> {
+        log.warn("[Not Found] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "면접 세션을 찾을 수 없습니다.", exception.errorCode)
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response)
+    }
+
+    @ExceptionHandler(InterviewSessionAlreadyCompletedException::class)
+    fun handleInterviewSessionAlreadyCompleted(
+        exception: InterviewSessionAlreadyCompletedException,
+    ): ResponseEntity<ErrorResponse> {
+        log.warn("[Conflict] {}", exception.message)
+
+        val response = ErrorResponse(exception.message ?: "이미 완료된 면접 세션입니다.", exception.errorCode)
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response)
     }
 

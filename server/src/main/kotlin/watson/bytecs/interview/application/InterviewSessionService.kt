@@ -1,0 +1,222 @@
+package watson.bytecs.interview.application
+
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+import watson.bytecs.account.domain.User
+import watson.bytecs.account.domain.UserNotFoundException
+import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.interview.application.dto.InterviewAnswerResponse
+import watson.bytecs.interview.application.dto.InterviewSessionResponse
+import watson.bytecs.interview.application.dto.InterviewStatusResponse
+import watson.bytecs.interview.domain.InterviewMemberOnlyException
+import watson.bytecs.interview.domain.InterviewNoCandidateException
+import watson.bytecs.interview.domain.InterviewPrompt
+import watson.bytecs.interview.domain.InterviewQuotaExceededException
+import watson.bytecs.interview.domain.InterviewReadiness
+import watson.bytecs.interview.domain.InterviewReadinessStatus
+import watson.bytecs.interview.domain.InterviewSession
+import watson.bytecs.interview.domain.InterviewSessionAlreadyCompletedException
+import watson.bytecs.interview.domain.InterviewSessionNotFoundException
+import watson.bytecs.interview.domain.ExplanationJudge
+import watson.bytecs.interview.infrastructure.InterviewPromptRepository
+import watson.bytecs.interview.infrastructure.InterviewReadinessRepository
+import watson.bytecs.interview.infrastructure.InterviewSessionRepository
+import watson.bytecs.review.infrastructure.ConceptMasteryRepository
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+
+/**
+ * 면접 세션(계획 §3.3 — C2)을 조율한다. 승급 후보 산정·쿼터·준비도 갱신·복습 당김(DI11)·스트릭 OR(DI5)을 조합하고,
+ * 채점 자체는 [ExplanationJudge]에 위임한다(로컬·테스트는 결정적 Fake — [watson.bytecs.interview.infrastructure.FakeExplanationJudge]).
+ * 일반 세션([watson.bytecs.session.application.SessionService])과 같은 관례: 조회 기본 읽기 전용, 생성·갱신만 쓰기 트랜잭션.
+ *
+ * [review-todo] 이 슬라이스는 프로토타입 우선으로 구현했다 — 커버되지 않은 경계(동시 제출 경합, InterviewPrompt 부재 등
+ * 데이터 정합성 가정)와 컨트롤러 통합 테스트는 별도 검토가 필요하다. 자세한 목록은 세션 핸드오프 메모리 참고.
+ */
+@Service
+@Transactional(readOnly = true)
+class InterviewSessionService(
+    private val interviewSessionRepository: InterviewSessionRepository,
+    private val interviewPromptRepository: InterviewPromptRepository,
+    private val interviewReadinessRepository: InterviewReadinessRepository,
+    private val conceptMasteryRepository: ConceptMasteryRepository,
+    private val userRepository: UserRepository,
+    private val explanationJudge: ExplanationJudge,
+    private val responseMapper: InterviewResponseMapper,
+    private val clock: Clock,
+) {
+
+    /** 홈 카드의 단일 출처. 게스트도 후보 수를 계산해 돌려준다(가입 유도 문구용) — 잔여 쿼터는 게스트에겐 항상 0. */
+    fun getStatus(userId: Long): InterviewStatusResponse {
+        val user = loadUser(userId)
+        val candidateCount = selectCandidatePromptsOrdered(userId).size
+        val remainingQuota = if (user.isMember) {
+            (DAILY_QUOTA - interviewSessionRepository.countGradedSessionsOn(userId, today())).coerceAtLeast(0).toInt()
+        } else {
+            0
+        }
+        return InterviewStatusResponse(
+            candidateConceptCount = candidateCount,
+            remainingQuota = remainingQuota,
+            isGuest = !user.isMember,
+        )
+    }
+
+    /**
+     * 오늘의 면접 세션을 시작한다.
+     *  - 오늘 최신 세션이 진행 중이면 새로 만들지 않고 그대로 돌려준다(재개, 쿼터 미차감).
+     *  - 그 외엔 오늘 쿼터를 확인하고(채점 성공 세션만 차감 대상), 승급 후보로 새 세션을 만든다.
+     */
+    @Transactional
+    fun createTodaySession(userId: Long): InterviewSessionResponse {
+        lockUser(userId)
+        val user = loadUser(userId)
+        requireMember(user)
+
+        val today = today()
+        val latest = findLatestToday(userId, today)
+        if (latest != null && !latest.isCompleted) {
+            return toSessionResponse(latest)
+        }
+        if (interviewSessionRepository.countGradedSessionsOn(userId, today) >= DAILY_QUOTA) {
+            throw InterviewQuotaExceededException.forToday()
+        }
+
+        val candidates = selectCandidatePromptsOrdered(userId)
+        if (candidates.isEmpty()) {
+            throw InterviewNoCandidateException.noEligibleConcept()
+        }
+
+        val session = InterviewSession.assign(userId, today, candidates.take(SESSION_SIZE).map { it.id })
+        interviewSessionRepository.save(session)
+        return toSessionResponse(session)
+    }
+
+    /** 오늘 진행 중인 면접 세션을 조회한다(중단·재개). 없으면 404 — 시작은 [createTodaySession]으로만 한다. */
+    fun getTodaySession(userId: Long): InterviewSessionResponse {
+        requireMember(loadUser(userId))
+        val session = findLatestToday(userId, today()) ?: throw InterviewSessionNotFoundException.forToday()
+        return toSessionResponse(session)
+    }
+
+    /**
+     * 현재 질문에 자기 말로 쓴 설명을 제출하고 채점한다.
+     * 채점 성공 시 준비도를 갱신하고, '검증됨' 미달이면 그 개념의 복습 시점을 당긴다(DI11 — 당김 전용, 레벨 무변경).
+     * 채점 실패(폴백) 시 준비도·복습은 손대지 않는다. 이 제출로 세션이 완료되면 스트릭을 기록한다(DI5 — 하루 멱등은 StudyStreak가 보장).
+     */
+    @Transactional
+    fun submitAnswer(userId: Long, explanation: String): InterviewAnswerResponse {
+        val user = loadUser(userId)
+        requireMember(user)
+        val session = findLatestToday(userId, today()) ?: throw InterviewSessionNotFoundException.forToday()
+        val promptId = session.currentPromptId() ?: throw InterviewSessionAlreadyCompletedException.forAnswer()
+        val prompt = loadPrompt(promptId)
+
+        val judgeResult = explanationJudge.judge(prompt.rubricPoints, explanation)
+        val judgedAt = Instant.now(clock)
+        if (judgeResult != null) {
+            session.recordGraded(explanation, judgeResult.satisfiedPoints, judgeResult.comment, judgedAt)
+            updateReadiness(userId, prompt.concept.id, judgeResult.satisfiedPoints, judgedAt)
+            val allSatisfied = judgeResult.satisfiedPoints.all { it }
+            if (!allSatisfied) {
+                pullReviewForward(userId, prompt.concept.id, today())
+            }
+        } else {
+            session.recordFallback(explanation, judgedAt)
+        }
+
+        val streak = if (session.isCompleted) {
+            user.recordStudy(today())
+            user.streak
+        } else {
+            null
+        }
+
+        val nextPrompt = session.currentPromptId()?.let { loadPrompt(it) }
+        return responseMapper.toAnswerResponse(session, prompt, judgeResult, nextPrompt, streak)
+    }
+
+    /**
+     * 승급 후보 개념(레벨≥1 ∧ 승인된 면접 질문 존재)의 면접 질문을, 준비도 우선순위(미검증>부분>검증됨)·개념 id 순으로 돌려준다.
+     * 개념당 면접 질문은 1차 기본 1개이되, 여럿이면 id가 가장 작은 것으로 결정적으로 고른다.
+     */
+    private fun selectCandidatePromptsOrdered(userId: Long): List<InterviewPrompt> {
+        val masteredConceptIds =
+            conceptMasteryRepository.findConceptIdsByUserIdAndLevelGreaterThanEqual(userId, ELIGIBLE_LEVEL).toSet()
+        if (masteredConceptIds.isEmpty()) {
+            return emptyList()
+        }
+
+        val promptByConceptId = interviewPromptRepository.findApproved()
+            .filter { it.concept.id in masteredConceptIds }
+            .groupBy { it.concept.id }
+            .mapValues { (_, prompts) -> prompts.minBy { it.id } }
+        if (promptByConceptId.isEmpty()) {
+            return emptyList()
+        }
+
+        val readinessByConceptId = interviewReadinessRepository
+            .findByUserIdAndConceptIdIn(userId, promptByConceptId.keys)
+            .associateBy { it.conceptId }
+
+        return promptByConceptId.keys
+            .sortedWith(compareBy({ priorityOf(readinessByConceptId[it]?.status) }, { it }))
+            .map { promptByConceptId.getValue(it) }
+    }
+
+    private fun priorityOf(status: InterviewReadinessStatus?): Int = when (status) {
+        null, InterviewReadinessStatus.UNVERIFIED -> 0
+        InterviewReadinessStatus.PARTIAL -> 1
+        InterviewReadinessStatus.VERIFIED -> 2
+    }
+
+    private fun updateReadiness(userId: Long, conceptId: Long, satisfiedPoints: List<Boolean>, updatedAt: Instant) {
+        val readiness = interviewReadinessRepository.findByUserIdAndConceptId(userId, conceptId)
+            ?: InterviewReadiness.initial(userId, conceptId).also { interviewReadinessRepository.save(it) }
+        readiness.applyResult(satisfiedPoints.count { it }, satisfiedPoints.size, updatedAt)
+    }
+
+    /** 복습 시점을 면접일+1일로 당긴다(당김 전용, DI11) — 그 개념의 숙련도 행이 없으면(있어야 정상이나) 조용히 건너뛴다. */
+    private fun pullReviewForward(userId: Long, conceptId: Long, interviewDate: LocalDate) {
+        conceptMasteryRepository.findByUserIdAndConceptId(userId, conceptId)
+            ?.pullReviewDateForward(interviewDate.plusDays(REVIEW_PULL_FORWARD_DAYS))
+    }
+
+    private fun requireMember(user: User) {
+        if (!user.isMember) {
+            throw InterviewMemberOnlyException.forGuest()
+        }
+    }
+
+    private fun toSessionResponse(session: InterviewSession): InterviewSessionResponse {
+        val currentPrompt = session.currentPromptId()?.let { loadPrompt(it) }
+        return responseMapper.toSessionResponse(session, currentPrompt)
+    }
+
+    /** 세션 생성 경합을 사용자 행 비관적 잠금으로 직렬화한다(SessionService.lockUser와 같은 관례). */
+    private fun lockUser(userId: Long) {
+        userRepository.findWithLockById(userId).orElseThrow { UserNotFoundException.byId(userId) }
+    }
+
+    private fun findLatestToday(userId: Long, today: LocalDate): InterviewSession? =
+        interviewSessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(userId, today)
+
+    private fun loadUser(userId: Long): User =
+        userRepository.findById(userId).orElseThrow { UserNotFoundException.byId(userId) }
+
+    private fun loadPrompt(promptId: Long): InterviewPrompt =
+        interviewPromptRepository.findById(promptId).orElseThrow {
+            IllegalStateException("면접 질문을 찾을 수 없습니다. id = $promptId")
+        }
+
+    private fun today(): LocalDate = LocalDate.now(clock)
+
+    companion object {
+        // 전부 상수 분리(운영 튜닝 대상 — 계획 부록).
+        private const val SESSION_SIZE = 3
+        private const val DAILY_QUOTA = 1L
+        private const val ELIGIBLE_LEVEL = 1 // DI8: 숙련도 레벨 ≥ 1
+        private const val REVIEW_PULL_FORWARD_DAYS = 1L // DI11: 면접일+1일
+    }
+}
