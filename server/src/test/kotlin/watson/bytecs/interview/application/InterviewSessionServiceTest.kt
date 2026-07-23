@@ -263,6 +263,7 @@ class InterviewSessionServiceTest {
     ): InterviewPrompt {
         val concept = mock(Concept::class.java)
         given(concept.id).willReturn(conceptId)
+        given(concept.name).willReturn("개념$conceptId")
         val prompt = mock(InterviewPrompt::class.java)
         given(prompt.id).willReturn(id)
         given(prompt.concept).willReturn(concept)

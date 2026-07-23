@@ -46,6 +46,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import watson.bytecs.interview.InterviewCardUiState
+import watson.bytecs.interview.InterviewCardViewModel
+import watson.bytecs.interview.InterviewPracticeCard
 import watson.bytecs.ui.components.BcsCard
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.GhostButton
@@ -72,33 +75,40 @@ import watson.bytecs.ui.theme.LocalBcsColors
  * @param onUpgrade 게스트 가입 유도 → 05.
  * @param onOpenScrapList 스크랩 목록 진입점(리뷰 반영, 2026-07-16 오너 결정) → 스크랩 목록.
  * @param onOpenCategoryHistory 카테고리별 학습 이력 진입점(기능 7, 1차) → 카테고리 목록.
+ * @param onStartInterview 면접 연습 진입 카드(디자인 02 3-b, 잔여 있음 상태) → 08 면접 세션.
  */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
+    interviewCardViewModel: InterviewCardViewModel,
     onStartOrContinue: () -> Unit,
     onExtraPractice: () -> Unit,
     onOpenAccount: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
     onOpenCategoryHistory: () -> Unit,
+    onStartInterview: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val interviewCard by interviewCardViewModel.uiState.collectAsStateWithLifecycle()
 
-    // 화면 진입(앱 재실행·세션 완료 후 복귀)마다 오늘 상태를 새로 반영한다.
+    // 화면 진입(앱 재실행·세션 완료 후 복귀)마다 오늘 상태를 새로 반영한다. 면접 카드도 함께 갱신한다(잔여 쿼터 반영).
     LaunchedEffect(Unit) {
         viewModel.refresh()
+        interviewCardViewModel.refresh()
     }
 
     HomeScreenContent(
         state = state,
+        interviewCard = interviewCard,
         onStartOrContinue = onStartOrContinue,
         onExtraPractice = onExtraPractice,
         onOpenAccount = onOpenAccount,
         onUpgrade = onUpgrade,
         onOpenScrapList = onOpenScrapList,
         onOpenCategoryHistory = onOpenCategoryHistory,
+        onStartInterview = onStartInterview,
         onRetry = viewModel::refresh,
         modifier = modifier,
     )
@@ -119,6 +129,10 @@ internal fun HomeScreenContent(
     onOpenCategoryHistory: () -> Unit = {},
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    // 면접 연습 진입 카드(디자인 02 3-b). 기본은 [InterviewCardUiState.Hidden]이라 렌더되지 않는다 — 상태를
+    // 주지 않는 기존 호출부(테스트 포함)는 카드가 없는 기존 화면 그대로다.
+    interviewCard: InterviewCardUiState = InterviewCardUiState.Hidden,
+    onStartInterview: () -> Unit = {},
 ) {
     val ready = state as? HomeUiState.Ready
 
@@ -139,11 +153,13 @@ internal fun HomeScreenContent(
                 HomeUiState.Error -> HomeError(onRetry = onRetry)
                 is HomeUiState.Ready -> HomeReady(
                     state = state,
+                    interviewCard = interviewCard,
                     onStartOrContinue = onStartOrContinue,
                     onExtraPractice = onExtraPractice,
                     onUpgrade = onUpgrade,
                     onOpenScrapList = onOpenScrapList,
                     onOpenCategoryHistory = onOpenCategoryHistory,
+                    onStartInterview = onStartInterview,
                 )
             }
         }
@@ -215,18 +231,20 @@ private fun AccountEntry(
 @Composable
 private fun HomeReady(
     state: HomeUiState.Ready,
+    interviewCard: InterviewCardUiState,
     onStartOrContinue: () -> Unit,
     onExtraPractice: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
     onOpenCategoryHistory: () -> Unit,
+    onStartInterview: () -> Unit,
 ) {
     // 웹/데스크톱(EXPANDED)에서는 세로 나열 대신 주 영역(오늘의 한입 카드)과 보조 컬럼(스트릭·진입점)으로
     // 2분할해 이동·스크롤을 줄인다(계획 §4-2). COMPACT/MEDIUM은 기존 단일 컬럼 그대로라 모바일 회귀가 없다.
     if (LocalWindowWidthClass.current == WindowWidthClass.EXPANDED) {
-        HomeReadyExpanded(state, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory)
+        HomeReadyExpanded(state, interviewCard, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory, onStartInterview)
     } else {
-        HomeReadyColumn(state, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory)
+        HomeReadyColumn(state, interviewCard, onStartOrContinue, onExtraPractice, onUpgrade, onOpenScrapList, onOpenCategoryHistory, onStartInterview)
     }
 }
 
@@ -234,11 +252,13 @@ private fun HomeReady(
 @Composable
 private fun HomeReadyColumn(
     state: HomeUiState.Ready,
+    interviewCard: InterviewCardUiState,
     onStartOrContinue: () -> Unit,
     onExtraPractice: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
     onOpenCategoryHistory: () -> Unit,
+    onStartInterview: () -> Unit,
 ) {
     val session = state.session
 
@@ -268,6 +288,9 @@ private fun HomeReadyColumn(
             onExtraPractice = onExtraPractice,
         )
 
+        // 면접 연습 진입 카드(디자인 02 3-b) — 오늘의 한입 카드보다 아래 위계(계단 위계 DI1). 게스트 카드는 가입 유도로 이어진다.
+        InterviewPracticeCard(state = interviewCard, onStart = onStartInterview, onUpgrade = onUpgrade)
+
         // 스크랩 목록 진입점(리뷰 반영) — 조용한 secondary 행. 히어로(오늘의 한입 CTA)를 방해하지 않는다.
         ScrapEntryRow(onOpenScrapList = onOpenScrapList)
 
@@ -291,11 +314,13 @@ private fun HomeReadyColumn(
 @Composable
 private fun HomeReadyExpanded(
     state: HomeUiState.Ready,
+    interviewCard: InterviewCardUiState,
     onStartOrContinue: () -> Unit,
     onExtraPractice: () -> Unit,
     onUpgrade: () -> Unit,
     onOpenScrapList: () -> Unit,
     onOpenCategoryHistory: () -> Unit,
+    onStartInterview: () -> Unit,
 ) {
     val session = state.session
 
@@ -332,6 +357,8 @@ private fun HomeReadyExpanded(
                 session.streak?.let { streak ->
                     StreakCard(days = streak.count)
                 }
+                // 면접 연습 진입 카드(디자인 02 3-b) — 보조 컬럼에 둬 히어로(오늘의 한입)를 방해하지 않는다.
+                InterviewPracticeCard(state = interviewCard, onStart = onStartInterview, onUpgrade = onUpgrade)
                 ScrapEntryRow(onOpenScrapList = onOpenScrapList)
                 CategoryHistoryEntryRow(onOpenCategoryHistory = onOpenCategoryHistory)
                 if (!state.isMember) {

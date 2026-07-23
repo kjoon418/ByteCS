@@ -22,6 +22,8 @@ class InterviewResponseMapper {
             position = session.currentPosition,
             totalCount = session.totalCount,
             currentQuestion = currentPrompt?.question,
+            currentConceptName = currentPrompt?.concept?.name,
+            currentPromptId = currentPrompt?.id,
         )
 
     /**
@@ -44,10 +46,14 @@ class InterviewResponseMapper {
             points = points,
             comment = judgeResult?.comment ?: FALLBACK_COMMENT,
             modelAnswer = submittedPrompt.modelAnswer,
+            conceptName = submittedPrompt.concept.name,
             status = session.status.name,
             position = session.currentPosition,
             totalCount = session.totalCount,
             nextQuestion = nextPrompt?.question,
+            nextConceptName = nextPrompt?.concept?.name,
+            nextPromptId = nextPrompt?.id,
+            practicedConceptCount = if (session.isCompleted) session.totalCount else null,
             streak = streak?.let { StreakResponse(count = it.count, lastStudyDate = it.lastStudyDate) },
         )
     }

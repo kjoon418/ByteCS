@@ -45,6 +45,11 @@ import watson.bytecs.categoryhistory.CategoryHistoryProblemDetailViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryRepository
 import watson.bytecs.categoryhistory.data.KtorCategoryHistoryRepository
 import io.ktor.http.Url
+import watson.bytecs.interview.InterviewCardViewModel
+import watson.bytecs.interview.InterviewRepository
+import watson.bytecs.interview.InterviewSessionScreen
+import watson.bytecs.interview.InterviewSessionViewModel
+import watson.bytecs.interview.data.KtorInterviewRepository
 import watson.bytecs.problem.data.platformApiBaseUrl
 import watson.bytecs.session.CompletionSummary
 import watson.bytecs.session.HomeScreen
@@ -189,8 +194,10 @@ private fun AppNavHost(dependencies: AppDependencies) {
     when (val screen = current) {
         Screen.Home -> {
             val viewModel = viewModel { HomeViewModel(dependencies.sessionRepository, dependencies.sessionManager) }
+            val interviewCardViewModel = viewModel { InterviewCardViewModel(dependencies.interviewRepository) }
             HomeScreen(
                 viewModel = viewModel,
+                interviewCardViewModel = interviewCardViewModel,
                 onStartOrContinue = { navigate(Screen.Session()) },
                 // '조금 더 풀기'(D6·D9 일원화 — 추가 학습 폐지) — 새 세션으로 같은 풀이 흐름에 재진입한다.
                 onExtraPractice = { navigate(Screen.Session(startNext = true)) },
@@ -198,6 +205,26 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 onUpgrade = { navigate(Screen.Login(AuthMode.Register)) },
                 onOpenScrapList = { navigate(Screen.ScrapList) },
                 onOpenCategoryHistory = { navigate(Screen.CategoryHistoryList) },
+                // 면접 연습 진입 카드(잔여 있음) → 08 면접 세션.
+                onStartInterview = { navigate(Screen.InterviewSession) },
+            )
+        }
+
+        Screen.InterviewSession -> {
+            val viewModel = viewModel { InterviewSessionViewModel(dependencies.interviewRepository) }
+            InterviewSessionScreen(
+                viewModel = viewModel,
+                onExit = { back() },
+                // [review-todo] 오류 신고 대상은 면접 질문 콘텐츠(promptId)인데, 서버 신고 엔드포인트는
+                // Problem 전용이다(POST /api/problems/{id}/reports) — promptId를 그리로 보내면 완전히 다른
+                // 콘텐츠가 신고되는 버그가 된다. 전용 엔드포인트가 생기기 전까지 링크 자체를 숨긴다(null).
+                onReport = null,
+                // '그때 푼 문제 다시 보기'(DI10) — 서버가 reviewProblemId를 아직 안 줘서(위 InterviewDtos.kt
+                // review-todo) 실행 경로에 도달하지 않는다. 서버 지원이 붙으면 이 재사용이 실제로 맞는지
+                // (스크랩 안 된 문제도 열리는지) 재검증 필요.
+                onReviewProblem = { problemId -> navigate(Screen.ScrapDetail(problemId)) },
+                // 완료(또는 이미 완료 상태 진입) → 홈으로 복귀.
+                onFinish = { back() },
             )
         }
 
@@ -505,6 +532,9 @@ sealed interface Screen {
     /** 04 세션 완료 — 완료 요약을 실어 넘긴다. */
     data class SessionComplete(val summary: CompletionSummary) : Screen
 
+    /** 08 면접 세션(면접 대비 가치 §3.3) — 진입은 홈 면접 카드(잔여 있음)에서만. 상태는 서버에 영속(중단·재개). */
+    data object InterviewSession : Screen
+
     /** 로그인·가입. 진입 모드([initialMode])로 가입/로그인 중 무엇을 먼저 보일지 정한다. */
     data class Login(val initialMode: AuthMode) : Screen
 
@@ -578,6 +608,7 @@ class AppDependencies(
     val contentReportRepository: ContentReportRepository,
     val scrapRepository: ScrapRepository,
     val categoryHistoryRepository: CategoryHistoryRepository,
+    val interviewRepository: InterviewRepository,
     val sessionManager: SessionManager,
     val themeController: ThemeController,
     val tokenStore: TokenStore,
@@ -606,6 +637,7 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
     val contentReportRepository = KtorContentReportRepository(client)
     val scrapRepository = KtorScrapRepository(client)
     val categoryHistoryRepository = KtorCategoryHistoryRepository(client)
+    val interviewRepository = KtorInterviewRepository(client)
     val sessionManager = SessionManager(accountRepository, tokenStore)
     AppDependencies(
         accountRepository = accountRepository,
@@ -613,6 +645,7 @@ private fun rememberDefaultAppDependencies(): AppDependencies = remember {
         contentReportRepository = contentReportRepository,
         scrapRepository = scrapRepository,
         categoryHistoryRepository = categoryHistoryRepository,
+        interviewRepository = interviewRepository,
         sessionManager = sessionManager,
         themeController = createThemeController(),
         tokenStore = tokenStore,
