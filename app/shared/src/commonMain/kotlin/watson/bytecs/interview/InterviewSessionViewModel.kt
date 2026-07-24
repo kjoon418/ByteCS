@@ -57,6 +57,10 @@ class InterviewSessionViewModel(
                 )
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (unavailable: InterviewUnavailableException) {
+                // 낡은 홈 카드로 진입(후보 없음·쿼터 소진·이미 완료 등) — 재시도로 풀리지 않으므로 홈으로 되돌린다
+                // (홈 카드가 실제 사유로 다시 그려진다). 무한 재시도 막다른 길 방지.
+                _events.send(InterviewEvent.Finished)
             } catch (error: Throwable) {
                 _uiState.value = InterviewUiState.Error
             }
@@ -104,6 +108,13 @@ class InterviewSessionViewModel(
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
+            } catch (unavailable: InterviewUnavailableException) {
+                // 세션이 다른 경로로 이미 끝났다(예: 다른 기기에서 완료). 재제출은 불가하므로 홈으로 되돌린다.
+                _events.send(InterviewEvent.Finished)
+            } catch (mapping: InterviewResponseMappingException) {
+                // 서버는 이미 답을 반영(커서 전진)했으나 응답을 해석하지 못함 — 같은 답 재제출은 다음 문항에 답하게 되므로 금지.
+                // 세션을 다시 불러와(서버 커서 기준) 이어서 복구하도록 오류 상태로 전환한다(재시도=load).
+                _uiState.value = InterviewUiState.Error
             } catch (error: Throwable) {
                 // 전송 실패(시스템 오류) — 입력을 살리고 다시 쓰기 단계로 되돌려 재시도할 수 있게 한다.
                 _uiState.update { state ->

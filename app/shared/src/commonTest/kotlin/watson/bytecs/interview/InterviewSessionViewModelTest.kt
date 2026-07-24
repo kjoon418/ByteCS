@@ -139,6 +139,70 @@ class InterviewSessionViewModelTest {
     }
 
     @Test
+    fun 폴백_제출이면_결과에_폴백이_실리고_검증되지_않은_것으로_본다() = runTest {
+        val repository = FakeInterviewRepository(session = FakeInterviewRepository.activeSession(position = 0, total = 1))
+        repository.onSubmit = { _, _ ->
+            FakeInterviewRepository.outcome(
+                result = FakeInterviewRepository.fallbackResult(),
+                next = null,
+                completion = InterviewCompletion(practicedConceptCount = 1, streak = null),
+                modelAnswer = "모범 설명 원문",
+            )
+        }
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+        viewModel.onInputChange("제 설명")
+
+        viewModel.submit()
+
+        val state = assertIs<InterviewUiState.Active>(viewModel.uiState.value)
+        assertTrue(state.isResult)
+        val judge = assertIs<ExplanationJudgeResult>(state.result?.judge)
+        assertTrue(judge.fallback)
+        assertFalse(judge.verified)
+        assertEquals(0, judge.points.size)
+        assertEquals("모범 설명 원문", state.result?.modelAnswer)
+        assertEquals(null, state.result?.reviewProblemId)
+    }
+
+    @Test
+    fun 소진이나_후보없음으로_진입하면_시스템오류_대신_홈으로_되돌린다() = runTest {
+        val repository = FakeInterviewRepository().apply { startError = InterviewUnavailableException() }
+        val viewModel = InterviewSessionViewModel(repository)
+
+        viewModel.load()
+
+        assertEquals(InterviewEvent.Finished, viewModel.events.first())
+    }
+
+    @Test
+    fun 세션이_이미_끝나_제출이_거부되면_홈으로_되돌린다() = runTest {
+        val repository = FakeInterviewRepository(session = FakeInterviewRepository.activeSession())
+        repository.submitError = InterviewUnavailableException()
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+        viewModel.onInputChange("제 설명")
+
+        viewModel.submit()
+
+        assertEquals(InterviewEvent.Finished, viewModel.events.first())
+    }
+
+    @Test
+    fun 제출_응답_해석에_실패하면_재제출이_아니라_오류상태로_복구한다() = runTest {
+        // 서버가 2xx로 답을 반영했지만 응답을 해석하지 못한 경우 — 같은 답 재제출(systemError)이 아니라 재로드로 복구해야 한다.
+        val repository = FakeInterviewRepository(session = FakeInterviewRepository.activeSession())
+        repository.submitError = InterviewResponseMappingException(RuntimeException("malformed body"))
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+        viewModel.onInputChange("제 설명")
+
+        viewModel.submit()
+
+        assertEquals(InterviewUiState.Error, viewModel.uiState.value)
+    }
+
+    @Test
     fun 다음으로_진행하면_다음_문항으로_전환되고_입력이_초기화된다() = runTest {
         val repository = FakeInterviewRepository(session = FakeInterviewRepository.activeSession(position = 0, total = 2))
         repository.onSubmit = { _, _ ->

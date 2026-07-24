@@ -28,3 +28,18 @@ interface InterviewRepository {
      */
     suspend fun submitExplanation(position: Int, text: String): ExplanationOutcome
 }
+
+/**
+ * 오늘 이 시점엔 진행할 면접 세션이 없다 — 후보 없음(404)·쿼터 소진(409)·세션 없음/이미 완료(404/409)·회원 전용(403)을
+ * 아우른다. 보통은 홈 카드가 진입 전에 거르지만, 카드 상태가 낡았거나(다른 기기·다른 탭에서 소진) 세션이 도중에 끝나면
+ * 이 신호가 진입·제출에서 뒤늦게 도달할 수 있다. 재시도로 풀리지 않으므로 뷰모델은 홈으로 되돌린다(홈 카드가 실제 사유로
+ * 다시 그려진다). 전송 실패(시스템 오류)와는 구분한다 — 그건 재시도가 의미 있는 별개 경로다.
+ */
+class InterviewUnavailableException : RuntimeException()
+
+/**
+ * 서버가 2xx로 답을 반영(커서 전진)했으나 응답 본문을 해석하지 못했다(직렬화·불변식 위반). 같은 답을 다시 보내면
+ * 서버는 이미 다음 문항으로 넘어가 있어 **엉뚱한 문항에 답하게 되므로**, 전송 실패처럼 재제출을 권하면 안 된다.
+ * 뷰모델은 세션을 다시 불러와(서버 커서 기준) 복구한다. 전송 실패(재시도 가능)와 구분하려고 별도 타입으로 올린다.
+ */
+class InterviewResponseMappingException(cause: Throwable) : RuntimeException(cause)

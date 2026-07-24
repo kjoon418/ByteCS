@@ -21,6 +21,15 @@ import watson.bytecs.session.Streak
  * (링크 없이 "복습에서도 곧 다시 만나요" 문구만). 서버가 지원을 추가하면 이 파일만 고치면 된다.
  */
 
+/**
+ * 서버 공통 오류 본문(`{message, errorCode}`)에서 [errorCode]만 읽는다. 면접 예외를 상태 코드가 아니라
+ * errorCode로 구별해 '홈으로 되돌릴 상태'와 '전송 실패'를 가른다([KtorInterviewRepository], session 슬라이스 관례).
+ */
+@Serializable
+internal data class InterviewErrorBodyDto(
+    val errorCode: String? = null,
+)
+
 @Serializable
 internal data class InterviewStatusDto(
     val candidateConceptCount: Int,
