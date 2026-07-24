@@ -42,12 +42,17 @@ data class InterviewStatus(
  *  - [conceptName]: 이 문항이 검증하는 개념명(질문의 맥락).
  *  - [question]: 질문 문구("○○을 설명해보세요" 류 — 정의 재생형 단답과 문형이 다르다).
  *  - [promptId]: 면접 질문 콘텐츠 식별자 — 오류 신고 대상(질문·모범 설명·루브릭).
+ *  - [hintCount]: 이 문항의 전체 힌트 수(0이면 진입점을 노출하지 않는다). 미공개 본문은 담지 않는다(no-leak).
+ *  - [revealedHints]: 이미 공개한 힌트 본문(약→강, 재진입 복원용). 새 문항은 항상 빈 목록으로 시작한다
+ *    (03 SessionProblem.revealedHints와 같은 관례 — 힌트는 텍스트만 다뤄 codeSnippet이 없다).
  */
 data class InterviewItem(
     val position: Int,
     val conceptName: String,
     val question: String,
     val promptId: Long,
+    val hintCount: Int = 0,
+    val revealedHints: List<String> = emptyList(),
 )
 
 /**
@@ -64,6 +69,16 @@ data class InterviewSession(
 ) {
     val isCompleted: Boolean get() = status == InterviewSessionStatus.COMPLETED
 }
+
+/**
+ * 힌트 '열기' 결과(계획 §4.2 `POST /api/interview/sessions/today/hints/reveal`). 서버가 원천이다 — 공개 수는
+ * [revealedHints]`.size`로만 센다(클라 로컬 카운터를 신뢰하지 않는다, 03 [watson.bytecs.session.HintReveal]과 같은 관례).
+ *  - [hintCount]: 이 문항의 전체 힌트 수. [revealedHints]: 지금까지 공개한 전체 목록(약→강).
+ */
+data class InterviewHintReveal(
+    val hintCount: Int,
+    val revealedHints: List<String>,
+)
 
 /** 사용자·개념별 면접 준비도(설명 검증 상태, 계획 §3.3). 숙련도와 독립된 축(DI4). */
 enum class InterviewReadiness {

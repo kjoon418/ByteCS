@@ -224,6 +224,142 @@ class InterviewSessionViewModelTest {
         assertEquals("", state.inputText)
     }
 
+    // ── 힌트(pull, 03 재사용) ────────────────────────────────────
+
+    /**
+     * ⭐️ 힌트 열기는 서버 왕복이고, 공개 목록은 **서버가 원천**이다 — 로컬 카운터를 올리는 게 아니라
+     * 응답으로 통째로 교체한다(더블탭·경쟁 안전).
+     */
+    @Test
+    fun 힌트_열기에_성공하면_서버가_준_목록으로_교체된다() = runTest {
+        val serverList = listOf("서버가 준 첫 힌트")
+        val repository = FakeInterviewRepository(
+            session = FakeInterviewRepository.activeSession(item = FakeInterviewRepository.item(hintCount = 2)),
+        )
+        repository.onRevealHint = { InterviewHintReveal(hintCount = 2, revealedHints = serverList) }
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+
+        assertEquals(0, (viewModel.uiState.value as InterviewUiState.Active).revealedHintCount, "진입 전에는 공개 0")
+        viewModel.revealHint()
+
+        val state = assertIs<InterviewUiState.Active>(viewModel.uiState.value)
+        assertEquals(serverList, state.revealedHints, "서버가 준 목록이 원천")
+        assertEquals(1, state.revealedHintCount)
+        assertEquals(0, repository.lastRevealHintCount, "클라가 아는 현재 공개 수(0)를 서버에 보낸다")
+        assertEquals(1, repository.revealHintCount)
+    }
+
+    /** ⭐️ 재진입 복원: 서버가 이미 공개된 힌트를 실어 주면 로드 즉시 그 상태로 복원된다. */
+    @Test
+    fun 로드하면_이미_공개된_힌트로_복원된다() = runTest {
+        val already = listOf("이미 본 힌트")
+        val repository = FakeInterviewRepository(
+            session = FakeInterviewRepository.activeSession(
+                item = FakeInterviewRepository.item(hintCount = 2, revealedHints = already),
+            ),
+        )
+        val viewModel = InterviewSessionViewModel(repository)
+
+        viewModel.load()
+
+        val state = assertIs<InterviewUiState.Active>(viewModel.uiState.value)
+        assertEquals(already, state.revealedHints, "서버가 준 공개 힌트로 복원")
+        assertEquals(1, state.revealedHintCount)
+        assertTrue(state.hasMoreHints, "2개 중 1개만 열렸으므로 더 열 수 있다")
+    }
+
+    /**
+     * ⭐️ 힌트 열람 실패(네트워크 등)는 세션 진행을 막지 않는다 — 시스템 오류로 취급하지 않고 진행 표시만 내린다.
+     * (submit 실패가 systemError를 세우는 것과 대비: 힌트는 보조 장치라 실패해도 무낙인·비차단.)
+     */
+    @Test
+    fun 힌트_열람_실패는_진행을_막지_않고_시스템_오류도_아니다() = runTest {
+        val repository = FakeInterviewRepository(
+            session = FakeInterviewRepository.activeSession(item = FakeInterviewRepository.item(hintCount = 2)),
+        )
+        repository.revealHintError = RuntimeException("network")
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+
+        viewModel.revealHint()
+
+        val state = assertIs<InterviewUiState.Active>(viewModel.uiState.value)
+        assertEquals(0, state.revealedHintCount, "실패했으므로 공개는 늘지 않는다")
+        assertFalse(state.isRevealingHint, "진행 표시는 내려간다")
+        assertFalse(state.systemError, "힌트 열람 실패는 시스템 오류가 아니다")
+    }
+
+    /** 더 열 힌트가 없으면(전부 공개·힌트 0개) 서버에 닿지 않는다 — 헛된 왕복·상태 흔들림 방지. */
+    @Test
+    fun 더_열_힌트가_없으면_서버에_닿지_않는다() = runTest {
+        val repository = FakeInterviewRepository()
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+
+        viewModel.revealHint()
+
+        assertEquals(0, repository.revealHintCount, "힌트가 없으면 열기 요청도 없다")
+    }
+
+    /** 채점 로딩·결과 단계에서는 힌트 진입점 자체를 두지 않지만, 방어적으로도 요청이 서버에 닿지 않는다. */
+    @Test
+    fun 결과_단계에서는_힌트_열기가_서버에_닿지_않는다() = runTest {
+        val repository = FakeInterviewRepository(
+            session = FakeInterviewRepository.activeSession(
+                position = 0,
+                total = 2,
+                item = FakeInterviewRepository.item(position = 0, hintCount = 2),
+            ),
+        )
+        repository.onSubmit = { _, _ ->
+            FakeInterviewRepository.outcome(
+                result = FakeInterviewRepository.successResult(InterviewReadiness.VERIFIED, satisfied = 1, unsatisfied = 0),
+                next = FakeInterviewRepository.item(position = 1, hintCount = 3),
+            )
+        }
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+        viewModel.onInputChange("설명")
+        viewModel.submit()
+        assertTrue((viewModel.uiState.value as InterviewUiState.Active).isResult)
+
+        viewModel.revealHint()
+
+        assertEquals(0, repository.revealHintCount, "결과 단계에서는 힌트를 열지 않는다")
+    }
+
+    /** 다음 문항으로 넘어가면 공개된 힌트가 초기화되고, 다음 문항의 hintCount가 반영된다. */
+    @Test
+    fun 다음_문항으로_넘어가면_힌트_공개가_초기화되고_다음_hintCount가_반영된다() = runTest {
+        val repository = FakeInterviewRepository(
+            session = FakeInterviewRepository.activeSession(
+                position = 0,
+                total = 2,
+                item = FakeInterviewRepository.item(position = 0, hintCount = 1),
+            ),
+        )
+        repository.onSubmit = { _, _ ->
+            FakeInterviewRepository.outcome(
+                result = FakeInterviewRepository.successResult(InterviewReadiness.VERIFIED, satisfied = 1, unsatisfied = 0),
+                next = FakeInterviewRepository.item(position = 1, hintCount = 3),
+            )
+        }
+        val viewModel = InterviewSessionViewModel(repository)
+        viewModel.load()
+        // 힌트는 쓰기 단계에서만 열 수 있다 — 제출 전에 열어 둔다.
+        viewModel.revealHint()
+        assertEquals(1, (viewModel.uiState.value as InterviewUiState.Active).revealedHintCount)
+        viewModel.onInputChange("설명")
+        viewModel.submit()
+
+        viewModel.advance()
+
+        val state = assertIs<InterviewUiState.Active>(viewModel.uiState.value)
+        assertEquals(0, state.revealedHintCount, "새 문항은 공개 0에서 시작한다")
+        assertEquals(3, state.item.hintCount, "다음 문항의 hintCount가 반영된다")
+    }
+
     @Test
     fun 마치기는_완료_요약이_있을_때만_완료_이벤트를_한_번_보낸다() = runTest {
         val repository = FakeInterviewRepository(session = FakeInterviewRepository.activeSession(position = 0, total = 1))

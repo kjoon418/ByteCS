@@ -42,8 +42,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import watson.bytecs.ui.components.BcsHint
 import watson.bytecs.ui.components.BcsScaffold
 import watson.bytecs.ui.components.ErrorBanner
+import watson.bytecs.ui.components.HintStepper
 import watson.bytecs.ui.components.ModelAnswerBlock
 import watson.bytecs.ui.components.PrimaryButton
 import watson.bytecs.ui.components.StreakBadge
@@ -97,6 +99,7 @@ fun InterviewSessionScreen(
         onAdvance = viewModel::advance,
         onFinish = viewModel::finish,
         onRetry = viewModel::load,
+        onRevealHint = viewModel::revealHint,
         onExit = onExit,
         onReport = onReport,
         onReviewProblem = onReviewProblem,
@@ -114,6 +117,7 @@ internal fun InterviewSessionScreenContent(
     onRetry: () -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
+    onRevealHint: () -> Unit = {},
     onReport: ((Long) -> Unit)? = null,
     onReviewProblem: (Long) -> Unit = {},
 ) {
@@ -191,6 +195,7 @@ internal fun InterviewSessionScreenContent(
                 state = state,
                 onInputChange = onInputChange,
                 onSubmit = onSubmit,
+                onRevealHint = onRevealHint,
                 onReviewProblem = onReviewProblem,
                 modifier = Modifier.weight(1f).fillMaxWidth()
                     .verticalScroll(rememberScrollState())
@@ -205,6 +210,7 @@ private fun InterviewActiveContent(
     state: InterviewUiState.Active,
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
+    onRevealHint: () -> Unit,
     onReviewProblem: (Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -237,6 +243,17 @@ private fun InterviewActiveContent(
                     onValueChange = onInputChange,
                     modifier = Modifier.focusRequester(focusRequester),
                 )
+                // 힌트(pull, 03 재사용) — 질문·입력 아래, 제출 CTA 위(디자인 08 §6-b). 채점 로딩·결과 단계에서는
+                // 그리지 않는다(Writing 분기 전용). hintCount 0이면 HintStepper가 진입점을 그리지 않는다.
+                // 무낙인: 열람은 채점·준비도·쿼터에 영향이 없다 — 부담 없는 "힌트 보기".
+                if (state.item.hintCount > 0) {
+                    Spacer(Modifier.height(BcsDimens.space4))
+                    HintStepper(
+                        hints = state.hintList(),
+                        revealedCount = state.revealedHintCount,
+                        onRevealNext = onRevealHint,
+                    )
+                }
                 if (state.systemError) {
                     Spacer(Modifier.height(BcsDimens.space4))
                     ErrorBanner(
@@ -267,6 +284,18 @@ private fun InterviewActiveContent(
 
         Spacer(Modifier.height(BcsDimens.space6))
     }
+}
+
+/**
+ * [HintStepper]에 넘길 [BcsHint] 목록. ⭐️ no-leak: 미공개 힌트 본문은 클라에 없으므로, 공개된 것만 실제 본문으로
+ * 채우고 나머지는 **렌더되지 않는** 자리표시자로 채운다(HintStepper는 revealedCount 미만만 그린다). 목록 길이가
+ * 전체 hintCount여야 '더 보기' 노출 판정(revealedCount < size)이 맞는다. 면접 질문 힌트는 텍스트만 다뤄
+ * codeSnippet이 없다(03 SessionUiState.Active.hintList와 같은 관례).
+ */
+private fun InterviewUiState.Active.hintList(): List<BcsHint> {
+    val revealed = revealedHints.map { BcsHint(text = it) }
+    val hidden = (item.hintCount - revealed.size).coerceAtLeast(0)
+    return revealed + List(hidden) { BcsHint(text = "") }
 }
 
 /**

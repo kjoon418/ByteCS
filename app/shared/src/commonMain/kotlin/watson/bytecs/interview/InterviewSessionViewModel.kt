@@ -54,6 +54,8 @@ class InterviewSessionViewModel(
                     item = item,
                     position = session.position,
                     total = session.totalCount,
+                    // 재진입 복원 — 서버가 이미 공개된 힌트를 실어 주면 로드 즉시 그 상태로 복원된다.
+                    revealedHints = item.revealedHints,
                 )
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -128,7 +130,7 @@ class InterviewSessionViewModel(
         }
     }
 
-    /** 결과 확인 후 다음 문항으로 진행한다(입력·결과 초기화). 다음 문항이 없으면(마지막) no-op. */
+    /** 결과 확인 후 다음 문항으로 진행한다(입력·결과·힌트 공개 초기화). 다음 문항이 없으면(마지막) no-op. */
     fun advance() {
         _uiState.update { state ->
             if (state !is InterviewUiState.Active) return@update state
@@ -137,7 +139,44 @@ class InterviewSessionViewModel(
                 item = next,
                 position = state.position + 1,
                 total = state.total,
+                // 새 문항은 공개 0에서 시작(next.revealedHints는 항상 빈 목록) — nextHintCount는 next.hintCount에 실려 온다.
+                revealedHints = next.revealedHints,
             )
+        }
+    }
+
+    /**
+     * 다음 힌트 하나를 연다(약→강, pull). 서버 왕복이다 — 힌트 열람은 학습 기록이라 영속돼야 한다.
+     * 질문(쓰기) 단계 전용(디자인 08 §6-b) — 채점 로딩·결과 단계에서는 화면이 진입점을 그리지 않지만,
+     * 방어적으로도 여기서 막는다. 서버 응답의 공개 목록이 원천이므로, 성공했을 때만 상태가 늘어난다.
+     *
+     * ⭐️ 열람 실패(네트워크 등)는 세션 진행을 막지 않는다 — 진행 표시만 내리고 조용히 둔다(무낙인, systemError 아님).
+     * 이미 요청 중이거나 더 열 힌트가 없으면 아무 것도 하지 않는다.
+     */
+    fun revealHint() {
+        val current = _uiState.value
+        if (current !is InterviewUiState.Active || current.phase != InterviewPhase.Writing) return
+        if (current.isRevealingHint || !current.hasMoreHints) return
+
+        _uiState.value = current.copy(isRevealingHint = true)
+        viewModelScope.launch {
+            try {
+                val result = repository.revealHint(current.revealedHintCount)
+                _uiState.update { state ->
+                    if (state is InterviewUiState.Active) {
+                        state.copy(revealedHints = result.revealedHints, isRevealingHint = false)
+                    } else {
+                        state
+                    }
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                // 진행을 막지 않는다 — 다음 제출로 자연히 재동기화된다. 진행 표시만 내린다.
+                _uiState.update { state ->
+                    if (state is InterviewUiState.Active) state.copy(isRevealingHint = false) else state
+                }
+            }
         }
     }
 
@@ -172,6 +211,9 @@ sealed interface InterviewUiState {
      *  - [pendingNext]: 다음 문항(없으면 이번이 마지막 — CTA가 '면접 연습 마치기'로 바뀐다).
      *  - [completion]: 이 제출로 세션이 완료됐을 때만 채워진다(완료 요약 블록의 데이터 소스).
      *  - [systemError]: 제출 전송 실패(폴백과 구분되는 시스템 오류) — 입력 유지·재시도.
+     *  - [revealedHints]: 공개된 힌트 본문(약→강). 서버 응답이 원천 — 새 문항 진입 시 item.revealedHints로
+     *    복원한다(재진입 복원). 질문(쓰기) 단계 전용이라 채점·결과 단계에서는 화면이 그리지 않는다.
+     *  - [isRevealingHint]: 힌트 열기 요청 진행 중.
      */
     data class Active(
         val item: InterviewItem,
@@ -183,6 +225,8 @@ sealed interface InterviewUiState {
         val pendingNext: InterviewItem? = null,
         val completion: InterviewCompletion? = null,
         val systemError: Boolean = false,
+        val revealedHints: List<String> = emptyList(),
+        val isRevealingHint: Boolean = false,
     ) : InterviewUiState {
         /** 표시용 진행 번호(1-based). */
         val current: Int get() = position + 1
@@ -195,6 +239,12 @@ sealed interface InterviewUiState {
 
         /** 방금 답한 문항이 세션의 마지막이었는지 — CTA가 '다음 질문으로' 대신 '면접 연습 마치기'로 바뀐다. */
         val isLastItem: Boolean get() = phase == InterviewPhase.Result && completion != null
+
+        /** 지금까지 공개한 힌트 수(서버가 원천 — 목록 크기로만 센다). */
+        val revealedHintCount: Int get() = revealedHints.size
+
+        /** 아직 더 열 힌트가 있는지(전체 hintCount 대비). 없으면 진입점을 그리지 않는다. */
+        val hasMoreHints: Boolean get() = revealedHints.size < item.hintCount
     }
 }
 

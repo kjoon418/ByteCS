@@ -14,11 +14,19 @@ class FakeInterviewRepository(
     var statusError: Throwable? = null
     var startError: Throwable? = null
     var submitError: Throwable? = null
+    var revealHintError: Throwable? = null
 
     var statusCount = 0
     var startCount = 0
     var submitCount = 0
+    var revealHintCount = 0
+    var lastRevealHintCount: Int? = null
     val submitted = mutableListOf<Pair<Int, String>>()
+
+    /** 힌트 열기 결과 공급자. 인자는 클라가 보낸 현재 공개 수. 기본은 +1(약→강 스크립트). */
+    var onRevealHint: (Int) -> InterviewHintReveal = { count ->
+        InterviewHintReveal(hintCount = 2, revealedHints = defaultHints.take(count + 1))
+    }
 
     /** 제출 결과 공급자. 인자는 (position, text). 기본은 단일 문항 완료(성공·검증됨). */
     var onSubmit: (Int, String) -> ExplanationOutcome = { _, _ ->
@@ -48,12 +56,29 @@ class FakeInterviewRepository(
         return onSubmit(position, text)
     }
 
+    override suspend fun revealHint(revealedCount: Int): InterviewHintReveal {
+        revealHintCount++
+        lastRevealHintCount = revealedCount
+        revealHintError?.let { throw it }
+        return onRevealHint(revealedCount)
+    }
+
     companion object {
-        fun item(position: Int = 0, promptId: Long = 100L + position) = InterviewItem(
+        /** 테스트 기본 힌트 본문(약→강). */
+        val defaultHints = listOf("첫 힌트", "둘째 힌트", "셋째 힌트")
+
+        fun item(
+            position: Int = 0,
+            promptId: Long = 100L + position,
+            hintCount: Int = 0,
+            revealedHints: List<String> = emptyList(),
+        ) = InterviewItem(
             position = position,
             conceptName = "개념$position",
             question = "질문$position 을 설명해보세요",
             promptId = promptId,
+            hintCount = hintCount,
+            revealedHints = revealedHints,
         )
 
         fun activeSession(

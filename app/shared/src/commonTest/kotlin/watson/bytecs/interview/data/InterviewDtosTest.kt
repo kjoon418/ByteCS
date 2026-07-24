@@ -21,6 +21,7 @@ class InterviewDtosTest {
         nextQuestion: String? = null,
         nextConceptName: String? = null,
         nextPromptId: Long? = null,
+        nextHintCount: Int? = null,
         practicedConceptCount: Int? = null,
         streak: InterviewStreakDto? = null,
         reviewProblemId: Long? = null,
@@ -36,6 +37,7 @@ class InterviewDtosTest {
         nextQuestion = nextQuestion,
         nextConceptName = nextConceptName,
         nextPromptId = nextPromptId,
+        nextHintCount = nextHintCount,
         practicedConceptCount = practicedConceptCount,
         streak = streak,
         reviewProblemId = reviewProblemId,
@@ -119,25 +121,36 @@ class InterviewDtosTest {
             nextQuestion = "다음 질문",
             nextConceptName = "캐시",
             nextPromptId = 200L,
+            nextHintCount = 3,
         ).toDomain()
 
         assertEquals(InterviewSessionStatus.IN_PROGRESS, outcome.status)
         assertEquals("다음 질문", outcome.nextItem?.question)
         assertEquals("캐시", outcome.nextItem?.conceptName)
         assertEquals(200L, outcome.nextItem?.promptId)
+        assertEquals(3, outcome.nextItem?.hintCount)
+        // 새 문항은 공개 0에서 시작 — 서버도 목록을 싣지 않는다(nextHintCount는 개수만 반영).
+        assertEquals(emptyList(), outcome.nextItem?.revealedHints)
     }
 
     @Test
     fun 다음_질문은_있는데_개념명이_없으면_불변식으로_거부한다() {
         assertFailsWith<IllegalArgumentException> {
-            answer(judged = true, nextQuestion = "다음 질문", nextConceptName = null, nextPromptId = 200L).toDomain()
+            answer(judged = true, nextQuestion = "다음 질문", nextConceptName = null, nextPromptId = 200L, nextHintCount = 0).toDomain()
         }
     }
 
     @Test
     fun 다음_질문은_있는데_promptId가_없으면_불변식으로_거부한다() {
         assertFailsWith<IllegalArgumentException> {
-            answer(judged = true, nextQuestion = "다음 질문", nextConceptName = "캐시", nextPromptId = null).toDomain()
+            answer(judged = true, nextQuestion = "다음 질문", nextConceptName = "캐시", nextPromptId = null, nextHintCount = 0).toDomain()
+        }
+    }
+
+    @Test
+    fun 다음_질문은_있는데_hintCount가_없으면_불변식으로_거부한다() {
+        assertFailsWith<IllegalArgumentException> {
+            answer(judged = true, nextQuestion = "다음 질문", nextConceptName = "캐시", nextPromptId = 200L, nextHintCount = null).toDomain()
         }
     }
 
@@ -165,12 +178,25 @@ class InterviewDtosTest {
             currentQuestion = "지금 질문",
             currentConceptName = "인덱스",
             currentPromptId = 300L,
+            currentHintCount = 2,
+            currentRevealedHints = listOf("첫 힌트"),
         ).toDomain()
 
         assertEquals(1, session.currentItem?.position)
         assertEquals("지금 질문", session.currentItem?.question)
         assertEquals("인덱스", session.currentItem?.conceptName)
         assertEquals(300L, session.currentItem?.promptId)
+        assertEquals(2, session.currentItem?.hintCount)
+        // 재진입 복원 — 서버가 실어 준 공개 힌트가 그대로 아이템에 담긴다.
+        assertEquals(listOf("첫 힌트"), session.currentItem?.revealedHints)
+    }
+
+    @Test
+    fun 힌트_열기_응답은_전체_수와_공개_목록으로_매핑된다() {
+        val reveal = InterviewHintRevealResponseDto(hintCount = 2, revealedHints = listOf("첫 힌트")).toDomain()
+
+        assertEquals(2, reveal.hintCount)
+        assertEquals(listOf("첫 힌트"), reveal.revealedHints)
     }
 
     @Test
@@ -200,6 +226,42 @@ class InterviewDtosTest {
                 currentQuestion = "지금 질문",
                 currentConceptName = "인덱스",
                 currentPromptId = null,
+            ).toDomain()
+        }
+    }
+
+    @Test
+    fun 세션_DTO에_현재_질문은_있는데_hintCount가_없으면_불변식으로_거부한다() {
+        assertFailsWith<IllegalArgumentException> {
+            InterviewSessionDto(
+                sessionId = 1L,
+                sessionDate = "2026-07-24",
+                status = "IN_PROGRESS",
+                position = 0,
+                totalCount = 3,
+                currentQuestion = "지금 질문",
+                currentConceptName = "인덱스",
+                currentPromptId = 300L,
+                currentHintCount = null,
+                currentRevealedHints = emptyList(),
+            ).toDomain()
+        }
+    }
+
+    @Test
+    fun 세션_DTO에_현재_질문은_있는데_revealedHints가_없으면_불변식으로_거부한다() {
+        assertFailsWith<IllegalArgumentException> {
+            InterviewSessionDto(
+                sessionId = 1L,
+                sessionDate = "2026-07-24",
+                status = "IN_PROGRESS",
+                position = 0,
+                totalCount = 3,
+                currentQuestion = "지금 질문",
+                currentConceptName = "인덱스",
+                currentPromptId = 300L,
+                currentHintCount = 2,
+                currentRevealedHints = null,
             ).toDomain()
         }
     }

@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 import watson.bytecs.interview.ExplanationJudgeResult
 import watson.bytecs.interview.ExplanationOutcome
 import watson.bytecs.interview.InterviewCompletion
+import watson.bytecs.interview.InterviewHintReveal
 import watson.bytecs.interview.InterviewItem
 import watson.bytecs.interview.InterviewReadiness
 import watson.bytecs.interview.InterviewSession
@@ -50,6 +51,9 @@ internal data class InterviewSessionDto(
     val currentQuestion: String? = null,
     val currentConceptName: String? = null,
     val currentPromptId: Long? = null,
+    // 현재 문항의 힌트 총수·이미 공개한 힌트(재진입 복원). currentQuestion이 있으면 둘 다 있다(no-leak과 독립, 무낙인).
+    val currentHintCount: Int? = null,
+    val currentRevealedHints: List<String>? = null,
 ) {
     fun toDomain(): InterviewSession = InterviewSession(
         sessionId = sessionId,
@@ -63,6 +67,8 @@ internal data class InterviewSessionDto(
                 conceptName = requireNotNull(currentConceptName) { "currentQuestion이 있으면 currentConceptName도 있어야 합니다." },
                 question = it,
                 promptId = requireNotNull(currentPromptId) { "currentQuestion이 있으면 currentPromptId도 있어야 합니다." },
+                hintCount = requireNotNull(currentHintCount) { "currentQuestion이 있으면 currentHintCount도 있어야 합니다." },
+                revealedHints = requireNotNull(currentRevealedHints) { "currentQuestion이 있으면 currentRevealedHints도 있어야 합니다." },
             )
         },
     )
@@ -104,6 +110,8 @@ internal data class InterviewAnswerResponseDto(
     val nextQuestion: String? = null,
     val nextConceptName: String? = null,
     val nextPromptId: Long? = null,
+    // 다음 문항의 전체 힌트 수. 새 문항은 공개 0에서 시작하므로 공개 목록은 싣지 않는다(개수만으로 진입점 노출 판단).
+    val nextHintCount: Int? = null,
     val practicedConceptCount: Int? = null,
     val streak: InterviewStreakDto? = null,
     // '검증됨' 미달일 때만 채워지는 '그때 푼 문제 다시 보기'(DI10) 대상 id. 검증됨·폴백이면 null(서버 생략 시 기본값).
@@ -136,6 +144,9 @@ internal data class InterviewAnswerResponseDto(
                     conceptName = requireNotNull(nextConceptName) { "nextQuestion이 있으면 nextConceptName도 있어야 합니다." },
                     question = it,
                     promptId = requireNotNull(nextPromptId) { "nextQuestion이 있으면 nextPromptId도 있어야 합니다." },
+                    hintCount = requireNotNull(nextHintCount) { "nextQuestion이 있으면 nextHintCount도 있어야 합니다." },
+                    // 새 문항은 항상 공개 0에서 시작 — 서버도 목록을 싣지 않는다.
+                    revealedHints = emptyList(),
                 )
             },
             completion = practicedConceptCount?.let {
@@ -143,4 +154,22 @@ internal data class InterviewAnswerResponseDto(
             },
         )
     }
+}
+
+/**
+ * `POST /api/interview/sessions/today/hints/reveal` 요청 본문. 클라가 아는 현재 공개 수를 싣는다 —
+ * 서버는 현재 [revealedCount]와 일치할 때만 +1 한다(더블탭·경쟁 안전, 03 HintRevealRequestDto와 같은 관례).
+ */
+@Serializable
+internal data class InterviewHintRevealRequestDto(
+    val revealedCount: Int,
+)
+
+/** `POST /api/interview/sessions/today/hints/reveal` 응답(공개 후 전체 목록). 텍스트만 다뤄 codeSnippet이 없다. */
+@Serializable
+internal data class InterviewHintRevealResponseDto(
+    val hintCount: Int,
+    val revealedHints: List<String> = emptyList(),
+) {
+    fun toDomain(): InterviewHintReveal = InterviewHintReveal(hintCount, revealedHints)
 }

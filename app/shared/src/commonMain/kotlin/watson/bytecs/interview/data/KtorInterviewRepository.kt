@@ -12,6 +12,7 @@ import io.ktor.http.contentType
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import watson.bytecs.interview.ExplanationOutcome
+import watson.bytecs.interview.InterviewHintReveal
 import watson.bytecs.interview.InterviewRepository
 import watson.bytecs.interview.InterviewResponseMappingException
 import watson.bytecs.interview.InterviewSession
@@ -76,6 +77,18 @@ class KtorInterviewRepository(
         } catch (invariant: IllegalStateException) {
             throw InterviewResponseMappingException(invariant)
         }
+    }
+
+    /**
+     * 다음 힌트 하나를 연다. 열람 실패는 세션 진행을 막지 않는 무낙인 보조 장치이므로(디자인 08 §6-b), 여기서는
+     * 오류를 특별히 번역하지 않고 그대로 올린다 — 뷰모델이 어떤 예외든 진행 표시만 내리고 조용히 흡수한다.
+     */
+    override suspend fun revealHint(revealedCount: Int): InterviewHintReveal {
+        val dto: InterviewHintRevealResponseDto = client.post("$baseUrl/api/interview/sessions/today/hints/reveal") {
+            contentType(ContentType.Application.Json)
+            setBody(InterviewHintRevealRequestDto(revealedCount))
+        }.body()
+        return dto.toDomain()
     }
 
     /** 본문 errorCode가 '오늘은 진행할 세션 없음'류면 [InterviewUnavailableException]으로, 아니면 null(원래 예외 유지). */

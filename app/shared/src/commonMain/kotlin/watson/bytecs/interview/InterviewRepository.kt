@@ -27,6 +27,13 @@ interface InterviewRepository {
      * 채점 실패(폴백)는 예외가 아니라 [ExplanationOutcome.result]의 `fallback=true`로 온다(모범 설명 포함).
      */
     suspend fun submitExplanation(position: Int, text: String): ExplanationOutcome
+
+    /**
+     * 다음 힌트 하나를 연다(약→강, pull). `POST /api/interview/sessions/today/hints/reveal`.
+     * [revealedCount]는 클라가 아는 현재 공개 수 — 서버는 일치할 때만 +1 하고, 공개된 전체 목록을 돌려준다(서버가 원천).
+     * 무낙인: 열람은 채점·준비도·쿼터에 영향이 없다(03 [watson.bytecs.session.SessionRepository.revealHint]와 같은 관례).
+     */
+    suspend fun revealHint(revealedCount: Int): InterviewHintReveal
 }
 
 /**
