@@ -19,6 +19,7 @@ import watson.bytecs.interview.domain.InterviewSession
 import watson.bytecs.interview.domain.InterviewSessionAlreadyCompletedException
 import watson.bytecs.interview.domain.InterviewSessionNotFoundException
 import watson.bytecs.interview.domain.ExplanationJudge
+import watson.bytecs.interview.infrastructure.InterviewPolicyProperties
 import watson.bytecs.interview.infrastructure.InterviewPromptRepository
 import watson.bytecs.interview.infrastructure.InterviewReadinessRepository
 import watson.bytecs.interview.infrastructure.InterviewSessionRepository
@@ -45,18 +46,19 @@ class InterviewSessionService(
     private val userRepository: UserRepository,
     private val explanationJudge: ExplanationJudge,
     private val responseMapper: InterviewResponseMapper,
+    private val policy: InterviewPolicyProperties,
     private val clock: Clock,
 ) {
 
-    /** 홈 카드의 단일 출처. 게스트도 후보 수를 계산해 돌려준다(가입 유도 문구용) — 잔여 쿼터는 게스트에겐 항상 0. */
+    /**
+     * 홈 카드의 단일 출처. 게스트도 후보 수를 계산해 돌려준다(가입 유도 문구용).
+     * 잔여 쿼터는 면접을 **이용할 수 있는** 사용자(회원, 또는 회원 전용이 풀린 테스터에선 게스트도)에게만 실제 값을 주고,
+     * 이용할 수 없으면 0이다 — 클라 홈 카드는 이 값(>0)으로 진입 CTA 노출 여부를 판단한다(가입 유도 vs 진입).
+     */
     fun getStatus(userId: Long): InterviewStatusResponse {
         val user = loadUser(userId)
         val candidateCount = selectCandidatePromptsOrdered(userId).size
-        val remainingQuota = if (user.isMember) {
-            (DAILY_QUOTA - interviewSessionRepository.countGradedSessionsOn(userId, today())).coerceAtLeast(0).toInt()
-        } else {
-            0
-        }
+        val remainingQuota = if (canUseInterview(user)) remainingQuotaToday(userId) else 0
         return InterviewStatusResponse(
             candidateConceptCount = candidateCount,
             remainingQuota = remainingQuota,
@@ -80,7 +82,7 @@ class InterviewSessionService(
         if (latest != null && !latest.isCompleted) {
             return toSessionResponse(latest)
         }
-        if (interviewSessionRepository.countGradedSessionsOn(userId, today) >= DAILY_QUOTA) {
+        if (interviewSessionRepository.countGradedSessionsOn(userId, today) >= policy.dailyQuota) {
             throw InterviewQuotaExceededException.forToday()
         }
 
@@ -187,11 +189,19 @@ class InterviewSessionService(
         interviewReadinessRepository.save(readiness)
     }
 
+    /** 면접 세션을 이용할 수 있는지 — 회원이거나, 회원 전용이 풀린 프로파일(테스터)이면 게스트도 가능. */
+    private fun canUseInterview(user: User): Boolean = user.isMember || !policy.memberOnly
+
+    /** 회원 전용 게이트. 이용 불가(회원 전용인데 게스트)면 거부한다. 테스터에선 [InterviewPolicyProperties.memberOnly]=false라 통과한다. */
     private fun requireMember(user: User) {
-        if (!user.isMember) {
+        if (!canUseInterview(user)) {
             throw InterviewMemberOnlyException.forGuest()
         }
     }
+
+    /** 오늘 남은 세션 쿼터(채점 성공 세션 기준). 사실상 무제한이면 큰 값이 그대로 나온다(테스터). */
+    private fun remainingQuotaToday(userId: Long): Int =
+        (policy.dailyQuota - interviewSessionRepository.countGradedSessionsOn(userId, today())).coerceAtLeast(0).toInt()
 
     private fun toSessionResponse(session: InterviewSession): InterviewSessionResponse {
         val currentPrompt = session.currentPromptId()?.let { loadPrompt(it) }
@@ -217,9 +227,8 @@ class InterviewSessionService(
     private fun today(): LocalDate = LocalDate.now(clock)
 
     companion object {
-        // 전부 상수 분리(운영 튜닝 대상 — 계획 부록).
+        // 회원 전용·하루 쿼터는 InterviewPolicyProperties로 옮겨(환경별 완화 가능), 세션 크기·복습 당김만 상수로 둔다.
         private const val SESSION_SIZE = 3
-        private const val DAILY_QUOTA = 1L
         // 승급 임계(DI8)는 정답 시 신규 승급 판정(InterviewUnlockCalculator)과 공유하도록 InterviewEligibility.MASTERY_LEVEL로 단일화.
         private const val REVIEW_PULL_FORWARD_DAYS = 1L // DI11: 면접일+1일
     }

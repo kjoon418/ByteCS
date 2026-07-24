@@ -16,7 +16,7 @@ import watson.bytecs.interview.domain.ExplanationJudge
  * 두 조건은 상호 배타라 [ExplanationJudge] 빈은 항상 정확히 하나다. `:server:test`·기본 프로파일은 provider 미설정 → Fake라 실호출 0.
  */
 @Configuration
-@EnableConfigurationProperties(InterviewJudgeProperties::class)
+@EnableConfigurationProperties(InterviewJudgeProperties::class, InterviewPolicyProperties::class)
 class InterviewJudgeConfig {
 
     @Bean

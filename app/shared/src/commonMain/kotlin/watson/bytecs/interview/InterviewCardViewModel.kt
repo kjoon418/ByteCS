@@ -40,16 +40,17 @@ class InterviewCardViewModel(
 }
 
 /**
- * [InterviewStatus] → 카드 상태(디자인 02 3-b의 4종). 서버 단일 출처를 그대로 분기할 뿐이다.
- *  - 게스트 → 가입 유도
- *  - 후보 0 → 긍정 빈 상태
- *  - 잔여 있음(후보≥1 ∧ 쿼터>0) → 진입 CTA
- *  - 오늘 소진(후보≥1 ∧ 쿼터=0) → 담백 안내
+ * [InterviewStatus] → 카드 상태(디자인 02 3-b). 서버 단일 출처를 그대로 분기한다 — 잔여 쿼터(remainingToday)가
+ * '진입 가능'의 신호다: 서버는 면접을 이용할 수 있는 사용자에게만 실제 잔여(>0)를 주고, 이용할 수 없으면 0을 준다.
+ *  - 후보 0: 게스트면 회원 빈 상태와 같은 안내(DI9), 회원이면 긍정 빈 상태.
+ *  - 잔여>0(후보≥1): 진입 CTA — 회원, 또는 회원 전용이 풀린 테스터에선 게스트도 여기로 온다.
+ *  - 잔여=0 & 게스트: 회원 전용이 켜진 기본 동작 — 아직 이용할 수 없으니 가입 유도.
+ *  - 잔여=0 & 회원: 오늘 소진 — 담백 안내.
  */
 internal fun InterviewStatus.toCardState(): InterviewCardUiState = when {
-    guest -> InterviewCardUiState.Guest(candidateCount)
-    candidateCount == 0 -> InterviewCardUiState.Empty
+    candidateCount == 0 -> if (guest) InterviewCardUiState.Guest(candidateCount) else InterviewCardUiState.Empty
     remainingToday > 0 -> InterviewCardUiState.Ready(candidateCount)
+    guest -> InterviewCardUiState.Guest(candidateCount)
     else -> InterviewCardUiState.Exhausted
 }
 

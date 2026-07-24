@@ -48,6 +48,17 @@ class InterviewCardViewModelTest {
     }
 
     @Test
+    fun 회원_전용이_풀린_게스트도_후보와_쿼터가_있으면_진입_CTA다() = runTest {
+        // 테스터 완화: 서버가 게스트에게도 실제 잔여 쿼터(>0)를 주면, 게스트여도 가입 유도가 아니라 진입 CTA(Ready)다.
+        val repository = FakeInterviewRepository(statusResult = InterviewStatus(guest = true, candidateCount = 3, remainingToday = 5))
+        val viewModel = InterviewCardViewModel(repository)
+
+        viewModel.refresh()
+
+        assertEquals(InterviewCardUiState.Ready(3), viewModel.uiState.value)
+    }
+
+    @Test
     fun 후보가_있고_쿼터가_남으면_진입_CTA다() = runTest {
         val repository = FakeInterviewRepository(statusResult = InterviewStatus(guest = false, candidateCount = 2, remainingToday = 1))
         val viewModel = InterviewCardViewModel(repository)

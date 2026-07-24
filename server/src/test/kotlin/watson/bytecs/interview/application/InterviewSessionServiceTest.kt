@@ -22,6 +22,7 @@ import watson.bytecs.interview.domain.InterviewSession
 import watson.bytecs.interview.domain.JudgeResult
 import watson.bytecs.interview.infrastructure.InterviewPromptRepository
 import watson.bytecs.interview.infrastructure.InterviewReadinessRepository
+import watson.bytecs.interview.infrastructure.InterviewPolicyProperties
 import watson.bytecs.interview.infrastructure.InterviewSessionRepository
 import watson.bytecs.problem.domain.Concept
 import watson.bytecs.review.domain.ConceptMastery
@@ -51,7 +52,7 @@ class InterviewSessionServiceTest {
     private val today: LocalDate = LocalDate.of(2026, 7, 23)
     private val clock: Clock = Clock.fixed(today.atStartOfDay(zone).toInstant(), zone)
 
-    private val service = InterviewSessionService(
+    private fun serviceWith(policy: InterviewPolicyProperties) = InterviewSessionService(
         interviewSessionRepository,
         interviewPromptRepository,
         interviewReadinessRepository,
@@ -59,8 +60,15 @@ class InterviewSessionServiceTest {
         userRepository,
         explanationJudge,
         InterviewResponseMapper(),
+        policy,
         clock,
     )
+
+    // 기본 정책(회원 전용·하루 1세션) — 로컬·운영 규칙.
+    private val service = serviceWith(InterviewPolicyProperties())
+
+    // 테스터 완화 정책(게스트 허용·사실상 무제한) 검증용.
+    private val relaxedService = serviceWith(InterviewPolicyProperties(memberOnly = false, dailyQuota = 100_000))
 
     @Test
     fun `게스트가 세션을 생성하려 하면 예외가 발생한다`() {
@@ -265,6 +273,42 @@ class InterviewSessionServiceTest {
         assertThat(status.isGuest).isTrue()
         assertThat(status.remainingQuota).isEqualTo(0)
         assertThat(status.candidateConceptCount).isEqualTo(0)
+    }
+
+    // ── 테스터 완화(회원 전용 해제·사실상 무제한) ────────────────────────────────
+
+    @Test
+    fun `회원 전용이 풀리면 게스트도 면접 세션을 만들 수 있다`() {
+        stubUser(User.createGuest())
+        given(interviewSessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(null)
+        given(interviewSessionRepository.countGradedSessionsOn(1L, today)).willReturn(0L)
+        given(conceptMasteryRepository.findConceptIdsByUserIdAndLevelGreaterThanEqual(1L, 1)).willReturn(listOf(1L))
+        val prompt = mockPrompt(id = 100L, conceptId = 1L, question = "Q1")
+        given(interviewPromptRepository.findApproved()).willReturn(listOf(prompt))
+        given(interviewReadinessRepository.findByUserIdAndConceptIdIn(1L, setOf(1L))).willReturn(emptyList())
+        given(interviewPromptRepository.findById(100L)).willReturn(Optional.of(prompt))
+
+        val response = relaxedService.createTodaySession(1L)
+
+        assertThat(response.currentQuestion).isEqualTo("Q1")
+    }
+
+    @Test
+    fun `회원 전용이 풀리면 게스트 상태 조회도 잔여 쿼터를 준다`() {
+        stubUser(User.createGuest())
+        // 목 프롬프트는 먼저 만든다 — given(...).willReturn(...) 인자 안에서 mockPrompt가 또 스터빙하면 미완성 스터빙이 된다.
+        val prompt = mockPrompt(id = 100L, conceptId = 1L, question = "Q1")
+        given(conceptMasteryRepository.findConceptIdsByUserIdAndLevelGreaterThanEqual(1L, 1)).willReturn(listOf(1L))
+        given(interviewSessionRepository.countGradedSessionsOn(1L, today)).willReturn(0L)
+        // 후보 개념 1개(승인 질문 존재) — 게스트도 잔여 쿼터를 받아 진입 CTA가 뜬다.
+        given(interviewPromptRepository.findApproved()).willReturn(listOf(prompt))
+        given(interviewReadinessRepository.findByUserIdAndConceptIdIn(1L, setOf(1L))).willReturn(emptyList())
+
+        val status = relaxedService.getStatus(1L)
+
+        assertThat(status.isGuest).isTrue()
+        assertThat(status.remainingQuota).isGreaterThan(0)
+        assertThat(status.candidateConceptCount).isEqualTo(1)
     }
 
     private fun memberUser(): User = User.createMember(Email("test@example.com"), "hash")

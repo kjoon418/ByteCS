@@ -13,8 +13,13 @@
 # 채점 모델 성능 요구가 낮음). Gemini의 OpenAI 호환 엔드포인트를 쓰므로 공급자 중립 어댑터가 그대로 붙는다.
 #   - BYTECS_INTERVIEW_JUDGE_API_KEY: Gemini API 키. 미주입 시 채점은 항상 폴백(모범 설명 공개·준비도 미갱신)으로 흐른다(무크래시).
 #   - 다른 저비용 공급자로 바꾸려면 base-url·model만 교체한다(코드 무변경).
+# 면접 이용 정책(테스터 공개 기간 임시 완화, 2026-07-24 오너 결정): 테스터에게 면접 기능을 넓게 노출·피드백받기 위해
+# 회원 전용을 풀고(게스트도 이용) 하루 세션 수 제한을 사실상 무제한으로 둔다. 되돌릴 땐 이 policy 블록만 지우면 된다(코드 무변경).
 bytecs:
   interview:
+    policy:
+      member-only: false
+      daily-quota: 100000
     judge:
       provider: http
       base-url: ${BYTECS_INTERVIEW_JUDGE_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
