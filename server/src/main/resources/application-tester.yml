@@ -23,7 +23,8 @@ bytecs:
     judge:
       provider: http
       base-url: ${BYTECS_INTERVIEW_JUDGE_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
-      # gemini-2.0-flash는 2026-07 기준 생성 호출이 404(퇴역)라, 현행·저비용·안정판 gemini-2.5-flash-lite로 기본값을 둔다.
-      # 모델이 또 퇴역하면 실패 로그(HttpChatExplanationJudge, status=404 body)로 드러나므로 이 값 또는 env만 교체하면 된다.
-      model: ${BYTECS_INTERVIEW_JUDGE_MODEL:gemini-2.5-flash-lite}
+      # 구세대 모델(gemini-2.0-flash·2.5-flash-lite)은 "신규 사용자에겐 사용 불가"로 404 → 신규 프로젝트도 늘 쓸 수 있는
+      # 현행 추적 별칭 gemini-flash-lite-latest(저비용 flash-lite)로 둔다. 별칭이라 모델 퇴역/신규차단으로 다시 막힐 일이 없다.
+      # 다른 모델을 고정하고 싶으면 env BYTECS_INTERVIEW_JUDGE_MODEL로 덮어쓴다(실패 시 status=404 body 로그로 사유 확인).
+      model: ${BYTECS_INTERVIEW_JUDGE_MODEL:gemini-flash-lite-latest}
       api-key: ${BYTECS_INTERVIEW_JUDGE_API_KEY:}
