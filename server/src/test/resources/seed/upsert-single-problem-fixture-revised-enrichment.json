@@ -1,0 +1,34 @@
+{
+  "problems": [
+    {
+      "question": "한 프로세스 안에서 스택 등 일부를 제외한 자원을 공유하며 실행되는 흐름의 단위는?",
+      "type": "DEFINITION_RECALL",
+      "difficulty": "EASY",
+      "concepts": ["프로세스와 스레드", "스택"],
+      "acceptableAnswers": ["스레드", "쓰레드", "thread", "스레드 (thread)"],
+      "representativeAnswer": "스레드 (thread)",
+      "explanation": "스레드는 프로세스의 코드·데이터·힙을 공유하되, 스택과 레지스터는 각자 가진다.",
+      "hints": [],
+      "misconceptionHints": [],
+      "enrichment": {
+        "title": "재저작된 제목",
+        "body": "재저작된 본문 — 업서트가 실제로 심화 정보를 교체하는지 확인하는 픽스처다.",
+        "items": [
+          {
+            "title": "재저작 항목 01",
+            "description": "재저작된 항목 설명 01."
+          },
+          {
+            "title": "재저작 항목 02",
+            "description": "재저작된 항목 설명 02."
+          }
+        ],
+        "quote": "재저작된 인용."
+      }
+    }
+  ],
+  "conceptCategories": {
+    "프로세스와 스레드": "OPERATING_SYSTEM",
+    "스택": "DATA_STRUCTURE"
+  }
+}

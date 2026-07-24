@@ -63,9 +63,13 @@ class InterviewPromptDataLoader(
      * 기동 시 업서트(오너 결정 2026-07-25): 시드 면접 질문을 개념 이름으로 기존 행과 대조한다.
      *  - 매칭되면 콘텐츠 필드만 갱신한다. **이번 확정 범위는 hints(점진 공개 힌트)만**이다 — 질문·모범 설명·루브릭의
      *    재저작은 채점 기준 자체를 바꿔 이번 범위 밖으로 뒀다(범위 확대 여지는 리뷰에서 재확정).
-     *    무변경이면 [InterviewPrompt.updateHints]를 아예 호출하지 않아, 더티체킹이 불필요한 쓰기를 일으키지 않는다.
+     *    무변경이면 [InterviewPrompt.updateHints]도 뒤이은 save도 아예 호출하지 않아, 더티체킹이 불필요한 쓰기를 일으키지 않는다.
      *  - 매칭되지 않으면(신규 질문) 기존 시딩 관례대로 신규 삽입한다(같은 승인 검증 게이트를 이미 통과했다).
      *  - DB에는 있는데 시드에 없는 항목은 삭제하지 않고 로그만 남긴다.
+     *
+     * 변경분은 [InterviewPromptRepository.save]로 명시적으로 저장한다 — `run()`의 [Transactional]은 이 클래스가
+     * 스프링이 관리하는 프록시 빈으로 호출될 때만 실제 트랜잭션 경계로 작동하므로(로컬/tester 기동 경로),
+     * 더티체킹 하나에만 기대지 않고 명시적 저장으로 변경을 확정한다(ProblemDataLoader 관례와 동일).
      */
     private fun upsertPrompts(seedPrompts: List<InterviewPrompt>) {
         val existingByConceptName = interviewPromptRepository.findAllWithConcept().associateBy { it.concept.name }
@@ -79,6 +83,7 @@ class InterviewPromptDataLoader(
             }
             if (existing.hints != seedPrompt.hints) {
                 existing.updateHints(seedPrompt.hints)
+                interviewPromptRepository.save(existing)
             }
         }
 

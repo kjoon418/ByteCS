@@ -83,9 +83,13 @@ class ProblemDataLoader(
      * 기동 시 업서트(오너 결정 2026-07-25): 시드 문제를 질문 텍스트(정확 일치)로 기존 행과 대조한다.
      *  - 매칭되면 콘텐츠 필드만 갱신한다. **이번 확정 범위는 enrichment(심화 정보)만**이다 — 문제 자체(정답·힌트·유형 등)의
      *    재저작은 정답 판정·복습 로직에 영향을 줄 수 있어 이번 범위 밖으로 뒀다(범위 확대 여지는 리뷰에서 재확정).
-     *    무변경이면 [Problem.updateEnrichment]를 아예 호출하지 않아, 더티체킹이 불필요한 쓰기를 일으키지 않는다.
+     *    무변경이면 [Problem.updateEnrichment]도 뒤이은 save도 아예 호출하지 않아, 더티체킹이 불필요한 쓰기를 일으키지 않는다.
      *  - 매칭되지 않으면(신규 문제) 기존 시딩 관례대로 신규 삽입한다(같은 승인 검증 게이트를 이미 통과했다).
      *  - DB에는 있는데 시드에 없는 항목은 삭제하지 않고 로그만 남긴다(사용자 학습 이력이 그 id를 참조할 수 있어 보존).
+     *
+     * 변경분은 [ProblemRepository.save]로 명시적으로 저장한다 — `run()`의 [Transactional]은 이 클래스가
+     * 스프링이 관리하는 프록시 빈으로 호출될 때만 실제 트랜잭션 경계로 작동하므로(로컬/tester 기동 경로),
+     * 더티체킹 하나에만 기대지 않고 명시적 저장으로 변경을 확정한다.
      */
     private fun upsertProblems(seedProblems: List<Problem>) {
         val existingByQuestion = problemRepository.findAllWithEnrichment().associateBy { it.questionText }
@@ -99,6 +103,7 @@ class ProblemDataLoader(
             }
             if (!enrichmentContentEquals(existing.enrichment, seedProblem.enrichment)) {
                 existing.updateEnrichment(seedProblem.enrichment)
+                problemRepository.save(existing)
             }
         }
 
