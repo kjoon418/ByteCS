@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.slf4j.LoggerFactory
 import org.springframework.http.MediaType
 import org.springframework.web.client.RestClient
+import org.springframework.web.client.RestClientResponseException
 import watson.bytecs.interview.domain.ExplanationJudge
 import watson.bytecs.interview.domain.JudgeResult
 
@@ -34,6 +35,12 @@ class HttpChatExplanationJudge(
                     return result
                 }
                 log.warn("면접 채점 응답을 해석하지 못했습니다(attempt {}/{}) — 폴백 후보.", attempt + 1, MAX_ATTEMPTS)
+            } catch (e: RestClientResponseException) {
+                // HTTP 오류(4xx·5xx)는 상태 코드와 응답 본문을 남긴다 — 배포에서 401(키)·404(URL/모델)·429(쿼터) 등을 로그로 바로 진단.
+                log.warn(
+                    "면접 채점 호출 실패(attempt {}/{}): status={} body={}",
+                    attempt + 1, MAX_ATTEMPTS, e.statusCode, e.responseBodyAsString.take(MAX_LOGGED_BODY),
+                )
             } catch (e: Exception) {
                 log.warn("면접 채점 호출 실패(attempt {}/{}): {}", attempt + 1, MAX_ATTEMPTS, e.message)
             }
@@ -44,7 +51,9 @@ class HttpChatExplanationJudge(
     private fun callOnce(rubricPoints: List<String>, explanation: String): JudgeResult? {
         val body = buildRequestBody(rubricPoints, explanation)
         val raw = restClient.post()
-            .uri("/chat/completions")
+            // baseUrl + "/chat/completions"를 절대 URL로 명시 조립한다(방어적) — baseUrl 경로 병합·트레일링 슬래시 등
+            //    환경/버전 차이에 의존하지 않고 항상 `${'$'}{baseUrl}/chat/completions`로 나가도록 고정한다.
+            .uri("${properties.baseUrl.trimEnd('/')}/chat/completions")
             .contentType(MediaType.APPLICATION_JSON)
             .headers { headers ->
                 if (properties.apiKey.isNotBlank()) {
@@ -136,5 +145,6 @@ class HttpChatExplanationJudge(
 
     private companion object {
         const val MAX_ATTEMPTS = 2 // 최초 1회 + 재시도 1회(계획 부록)
+        const val MAX_LOGGED_BODY = 500 // 실패 진단용 응답 본문 로깅 상한(과도한 로그 방지)
     }
 }
