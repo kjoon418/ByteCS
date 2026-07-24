@@ -465,6 +465,27 @@ class SessionScreenUiTest {
         onNodeWithText("한입 마치기").assertDoesNotExist()
     }
 
+    /** DI9: 이 정답으로 새로 면접 후보가 열리면 확인 라인 아래 승급 인라인 라인이 뜬다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 정답으로_면접이_새로_열리면_승급_인라인_라인이_뜬다() = runScreen(
+        active(
+            inputText = answer,
+            feedback = SessionFeedback.Correct(listOf(answer), "해설", newlyEligibleConcepts = listOf("해시 충돌")),
+        ),
+    ) {
+        onNodeWithText("이 개념의 면접 연습이 열렸어요").assertIsDisplayed()
+    }
+
+    /** 새로 열린 개념이 없으면(대부분의 정답) 승급 인라인 라인은 뜨지 않는다. */
+    @OptIn(ExperimentalTestApi::class)
+    @Test
+    fun 새로_열린_개념이_없으면_승급_인라인_라인이_없다() = runScreen(
+        active(inputText = answer, feedback = SessionFeedback.Correct(listOf(answer), "해설")),
+    ) {
+        onNodeWithText("이 개념의 면접 연습이 열렸어요").assertDoesNotExist()
+    }
+
     /**
      * ⭐️ 정답을 맞히면 입력칸이 [watson.bytecs.ui.components.ConfirmedAnswerField]로 바뀌어 더 이상
      * 텍스트를 받지 않는다 — 예전에는 "엔터가 다음 문제로 새는" 라우팅으로 재제출 버그를 막았지만,

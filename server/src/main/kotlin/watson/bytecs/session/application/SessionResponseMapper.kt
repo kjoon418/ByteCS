@@ -77,6 +77,7 @@ class SessionResponseMapper {
         streak: StudyStreak?,
         needsDifficultyPrompt: Boolean,
         unlockedIntegrations: List<UnlockedIntegrationResponse>,
+        newlyEligibleConcepts: List<String>,
     ): SessionAttemptResponse {
         val correct = outcome.judgement == Judgement.CORRECT
 
@@ -98,6 +99,7 @@ class SessionResponseMapper {
             streak = streak?.let { toStreakResponse(it) },
             needsDifficultyPrompt = needsDifficultyPrompt,
             unlockedIntegrations = unlockedIntegrations,
+            newlyEligibleConcepts = newlyEligibleConcepts,
         )
     }
 

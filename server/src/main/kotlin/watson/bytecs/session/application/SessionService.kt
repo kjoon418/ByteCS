@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.interview.application.InterviewUnlockCalculator
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
@@ -47,6 +48,7 @@ class SessionService(
     private val reviewService: ReviewService,
     private val learningHistory: LearningHistory,
     private val integrationUnlockCalculator: IntegrationUnlockCalculator,
+    private val interviewUnlockCalculator: InterviewUnlockCalculator,
     private val clock: Clock,
 ) {
 
@@ -126,6 +128,8 @@ class SessionService(
         session.recordAttempt(outcome.judgement, answer, misconceptionShown = outcome.misconceptionHint != null)
 
         // 정답이면 그 문제의 모든 개념 숙련도를 같은 트랜잭션에서 갱신한다(기능 3). 도움 신호는 방금 통과한 칸에서 파생한다.
+        // 아울러 이 정답으로 **새로 면접 후보가 된 개념**(레벨 <임계→≥임계 ∧ 승인 질문 존재)을 계산해 응답에 싣는다(DI9 — 정답 순간 알림).
+        var newlyEligibleConcepts = emptyList<String>()
         if (outcome.judgement == Judgement.CORRECT) {
             val solvedItem = session.items[solvedPosition]
             val signal = MasterySignal.of(
@@ -134,7 +138,12 @@ class SessionService(
                 misconceptionHintSeen = solvedItem.misconceptionHintSeen,
             )
             val alreadySolved = problem.id in requireNotNull(alreadySolvedBefore)
-            reviewService.recordSolve(userId, problem.conceptIds(), signal, today(), problem.id, alreadySolved)
+            val conceptIds = problem.conceptIds()
+            // ⚠️ recordSolve '전'의 후보 스냅샷을 먼저 잡아야 한다 — recordSolve가 같은 트랜잭션에서 레벨을 올리므로
+            //    순서가 뒤집히면 이미 오른 레벨을 '전'으로 읽어 신규 승급을 놓친다(이미 열려 있던 것으로 오판).
+            val eligibleBefore = interviewUnlockCalculator.eligibleConceptIdsBefore(userId, conceptIds)
+            reviewService.recordSolve(userId, conceptIds, signal, today(), problem.id, alreadySolved)
+            newlyEligibleConcepts = interviewUnlockCalculator.newlyUnlockedConceptNames(userId, conceptIds, eligibleBefore)
         }
 
         // 여기 도달 시점엔 진입 전 미완료가 보장되므로(currentItemProblemId != null), 지금 완료됐다면 '방금' 완료된 것이다.
@@ -157,7 +166,8 @@ class SessionService(
 
         val nextProblem = session.currentItemProblemId()?.let { loadProblem(it) }
         return responseMapper.toAttemptResponse(
-            session, outcome, problem, nextProblem, streak, needsDifficultyPrompt, unlockedIntegrations,
+            session, outcome, problem, nextProblem, streak, needsDifficultyPrompt,
+            unlockedIntegrations, newlyEligibleConcepts,
         )
     }
 

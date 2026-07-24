@@ -15,6 +15,9 @@ import watson.bytecs.problem.application.dto.EnrichmentResponse
  *    미완료 제출에서는 항상 false다(제안은 완료 화면에서만 뜬다).
  *  - unlockedIntegrations: 이 제출로 세션이 완료되며 **새로 열린** 지정 연결 문제들(계획 §3.2 · D2). 미완료·해제 없음이면 빈 목록.
  *    각 항목은 구성 개념명 목록이며, 완료 화면이 잠금 해제 배지로 담백하게 안내한다(디자인 04의 4-b).
+ *  - newlyEligibleConcepts: 이 **정답**으로 처음 면접 후보가 된 개념명들(DI9 · 디자인 03의 9-b). 레벨이 승급 임계 미만→이상으로
+ *    올라갔고 그 개념에 승인된 면접 질문이 있을 때만 채워진다(완료 여부와 무관 — 정답 순간 알림). 이미 열려 있던 개념을 다시
+ *    맞히거나 도움 정답으로 임계 미달이면 빈 목록. 03 정답 화면이 승급 인라인 라인(PromotionInlineLine)으로 담백하게 안내한다.
  */
 data class SessionAttemptResponse(
     val result: String,
@@ -31,4 +34,5 @@ data class SessionAttemptResponse(
     val streak: StreakResponse?,
     val needsDifficultyPrompt: Boolean,
     val unlockedIntegrations: List<UnlockedIntegrationResponse>,
+    val newlyEligibleConcepts: List<String>,
 )

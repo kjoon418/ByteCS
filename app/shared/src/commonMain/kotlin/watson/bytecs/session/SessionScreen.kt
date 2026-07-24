@@ -65,6 +65,7 @@ import watson.bytecs.ui.components.HintStepper
 import watson.bytecs.ui.components.MisconceptionHintCard
 import watson.bytecs.ui.components.NearMissNudge
 import watson.bytecs.ui.components.PrimaryButton
+import watson.bytecs.ui.components.PromotionInlineLine
 import watson.bytecs.ui.components.RevealAnswerButton
 import watson.bytecs.ui.components.RevealedAnswerField
 import watson.bytecs.ui.components.ScrapToggle
@@ -471,6 +472,14 @@ private fun ActiveContent(
                         val representativeAnswer =
                             (state.feedback as? SessionFeedback.Correct)?.representativeAnswer ?: state.inputText
                         ConfirmedAnswerField(representativeAnswer = representativeAnswer)
+                        // 승급 인라인 라인(DI9) — 이 정답으로 처음 면접 후보가 된 개념이 있을 때만, 확인 라인 바로 아래에 담백하게.
+                        (state.feedback as? SessionFeedback.Correct)
+                            ?.newlyEligibleConcepts
+                            ?.takeIf { it.isNotEmpty() }
+                            ?.let {
+                                Spacer(Modifier.height(BcsDimens.space3))
+                                PromotionInlineLine()
+                            }
                         state.feedback?.let { feedback ->
                             Spacer(Modifier.height(BcsDimens.space4))
                             FeedbackCard(feedback, problemId = state.problem.id)

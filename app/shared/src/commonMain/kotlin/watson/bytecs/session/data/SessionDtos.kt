@@ -124,6 +124,8 @@ internal data class SessionAttemptResponseDto(
     val needsDifficultyPrompt: Boolean = false,
     // 이 제출로 완료되며 새로 열린 지정 연결 문제들(D2). 미완료·해제 없음이면 빈 목록(서버가 생략하면 기본값).
     val unlockedIntegrations: List<UnlockedIntegrationDto> = emptyList(),
+    // 이 정답으로 처음 면접 후보가 된 개념명들(DI9). 승급·승인 질문 조건 충족 시에만 채워진다(그 외 빈 목록, 서버 생략 시 기본값).
+    val newlyEligibleConcepts: List<String> = emptyList(),
 ) {
     fun toDomain(): AttemptOutcome = AttemptOutcome(
         result = result.toJudgeResult(),
@@ -140,6 +142,7 @@ internal data class SessionAttemptResponseDto(
         representativeAnswer = representativeAnswer,
         needsDifficultyPrompt = needsDifficultyPrompt,
         unlockedIntegrations = unlockedIntegrations.map { it.toDomain() },
+        newlyEligibleConcepts = newlyEligibleConcepts,
     )
 }
 

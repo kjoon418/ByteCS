@@ -8,6 +8,7 @@ import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.interview.application.dto.InterviewAnswerResponse
 import watson.bytecs.interview.application.dto.InterviewSessionResponse
 import watson.bytecs.interview.application.dto.InterviewStatusResponse
+import watson.bytecs.interview.domain.InterviewEligibility
 import watson.bytecs.interview.domain.InterviewMemberOnlyException
 import watson.bytecs.interview.domain.InterviewNoCandidateException
 import watson.bytecs.interview.domain.InterviewPrompt
@@ -143,7 +144,8 @@ class InterviewSessionService(
      */
     private fun selectCandidatePromptsOrdered(userId: Long): List<InterviewPrompt> {
         val masteredConceptIds =
-            conceptMasteryRepository.findConceptIdsByUserIdAndLevelGreaterThanEqual(userId, ELIGIBLE_LEVEL).toSet()
+            conceptMasteryRepository
+                .findConceptIdsByUserIdAndLevelGreaterThanEqual(userId, InterviewEligibility.MASTERY_LEVEL).toSet()
         if (masteredConceptIds.isEmpty()) {
             return emptyList()
         }
@@ -219,7 +221,7 @@ class InterviewSessionService(
         // 전부 상수 분리(운영 튜닝 대상 — 계획 부록).
         private const val SESSION_SIZE = 3
         private const val DAILY_QUOTA = 1L
-        private const val ELIGIBLE_LEVEL = 1 // DI8: 숙련도 레벨 ≥ 1
+        // 승급 임계(DI8)는 정답 시 신규 승급 판정(InterviewUnlockCalculator)과 공유하도록 InterviewEligibility.MASTERY_LEVEL로 단일화.
         private const val REVIEW_PULL_FORWARD_DAYS = 1L // DI11: 면접일+1일
     }
 }

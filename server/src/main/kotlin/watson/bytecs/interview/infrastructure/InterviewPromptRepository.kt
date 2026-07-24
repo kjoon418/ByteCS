@@ -18,4 +18,17 @@ interface InterviewPromptRepository : JpaRepository<InterviewPrompt, Long> {
             "where ip.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED",
     )
     fun findApproved(): List<InterviewPrompt>
+
+    /**
+     * 주어진 개념들 중 **승인된 면접 질문이 있는** 것만, 개념까지 실어(join fetch) 조회한다(정답 시 신규 승급 판정 — DI9).
+     * 정답마다 도는 핫패스라 승인 질문 전량([findApproved]) 대신 대상 개념(보통 1~3개)으로 좁힌다. 루브릭은 페치하지 않는다
+     * (개념명만 필요 — 지연 로딩을 건드리지 않는다). 빈 목록이면 in 절이 무의미하므로 호출부가 빈 입력을 걸러 부른다.
+     */
+    @Query(
+        "select ip from InterviewPrompt ip " +
+            "join fetch ip.concept " +
+            "where ip.approvalStatus = watson.bytecs.problem.domain.ApprovalStatus.APPROVED " +
+            "and ip.concept.id in :conceptIds",
+    )
+    fun findApprovedByConceptIdIn(conceptIds: Collection<Long>): List<InterviewPrompt>
 }

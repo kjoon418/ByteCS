@@ -289,6 +289,41 @@ class SessionViewModelTest {
     }
 
     /**
+     * DI9: 이 정답으로 새로 면접 후보가 된 개념(서버가 응답에 실어 준)이 정답 피드백(SessionFeedback.Correct)의
+     * newlyEligibleConcepts로 그대로 실려야 한다 — 화면이 승급 인라인 라인을 띄우는 근거다.
+     */
+    @Test
+    fun correct_carriesNewlyEligibleConcepts_intoFeedback() = runTest {
+        val next = problem(2L)
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { correctOutcome(next = next, position = 1, solved = 1, total = 3, newlyEligibleConcepts = listOf("프로세스")) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("프로세스")
+        viewModel.submit()
+
+        val feedback = viewModel.active().feedback
+        assertTrue(feedback is SessionFeedback.Correct)
+        assertEquals(listOf("프로세스"), feedback.newlyEligibleConcepts)
+    }
+
+    /** 새로 열린 개념이 없으면(대부분의 정답) 승급 목록은 비어, 화면이 인라인 라인을 띄우지 않는다. */
+    @Test
+    fun correct_withNoPromotion_leavesNewlyEligibleConceptsEmpty() = runTest {
+        val next = problem(2L)
+        val repo = FakeSessionRepository(today = activeSession(position = 0, total = 3, problem = problem(1L)))
+        repo.onSubmit = { correctOutcome(next = next, position = 1, solved = 1, total = 3) }
+        val viewModel = SessionViewModel(repo).apply { loadSession() }
+
+        viewModel.onInputChange("스레드")
+        viewModel.submit()
+
+        val feedback = viewModel.active().feedback
+        assertTrue(feedback is SessionFeedback.Correct)
+        assertTrue(feedback.newlyEligibleConcepts.isEmpty())
+    }
+
+    /**
      * [결정 2026-07-16] 마지막 본 문제를 맞혀도 곧장 완료 이벤트를 보내지 않는다 — 이 문제도 다른 문제와
      * 동등하게 피드백(개념·해설·심화)을 보여주고, [finishSession]을 눌러야 완료로 넘어간다. 완료 요약은
      * 미리 [pendingCompletion]에 담아 둔다(전환을 미뤄도 유실 없음).

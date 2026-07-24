@@ -139,6 +139,7 @@ class SessionViewModel(
                                 explanation = outcome.explanation,
                                 enrichment = outcome.enrichment,
                                 representativeAnswer = outcome.representativeAnswer,
+                                newlyEligibleConcepts = outcome.newlyEligibleConcepts,
                             ),
                             // 다음 칸은 [advance]에서 실제로 이동한다(정답 후 [다음 문제] CTA).
                             // 완료된 경우 서버가 currentProblem을 null로 주므로 pendingNext는 자연히 비고,
@@ -405,6 +406,8 @@ sealed interface SessionFeedback {
         val explanation: String?,
         val enrichment: Enrichment? = null,
         val representativeAnswer: String? = null,
+        // 이 정답으로 처음 면접 후보가 된 개념명들(DI9). 비어 있지 않을 때만 승급 인라인 라인(PromotionInlineLine)이 뜬다.
+        val newlyEligibleConcepts: List<String> = emptyList(),
     ) : SessionFeedback
 
     /**

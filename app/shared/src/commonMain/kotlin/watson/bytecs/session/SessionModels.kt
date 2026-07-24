@@ -115,6 +115,8 @@ data class AttemptOutcome(
     val needsDifficultyPrompt: Boolean = false,
     // 이 제출로 세션이 완료되며 새로 열린 지정 연결 문제들(D2). 미완료·해제 없음이면 빈 목록 — 04 완료 화면이 잠금 해제 배지로 쓴다.
     val unlockedIntegrations: List<UnlockedIntegration> = emptyList(),
+    // 이 정답으로 처음 면접 후보가 된 개념명들(DI9). 승급·승인 질문 조건 충족 시에만 채워진다 — 03 정답 화면이 승급 인라인 라인으로 쓴다.
+    val newlyEligibleConcepts: List<String> = emptyList(),
 ) {
     val isCompleted: Boolean get() = status == SessionStatus.COMPLETED
 }

@@ -6,8 +6,10 @@ import org.mockito.BDDMockito.given
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.account.domain.User
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.interview.application.InterviewUnlockCalculator
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.AttemptOutcome
 import watson.bytecs.problem.domain.Concept
@@ -43,6 +45,9 @@ class SessionServiceTest {
     private val learningHistory: LearningHistory = mock(LearningHistory::class.java)
     // 잠금 해제 계산기는 목 — 완료 분기에서 호출되며, 스텁 없이 빈 목록을 돌려준다(D2 계산 자체는 IntegrationUnlockCalculatorTest가 검증).
     private val integrationUnlockCalculator: IntegrationUnlockCalculator = mock(IntegrationUnlockCalculator::class.java)
+    // 면접 승급 계산기도 목 — 정답 분기에서 호출된다. Mockito가 컬렉션 반환을 기본으로 빈 값(Set/List)으로 돌려줘 스텁 없이도
+    // NPE 없이 '새로 열림 없음'으로 흐른다(승급 계산 자체는 InterviewUnlockCalculatorTest가 검증).
+    private val interviewUnlockCalculator: InterviewUnlockCalculator = mock(InterviewUnlockCalculator::class.java)
 
     private val zone: ZoneId = ZoneId.of("Asia/Seoul")
     private val today: LocalDate = LocalDate.of(2026, 7, 14)
@@ -57,6 +62,7 @@ class SessionServiceTest {
         reviewService,
         learningHistory,
         integrationUnlockCalculator,
+        interviewUnlockCalculator,
         clock,
     )
 
@@ -71,6 +77,7 @@ class SessionServiceTest {
         reviewService,
         learningHistory,
         integrationUnlockCalculator,
+        interviewUnlockCalculator,
         clock,
     )
 
@@ -251,8 +258,8 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null·제안도 false·해제 목록은 빈 목록이다.
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null, false, emptyList())
+        // 유형 관문이 면제돼 근접으로 판정된다. 전진하지 않으므로 다음 문제는 여전히 같은 문제이고, 완료가 아니라 스트릭은 null·제안도 false·해제 목록·승급 개념도 빈 목록이다(비정답이라 승급 계산 자체를 안 한다).
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.NEAR_MISS, null), problem, problem, null, false, emptyList(), emptyList())
     }
 
     @Test
@@ -264,7 +271,40 @@ class SessionServiceTest {
 
         service.submitAnswer(1L, AnswerText("o(n)"))
 
-        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null, false, emptyList())
+        verify(responseMapper).toAttemptResponse(session, AttemptOutcome(Judgement.MISMATCH, null), problem, problem, null, false, emptyList(), emptyList())
+    }
+
+    /**
+     * DI9: 이 정답으로 새로 면접 후보가 된 개념(계산기 산출)이 응답의 newlyEligibleConcepts로 그대로 실려야 한다.
+     * 계산 자체는 InterviewUnlockCalculatorTest가 검증하고, 여기선 서비스→매퍼→응답까지의 배선만 실 매퍼로 확인한다.
+     */
+    @Test
+    fun `정답으로 새로 면접 후보가 된 개념명을 응답 newlyEligibleConcepts에 싣는다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("프로세스")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        stubSubmitWithUser(session, problem, User.createGuest())
+        given(learningHistory.findSolvedProblemIds(1L)).willReturn(emptySet())
+        // 계산기가 이번 정답으로 개념 "프로세스"가 새로 열렸다고 산출한 상황을 재현한다(문제 개념 id는 미영속이라 0).
+        given(interviewUnlockCalculator.eligibleConceptIdsBefore(1L, problem.conceptIds())).willReturn(emptySet())
+        given(interviewUnlockCalculator.newlyUnlockedConceptNames(1L, problem.conceptIds(), emptySet()))
+            .willReturn(listOf("프로세스"))
+
+        val response = realMapperService.submitAnswer(1L, AnswerText("정답"))
+
+        assertThat(response.newlyEligibleConcepts).containsExactly("프로세스")
+    }
+
+    @Test
+    fun `비정답 제출은 면접 승급 계산을 하지 않고 newlyEligibleConcepts가 빈 목록이다`() {
+        val problem = Problem(questionText = "질문", concepts = listOf(Concept("개념")), acceptableAnswers = setOf("정답"), representativeAnswer = "정답")
+        val session = Session.assign(userId = 1L, sessionDate = today, problemIds = listOf(problem.id))
+        stubSubmitWithUser(session, problem, User.createGuest())
+
+        val response = realMapperService.submitAnswer(1L, AnswerText("틀림"))
+
+        assertThat(response.newlyEligibleConcepts).isEmpty()
+        // 정답이 아니면 승급 계산 자체를 돌리지 않는다(핫패스 낭비·오알림 방지).
+        verifyNoInteractions(interviewUnlockCalculator)
     }
 
     // ── Stage 3: 완료 화면 난이도 제안 노출 여부(needsDifficultyPrompt) ─────────────────

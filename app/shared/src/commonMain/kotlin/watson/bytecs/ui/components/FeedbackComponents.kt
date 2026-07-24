@@ -23,6 +23,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -152,6 +155,43 @@ fun ConfirmedAnswerField(
                 color = colors.success,
             )
         }
+    }
+}
+
+/**
+ * §5.17 PromotionInlineLine — 승급 인라인 라인(03 정답 확인 라인 **바로 아래**, DI9).
+ *
+ * 이 정답으로 개념이 **처음 면접 후보가 됐을 때만** 뜬다(호출부가 `newlyEligibleConcepts`가 비어 있지 않을 때만 렌더).
+ * ⭐️ 카드가 아니라 인라인 한 줄이다 — 확인 라인(success·진한 강도) '위에 얹히는' 부가 정보이지 새 축하가 아니라서,
+ *    낮은 시각 강도(info 계열·옅은 배경)로 담백하게 둔다(§5.17). 토스트·스낵바가 아니라 화면에 계속 남는다(확인 라인처럼).
+ * ⭐️ 스크린리더 라이브 리전 — 승급 순간을 낭독한다. 노드 텍스트가 고정이고 정답 확정 순간 한 번 나타나므로,
+ *    같은 칸에서 재조합돼도 중복 낭독되지 않는다(다음 칸으로 넘어가면 상태가 통째로 갈려 새로 나타난다).
+ *
+ * 문구는 개념명을 넣지 않는다(디자인 확정 카피) — 한 정답이 여러 개념을 동시에 열어도 조사·복수 처리 없이 자연스럽다.
+ */
+@Composable
+fun PromotionInlineLine(modifier: Modifier = Modifier) {
+    val colors = LocalBcsColors.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(BcsDimens.radiusChip))
+            .background(colors.infoContainer)
+            .padding(horizontal = BcsDimens.space3, vertical = BcsDimens.space2)
+            .semantics { liveRegion = LiveRegionMode.Polite },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(BcsDimens.space2),
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.LockOpen,
+            contentDescription = null, // 의미는 옆 텍스트가 전달(장식 아이콘)
+            tint = colors.info,
+            modifier = Modifier.size(BcsDimens.iconSm),
+        )
+        Text(
+            text = "이 개념의 면접 연습이 열렸어요",
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onInfoContainer,
+        )
     }
 }
 

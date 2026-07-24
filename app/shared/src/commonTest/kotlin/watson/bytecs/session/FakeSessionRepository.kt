@@ -153,6 +153,8 @@ class FakeSessionRepository(
             needsDifficultyPrompt: Boolean = false,
             // 이 제출로 완료되며 새로 열린 지정 연결 문제(D2). 기본은 없음 — 완료 스크립트에서 필요할 때만 넣는다.
             unlockedIntegrations: List<UnlockedIntegration> = emptyList(),
+            // 이 정답으로 처음 면접 후보가 된 개념명(DI9). 기본은 없음 — 승급 알림 스크립트에서만 넣는다.
+            newlyEligibleConcepts: List<String> = emptyList(),
         ) = AttemptOutcome(
             result = JudgeResult.CORRECT,
             status = if (completed) SessionStatus.COMPLETED else SessionStatus.IN_PROGRESS,
@@ -167,6 +169,7 @@ class FakeSessionRepository(
             representativeAnswer = representativeAnswer,
             needsDifficultyPrompt = needsDifficultyPrompt,
             unlockedIntegrations = unlockedIntegrations,
+            newlyEligibleConcepts = newlyEligibleConcepts,
         )
 
         fun mismatchOutcome(total: Int = 3, misconceptionHint: String? = null) = AttemptOutcome(

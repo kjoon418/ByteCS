@@ -242,6 +242,23 @@ class KtorSessionRepositoryTest {
         )
         // 화면 표시용 대표 정답도 CORRECT 응답에서 그대로 매핑된다.
         assertEquals("스택 (stack)", outcome.representativeAnswer)
+        // 승급 필드 부재는 하위호환으로 빈 목록(DI9).
+        assertTrue(outcome.newlyEligibleConcepts.isEmpty())
+    }
+
+    /** DI9: 정답 응답의 newlyEligibleConcepts가 그대로 매핑된다(승급 인라인 라인의 근거). */
+    @Test
+    fun submitAttempt_mapsNewlyEligibleConcepts() = runTest {
+        val engine = MockEngine {
+            respond(
+                content = """{"result":"CORRECT","status":"IN_PROGRESS","solvedCount":1,"totalCount":3,"position":1,"concepts":["프로세스"],"explanation":"E","currentProblem":{"id":2,"question":"다음"},"streak":null,"newlyEligibleConcepts":["프로세스"]}""",
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders(),
+            )
+        }
+        val outcome = KtorSessionRepository(client("t", engine), baseUrl).submitAttempt("프로세스")
+
+        assertEquals(listOf("프로세스"), outcome.newlyEligibleConcepts)
     }
 
     @Test
