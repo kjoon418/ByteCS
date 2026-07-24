@@ -140,6 +140,26 @@ class InterviewSessionServiceTest {
     }
 
     @Test
+    fun `한 개념에 면접 질문이 여럿이면 id가 가장 작은 것으로 결정적으로 고른다`() {
+        stubUser(memberUser())
+        given(interviewSessionRepository.findTopByUserIdAndSessionDateOrderByIdDesc(1L, today)).willReturn(null)
+        given(interviewSessionRepository.countGradedSessionsOn(1L, today)).willReturn(0L)
+        given(conceptMasteryRepository.findConceptIdsByUserIdAndLevelGreaterThanEqual(1L, 1)).willReturn(listOf(2L))
+
+        // 같은 개념(2L)에 승인 질문이 둘 — id가 큰 것을 먼저 반환해도 최소 id(10L)가 선택되어야 한다.
+        val chosen = mockPrompt(id = 10L, conceptId = 2L, question = "선택된 질문")
+        val other = mockPrompt(id = 30L, conceptId = 2L, question = "탈락 질문")
+        given(interviewPromptRepository.findApproved()).willReturn(listOf(other, chosen))
+        given(interviewReadinessRepository.findByUserIdAndConceptIdIn(1L, setOf(2L))).willReturn(emptyList())
+        given(interviewPromptRepository.findById(10L)).willReturn(Optional.of(chosen))
+
+        val response = service.createTodaySession(1L)
+
+        assertThat(response.currentQuestion).isEqualTo("선택된 질문")
+        assertThat(response.totalCount).isEqualTo(1)
+    }
+
+    @Test
     fun `채점 성공이고 전 포인트 미달이면 준비도를 갱신하고 복습 시점을 당긴다`() {
         stubUser(memberUser())
         val prompt = mockPrompt(
