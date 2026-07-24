@@ -54,11 +54,24 @@ class InterviewPromptDataLoaderTest {
             Concept(invocation.getArgument(0))
         }
 
-        // 운영 기본 시드(interview-prompts.json)는 아직 hints 필드를 채우지 않았다 — JSON에 키가 없어도 기동이 실패하면 안 된다.
-        val saved = runAndCapture("seed/interview-prompts.json")
+        // JSON에 hints 키가 없어도 기동이 실패하면 안 된다 — 운영 시드는 이제 힌트를 채웠으므로 전용 픽스처로 검증한다.
+        val saved = runAndCapture("seed/interview-prompts-no-hints-fixture.json")
 
         assertThat(saved).isNotEmpty
         assertThat(saved).allMatch { it.hintCount == 0 }
+    }
+
+    @Test
+    fun `운영 시드는 전 문항에 점진 공개 힌트 2개를 싣는다`() {
+        given(interviewPromptRepository.count()).willReturn(0L)
+        given(conceptRepository.findByName(anyString())).willAnswer { invocation ->
+            Concept(invocation.getArgument(0))
+        }
+
+        val saved = runAndCapture("seed/interview-prompts.json")
+
+        assertThat(saved).isNotEmpty
+        assertThat(saved).allMatch { it.hintCount == 2 }
     }
 
     @Test
