@@ -46,6 +46,47 @@ class InterviewPromptTest {
 
             assertThat(prompt.rubricPoints).containsExactly("첫째", "둘째", "셋째")
         }
+
+        @Test
+        fun `힌트는 선택 필드라 없어도 만들 수 있다`() {
+            val prompt = prompt(hints = emptyList())
+
+            assertThat(prompt.hintCount).isEqualTo(0)
+        }
+
+        @Test
+        fun `힌트 항목이 공백이면 만들 수 없다`() {
+            assertThatThrownBy { prompt(hints = listOf("정상 힌트", "  ")) }
+                .isInstanceOf(IllegalArgumentException::class.java)
+        }
+    }
+
+    @Nested
+    inner class 힌트 {
+
+        @Test
+        fun `힌트가 없으면 hintCount는 0이고 공개 목록도 비어 있다`() {
+            val prompt = prompt(hints = emptyList())
+
+            assertThat(prompt.hintCount).isEqualTo(0)
+            assertThat(prompt.revealedHints(0)).isEmpty()
+        }
+
+        @Test
+        fun `공개 수만큼 앞에서부터 약에서 강 순으로 잘라 돌려준다`() {
+            val prompt = prompt(hints = listOf("약한 힌트", "강한 힌트"))
+
+            assertThat(prompt.revealedHints(1)).containsExactly("약한 힌트")
+            assertThat(prompt.revealedHints(2)).containsExactly("약한 힌트", "강한 힌트")
+        }
+
+        @Test
+        fun `공개 수가 범위를 벗어나도 미공개 힌트는 새지 않는다`() {
+            val prompt = prompt(hints = listOf("약한 힌트", "강한 힌트"))
+
+            assertThat(prompt.revealedHints(-1)).isEmpty()
+            assertThat(prompt.revealedHints(99)).containsExactly("약한 힌트", "강한 힌트")
+        }
     }
 
     @Nested
@@ -136,6 +177,7 @@ class InterviewPromptTest {
         question: String = "스택을 설명해보세요.",
         modelAnswer: String = "후입선출(LIFO) 구조로, 가장 나중에 넣은 데이터가 먼저 나온다.",
         rubricPoints: List<String> = listOf("LIFO 언급", "push/pop 동작"),
+        hints: List<String> = emptyList(),
         approvalStatus: ApprovalStatus = ApprovalStatus.DRAFT,
     ): InterviewPrompt =
         InterviewPrompt(
@@ -143,6 +185,7 @@ class InterviewPromptTest {
             question = question,
             modelAnswer = modelAnswer,
             rubricPoints = rubricPoints,
+            hints = hints,
             approvalStatus = approvalStatus,
         )
 }

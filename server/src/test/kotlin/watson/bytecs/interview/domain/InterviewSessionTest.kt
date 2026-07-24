@@ -2,6 +2,7 @@ package watson.bytecs.interview.domain
 
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import java.time.Instant
 import java.time.LocalDate
@@ -76,5 +77,63 @@ class InterviewSessionTest {
     fun `배정할 질문이 없으면 세션을 만들 수 없다`() {
         assertThatThrownBy { InterviewSession.assign(1L, TODAY, emptyList()) }
             .isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    /** Session.revealHint(SessionTest.힌트를_공개한다 관례 미러) — 힌트 열람은 채점 진행·완료에 영향을 주지 않는다. */
+    @Nested
+    inner class 힌트를_공개한다 {
+
+        @Test
+        fun `클라가 아는 공개 수가 실제와 같으면 하나 더 연다`() {
+            val session = InterviewSession.assign(1L, TODAY, listOf(10L))
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            assertThat(newCount).isEqualTo(1)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(1)
+            // 힌트 공개는 채점 진행을 바꾸지 않는다.
+            assertThat(session.currentPosition).isEqualTo(0)
+        }
+
+        @Test
+        fun `클라가 아는 공개 수가 실제와 다르면 증가하지 않는다`() {
+            // 더블탭·경쟁: 이미 1개 열린 상태에서 0을 들고 또 누르면 증가하지 않는다.
+            val session = InterviewSession.assign(1L, TODAY, listOf(10L))
+            session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 3)
+
+            assertThat(newCount).isEqualTo(1)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(1)
+        }
+
+        @Test
+        fun `이미 전부 공개했으면 증가하지 않는다`() {
+            val session = InterviewSession.assign(1L, TODAY, listOf(10L))
+            session.revealHint(expectedRevealedCount = 0, hintCount = 1)
+
+            val newCount = session.revealHint(expectedRevealedCount = 1, hintCount = 1)
+
+            assertThat(newCount).isEqualTo(1)
+        }
+
+        @Test
+        fun `힌트가 없으면 증가하지 않는다`() {
+            val session = InterviewSession.assign(1L, TODAY, listOf(10L))
+
+            val newCount = session.revealHint(expectedRevealedCount = 0, hintCount = 0)
+
+            assertThat(newCount).isEqualTo(0)
+            assertThat(session.items[0].revealedHintCount).isEqualTo(0)
+        }
+
+        @Test
+        fun `완료된 세션에서는 공개할 수 없다`() {
+            val session = InterviewSession.assign(1L, TODAY, listOf(10L))
+            session.recordGraded("설명", listOf(true), "코멘트", JUDGED_AT)
+
+            assertThatThrownBy { session.revealHint(expectedRevealedCount = 0, hintCount = 2) }
+                .isInstanceOf(InterviewSessionAlreadyCompletedException::class.java)
+        }
     }
 }

@@ -43,6 +43,12 @@ class InterviewSessionItem(
     var judgedAt: Instant? = null
         protected set
 
+    // 이 칸에서 공개한 힌트 수(약→강 앞에서부터). 채점·준비도·쿼터에 영향을 주지 않는 무낙인 학습 기록이다
+    // (SessionItem.revealedHintCount 관례 미러). 재제출이 없는 칸이라도 답하기 전까지는 힌트를 열람할 수 있다.
+    @Column(name = "revealed_hint_count", nullable = false)
+    var revealedHintCount: Int = 0
+        protected set
+
     val isAnswered: Boolean
         get() = submittedText != null
 
@@ -66,5 +72,10 @@ class InterviewSessionItem(
         this.submittedText = submittedText
         this.judged = false
         this.judgedAt = judgedAt
+    }
+
+    /** 힌트를 하나 더 공개했음을 기록한다(약→강 앞에서부터 한 칸 전진). 채점 진행에는 영향을 주지 않는다. */
+    fun revealNextHint() {
+        this.revealedHintCount += 1
     }
 }

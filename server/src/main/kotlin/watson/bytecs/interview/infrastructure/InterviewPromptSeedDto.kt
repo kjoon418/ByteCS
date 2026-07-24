@@ -19,4 +19,6 @@ data class InterviewPromptSeedDto(
     val question: String,
     val modelAnswer: String,
     val rubricPoints: List<String> = emptyList(),
+    // 점진 공개 힌트(선택 — 기본 빈 목록으로 기존 시드와 하위 호환). 저작은 별도 단계(본시드는 아직 미채움).
+    val hints: List<String> = emptyList(),
 )

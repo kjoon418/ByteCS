@@ -3,6 +3,7 @@ package watson.bytecs.interview.application
 import org.springframework.stereotype.Component
 import watson.bytecs.account.domain.StudyStreak
 import watson.bytecs.interview.application.dto.InterviewAnswerResponse
+import watson.bytecs.interview.application.dto.InterviewHintRevealResponse
 import watson.bytecs.interview.application.dto.InterviewSessionResponse
 import watson.bytecs.interview.application.dto.RubricPointResultResponse
 import watson.bytecs.interview.domain.InterviewPrompt
@@ -14,7 +15,15 @@ import watson.bytecs.session.application.dto.StreakResponse
 @Component
 class InterviewResponseMapper {
 
-    fun toSessionResponse(session: InterviewSession, currentPrompt: InterviewPrompt?): InterviewSessionResponse =
+    /**
+     * currentHintCount·currentRevealedHints는 현재 질문에서 이미 공개한 힌트 수([revealedHintCount])만큼만 잘라 싣는다
+     * (no-leak·재진입 복원, SessionResponseMapper.toStateResponse 관례 미러). 현재 질문이 없으면(완료) 둘 다 null이다.
+     */
+    fun toSessionResponse(
+        session: InterviewSession,
+        currentPrompt: InterviewPrompt?,
+        revealedHintCount: Int = session.currentRevealedHintCount(),
+    ): InterviewSessionResponse =
         InterviewSessionResponse(
             sessionId = session.id,
             sessionDate = session.sessionDate,
@@ -24,6 +33,8 @@ class InterviewResponseMapper {
             currentQuestion = currentPrompt?.question,
             currentConceptName = currentPrompt?.concept?.name,
             currentPromptId = currentPrompt?.id,
+            currentHintCount = currentPrompt?.hintCount,
+            currentRevealedHints = currentPrompt?.revealedHints(revealedHintCount),
         )
 
     /**
@@ -54,11 +65,20 @@ class InterviewResponseMapper {
             nextQuestion = nextPrompt?.question,
             nextConceptName = nextPrompt?.concept?.name,
             nextPromptId = nextPrompt?.id,
+            // 새 질문은 공개 0에서 시작하므로 개수만 싣는다(공개 목록은 불필요).
+            nextHintCount = nextPrompt?.hintCount,
             practicedConceptCount = if (session.isCompleted) session.totalCount else null,
             streak = streak?.let { StreakResponse(count = it.count, lastStudyDate = it.lastStudyDate) },
             reviewProblemId = reviewProblemId,
         )
     }
+
+    /** 면접 힌트 열기 결과를 변환한다. 전체 힌트 수와, 공개분만 담은 전체 목록을 돌려준다(no-leak, HintRevealResponse 관례 미러). */
+    fun toHintRevealResponse(prompt: InterviewPrompt, revealedHintCount: Int): InterviewHintRevealResponse =
+        InterviewHintRevealResponse(
+            hintCount = prompt.hintCount,
+            revealedHints = prompt.revealedHints(revealedHintCount),
+        )
 
     companion object {
         // 계획 §4.3 클라이언트 문구를 그대로 따른다.

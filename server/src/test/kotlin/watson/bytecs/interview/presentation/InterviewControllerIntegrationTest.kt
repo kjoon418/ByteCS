@@ -62,6 +62,8 @@ class InterviewControllerIntegrationTest(
         const val MODEL_ANSWER = "프로세스는 자원 할당 단위, 스레드는 실행 단위입니다."
         const val RUBRIC_POINT = "실행 단위"
         const val CONCEPT_NAME = "프로세스와 스레드"
+        const val WEAK_HINT = "실행의 기본 단위가 무엇인지 떠올려보세요."
+        const val STRONG_HINT = "스레드는 프로세스 안에서 실행 흐름을 나눈 단위입니다."
     }
 
     @BeforeEach
@@ -81,6 +83,7 @@ class InterviewControllerIntegrationTest(
                 question = QUESTION,
                 modelAnswer = MODEL_ANSWER,
                 rubricPoints = listOf(RUBRIC_POINT),
+                hints = listOf(WEAK_HINT, STRONG_HINT),
                 approvalStatus = ApprovalStatus.APPROVED,
             ),
         )
@@ -119,9 +122,78 @@ class InterviewControllerIntegrationTest(
             jsonPath("$.modelAnswer") { doesNotExist() }
             jsonPath("$.rubricPoints") { doesNotExist() }
             jsonPath("$.points") { doesNotExist() }
+            // 힌트는 개수만 항상 싣고, 아직 연 적 없으니 공개 목록은 비어 있다(no-leak).
+            jsonPath("$.currentHintCount") { value(2) }
+            jsonPath("$.currentRevealedHints") { isEmpty() }
         }.andReturn()
 
-        assertThat(bodyOf(result)).doesNotContain(MODEL_ANSWER).doesNotContain(RUBRIC_POINT)
+        assertThat(bodyOf(result))
+            .doesNotContain(MODEL_ANSWER).doesNotContain(RUBRIC_POINT)
+            .doesNotContain(WEAK_HINT).doesNotContain(STRONG_HINT)
+    }
+
+    @Test
+    fun `힌트를 열면 약한 힌트부터 공개되고 미공개 강한 힌트는 새지 않는다`() {
+        createSession(memberToken)
+
+        val result = revealHint(memberToken, 0).andExpect {
+            status { isOk() }
+            jsonPath("$.hintCount") { value(2) }
+            jsonPath("$.revealedHints.length()") { value(1) }
+            jsonPath("$.revealedHints[0]") { value(WEAK_HINT) }
+        }.andReturn()
+
+        assertThat(bodyOf(result)).doesNotContain(STRONG_HINT)
+    }
+
+    @Test
+    fun `공개 수를 다시 조회하면 재진입해도 그대로 복원된다`() {
+        createSession(memberToken)
+        revealHint(memberToken, 0)
+
+        getSession(memberToken).andExpect {
+            status { isOk() }
+            jsonPath("$.currentHintCount") { value(2) }
+            jsonPath("$.currentRevealedHints.length()") { value(1) }
+            jsonPath("$.currentRevealedHints[0]") { value(WEAK_HINT) }
+        }
+    }
+
+    @Test
+    fun `클라가 아는 공개 수가 실제와 다르면 더 열리지 않는다`() {
+        createSession(memberToken)
+        revealHint(memberToken, 0) // 이제 1개 공개.
+
+        // 더블탭·경쟁: 여전히 0을 들고 다시 요청해도 증가하지 않는다.
+        revealHint(memberToken, 0).andExpect {
+            status { isOk() }
+            jsonPath("$.revealedHints.length()") { value(1) }
+        }
+    }
+
+    @Test
+    fun `힌트 열기는 답 제출 채점·쿼터에 영향을 주지 않는다`() {
+        createSession(memberToken)
+        revealHint(memberToken, 0)
+        revealHint(memberToken, 1)
+
+        // 힌트를 전부 열어도 제출 결과는 정상 채점되고, 쿼터는 여전히 1회 소진 기준으로 동작한다.
+        submit(memberToken, "스레드는 실행 단위라서 문맥 전환이 가볍습니다").andExpect {
+            status { isOk() }
+            jsonPath("$.judged") { value(true) }
+            jsonPath("$.status") { value("COMPLETED") }
+        }
+    }
+
+    @Test
+    fun `완료된 세션에서는 힌트를 열 수 없다`() {
+        createSession(memberToken)
+        submit(memberToken, "스레드는 실행 단위입니다") // 유일한 문항이라 이 제출로 세션이 완료된다.
+
+        revealHint(memberToken, 0).andExpect {
+            status { isConflict() }
+            jsonPath("$.errorCode") { value("INTERVIEW_SESSION_ALREADY_COMPLETED") }
+        }
     }
 
     @Test
@@ -249,6 +321,13 @@ class InterviewControllerIntegrationTest(
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
             contentType = MediaType.APPLICATION_JSON
             content = """{"explanation":"$explanation"}"""
+        }
+
+    private fun revealHint(bearer: String, revealedCount: Int): ResultActionsDsl =
+        mockMvc.post("/api/interview/sessions/today/hints/reveal") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"revealedCount":$revealedCount}"""
         }
 
     private fun bodyOf(result: MvcResult): String =

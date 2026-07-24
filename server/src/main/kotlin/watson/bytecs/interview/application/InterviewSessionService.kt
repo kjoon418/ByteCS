@@ -6,6 +6,7 @@ import watson.bytecs.account.domain.User
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
 import watson.bytecs.interview.application.dto.InterviewAnswerResponse
+import watson.bytecs.interview.application.dto.InterviewHintRevealResponse
 import watson.bytecs.interview.application.dto.InterviewSessionResponse
 import watson.bytecs.interview.application.dto.InterviewStatusResponse
 import watson.bytecs.interview.domain.InterviewEligibility
@@ -101,6 +102,23 @@ class InterviewSessionService(
         requireMember(loadUser(userId))
         val session = findLatestToday(userId, today()) ?: throw InterviewSessionNotFoundException.forToday()
         return toSessionResponse(session)
+    }
+
+    /**
+     * 현재 질문의 힌트를 하나 더 공개한다(약→강, 학습 기록으로 영속). 채점·준비도·쿼터에 영향을 주지 않는다(무낙인).
+     * 더블탭·경쟁 안전은 도메인이 판단한다 — 클라가 아는 공개 수와 실제가 일치할 때만 +1.
+     * 힌트가 없거나 전부 공개했으면 증가 없이 현재 상태를 돌려준다. SessionService.revealHint와 동일 관례.
+     */
+    @Transactional
+    fun revealHint(userId: Long, expectedRevealedCount: Int): InterviewHintRevealResponse {
+        requireMember(loadUser(userId))
+        val session = findLatestToday(userId, today()) ?: throw InterviewSessionNotFoundException.forToday()
+        // 완료된 세션엔 힌트를 열 현재 질문이 없다(답 제출과 같은 의미의 예외로 일관되게 막는다).
+        val promptId = session.currentPromptId() ?: throw InterviewSessionAlreadyCompletedException.forHintReveal()
+        val prompt = loadPrompt(promptId)
+
+        val revealedHintCount = session.revealHint(expectedRevealedCount, prompt.hintCount)
+        return responseMapper.toHintRevealResponse(prompt, revealedHintCount)
     }
 
     /**

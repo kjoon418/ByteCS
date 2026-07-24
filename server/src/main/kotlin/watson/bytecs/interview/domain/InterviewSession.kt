@@ -72,6 +72,9 @@ class InterviewSession private constructor(
     /** 지금 답해야 할 질문의 면접 질문 id. 모두 답했으면 null. */
     fun currentPromptId(): Long? = mutableItems.getOrNull(currentPosition)?.promptId
 
+    /** 지금 답해야 할 질문에서 이미 공개한 힌트 수. 모두 답했으면 0(공개할 현재 질문이 없다, Session 관례 미러). */
+    fun currentRevealedHintCount(): Int = mutableItems.getOrNull(currentPosition)?.revealedHintCount ?: 0
+
     /**
      * 이 세션에 채점 성공(judged=true) 칸이 하나라도 있는지 — 하루 쿼터 차감 여부의 기준이다(계획 §3.3,
      * "카운트 대상 = AI 채점 성공 호출이 포함된 면접 세션의 생성" · "전량 채점 실패면 차감하지 않는다").
@@ -93,6 +96,23 @@ class InterviewSession private constructor(
         val current = currentItemOrThrow()
         current.recordFallback(submittedText, judgedAt)
         completeIfAllAnswered()
+    }
+
+    /**
+     * 지금 답해야 할 질문의 힌트를 하나 더 공개하고, 갱신된 공개 수를 돌려준다(Session.revealHint와 동일 의미).
+     * 더블탭·경쟁 안전: 클라가 아는 현재 공개 수([expectedRevealedCount])가 실제와 일치할 때만 +1 한다.
+     * 힌트가 없거나([hintCount]==0) 이미 전부 공개했으면 증가 없이 현재 수를 돌려준다.
+     * 힌트 열람은 채점·준비도·쿼터에 영향을 주지 않으므로, 재제출 없는 칸이라도 답하기 전까지는 자유롭게 열 수 있다.
+     */
+    fun revealHint(expectedRevealedCount: Int, hintCount: Int): Int {
+        if (isCompleted) {
+            throw InterviewSessionAlreadyCompletedException.forHintReveal()
+        }
+        val current = mutableItems[currentPosition]
+        if (expectedRevealedCount == current.revealedHintCount && current.revealedHintCount < hintCount) {
+            current.revealNextHint()
+        }
+        return current.revealedHintCount
     }
 
     private fun currentItemOrThrow(): InterviewSessionItem {

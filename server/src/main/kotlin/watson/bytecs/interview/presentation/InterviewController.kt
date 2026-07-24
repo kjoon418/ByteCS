@@ -10,9 +10,11 @@ import org.springframework.web.bind.annotation.RestController
 import watson.bytecs.account.security.AuthenticatedUser
 import watson.bytecs.interview.application.InterviewSessionService
 import watson.bytecs.interview.application.dto.InterviewAnswerResponse
+import watson.bytecs.interview.application.dto.InterviewHintRevealResponse
 import watson.bytecs.interview.application.dto.InterviewSessionResponse
 import watson.bytecs.interview.application.dto.InterviewStatusResponse
 import watson.bytecs.interview.presentation.request.InterviewAnswerRequest
+import watson.bytecs.interview.presentation.request.InterviewHintRevealRequest
 
 /**
  * 인증된 사용자 본인의 면접 세션(계획 §3.3)을 다룬다. 일반 세션과 마찬가지로 principal(userId)로만 대상을 정한다.
@@ -43,4 +45,11 @@ class InterviewController(
         @AuthenticationPrincipal user: AuthenticatedUser,
     ): InterviewAnswerResponse =
         interviewSessionService.submitAnswer(user.userId, requireNotNull(request.explanation))
+
+    @PostMapping("/sessions/today/hints/reveal")
+    fun revealHint(
+        @Valid @RequestBody request: InterviewHintRevealRequest,
+        @AuthenticationPrincipal user: AuthenticatedUser,
+    ): InterviewHintRevealResponse =
+        interviewSessionService.revealHint(user.userId, request.revealedCount!!)
 }

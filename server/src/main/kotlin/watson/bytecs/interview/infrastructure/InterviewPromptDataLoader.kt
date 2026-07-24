@@ -67,6 +67,7 @@ class InterviewPromptDataLoader(
             question = dto.question,
             modelAnswer = dto.modelAnswer,
             rubricPoints = dto.rubricPoints,
+            hints = dto.hints,
         )
     }
 }

@@ -55,6 +55,21 @@ class InterviewPrompt(
     val rubricPoints: List<String>,
 
     /**
+     * 약→강 순서의 점진 공개 힌트(0~N개, 선택 — Problem.hints 관례 미러). 힌트 열람은 채점·준비도·쿼터에
+     * 어떤 영향도 주지 않는다(무낙인). 면접 질문은 코드 스니펫 개념이 없어 텍스트만 다룬다.
+     * 순서는 소유 리스트의 인덱스([OrderColumn])로 보존하며, 미공개 힌트 본문이 새어 나가지 않도록
+     * 응답에는 [revealedHints]로 공개분만 잘라 싣는다(no-leak). 선택 필드라 기존 DB 행·기존 시드와 하위 호환된다.
+     */
+    @ElementCollection
+    @CollectionTable(
+        name = "interview_prompt_hint",
+        joinColumns = [JoinColumn(name = "prompt_id")],
+    )
+    @OrderColumn(name = "hint_index")
+    @Column(name = "hint_text", nullable = false, columnDefinition = "text")
+    val hints: List<String> = emptyList(),
+
+    /**
      * 생성 시점의 승인 상태. 신규 등록(반입·수동)의 기본은 초안이다.
      * 시드 로더만 예외적으로 APPROVED로 생성한다(MVP는 시딩분을 승인 취급 — Problem 시드 관례와 동일).
      */
@@ -65,6 +80,7 @@ class InterviewPrompt(
         require(modelAnswer.isNotBlank()) { "면접 질문의 모범 설명은 비어 있을 수 없습니다." }
         require(rubricPoints.isNotEmpty()) { "루브릭은 핵심 포인트를 하나 이상 가져야 합니다." }
         require(rubricPoints.none { it.isBlank() }) { "루브릭 핵심 포인트는 비어 있을 수 없습니다." }
+        require(hints.none { it.isBlank() }) { "면접 질문 힌트 항목은 비어 있을 수 없습니다." }
     }
 
     @Id
@@ -141,6 +157,17 @@ class InterviewPrompt(
             throw InvalidApprovalStateException(MODEL_ANSWER_REQUIRED_MESSAGE)
         }
     }
+
+    /** 이 면접 질문의 전체 힌트 수. 0이면 클라이언트가 힌트 진입점을 노출하지 않는다(Problem.hintCount 관례). */
+    val hintCount: Int
+        get() = hints.size
+
+    /**
+     * 앞에서부터 [count]개의 힌트(약→강)만 돌려준다. 재진입 복원·부분 공개에 쓴다.
+     * 음수·초과 요청은 [0, hintCount]로 절단해, 미공개 힌트 본문이 절대 새어 나가지 않게 한다(no-leak, Problem 관례 미러).
+     */
+    fun revealedHints(count: Int): List<String> =
+        hints.take(count.coerceIn(0, hints.size))
 
     companion object {
         const val RUBRIC_REQUIRED_MESSAGE = "승인하려면 비어 있지 않은 루브릭 핵심 포인트가 하나 이상 있어야 합니다."

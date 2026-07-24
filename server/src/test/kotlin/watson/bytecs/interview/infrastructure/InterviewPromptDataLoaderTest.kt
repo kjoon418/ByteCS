@@ -40,6 +40,25 @@ class InterviewPromptDataLoaderTest {
         assertThat(prompt.approvalStatus).isEqualTo(ApprovalStatus.APPROVED)
         assertThat(prompt.concept.name).isEqualTo("스택")
         assertThat(prompt.rubricPoints).containsExactly("스택은 LIFO임을 언급", "큐는 FIFO임을 언급")
+        // 힌트 파싱 커버리지: 픽스처에 실은 약→강 순서가 그대로 보존되어야 한다.
+        assertThat(prompt.hints).containsExactly(
+            "먼저 넣은 게 먼저 나오는 구조와, 나중에 넣은 게 먼저 나오는 구조를 비교해보세요.",
+            "접시 쌓기와 줄 서기를 떠올려보세요.",
+        )
+    }
+
+    @Test
+    fun `hints 필드가 없는 시드도 하위 호환으로 로드된다(힌트 0개)`() {
+        given(interviewPromptRepository.count()).willReturn(0L)
+        given(conceptRepository.findByName(anyString())).willAnswer { invocation ->
+            Concept(invocation.getArgument(0))
+        }
+
+        // 운영 기본 시드(interview-prompts.json)는 아직 hints 필드를 채우지 않았다 — JSON에 키가 없어도 기동이 실패하면 안 된다.
+        val saved = runAndCapture("seed/interview-prompts.json")
+
+        assertThat(saved).isNotEmpty
+        assertThat(saved).allMatch { it.hintCount == 0 }
     }
 
     @Test

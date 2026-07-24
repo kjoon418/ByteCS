@@ -11,5 +11,8 @@ class InterviewSessionAlreadyCompletedException private constructor(
     companion object {
         fun forAnswer(): InterviewSessionAlreadyCompletedException =
             InterviewSessionAlreadyCompletedException("이미 완료된 면접 세션입니다.")
+
+        fun forHintReveal(): InterviewSessionAlreadyCompletedException =
+            InterviewSessionAlreadyCompletedException("이미 완료된 면접 세션이라 힌트를 열 질문이 없습니다.")
     }
 }
