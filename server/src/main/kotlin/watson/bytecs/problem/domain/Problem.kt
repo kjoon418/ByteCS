@@ -95,10 +95,9 @@ class Problem(
     /**
      * 정답 처리 후에만 노출되는 구조화된 심화 정보('더 알아보기', 명세 §1 173~181행·시안 78~121행). 없어도 되는 큐레이션 콘텐츠(공용 자산).
      * 승인 게이트(명세 464행) 대상이나, 승인 파이프라인이 로드맵이라 MVP는 시딩된 콘텐츠를 승인 취급한다.
+     * 아래 [enrichment] 프로퍼티(클래스 본문)로 옮겨 [updateEnrichment]가 재할당할 수 있게 한다(생성자 프로퍼티는 setter 접근 제어자를 못 붙인다 — approvalStatus 관례와 동일).
      */
-    @OneToOne(cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
-    @JoinColumn(name = "enrichment_id")
-    val enrichment: Enrichment? = null,
+    enrichment: Enrichment? = null,
 
     /**
      * 약→강 순서의 힌트(0~N개). 순서는 소유 리스트의 인덱스([OrderColumn])로 보장한다.
@@ -149,6 +148,11 @@ class Problem(
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status", nullable = false)
     var approvalStatus: ApprovalStatus = approvalStatus
+        protected set
+
+    @OneToOne(cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @JoinColumn(name = "enrichment_id")
+    var enrichment: Enrichment? = enrichment
         protected set
 
     /** 검수를 시작한다. 초안·반려·회수 상태에서만 가능하다(반려·회수는 수정 후 재검수 경로). */
@@ -232,6 +236,15 @@ class Problem(
                 throw InvalidApprovalStateException(ANSWER_LEAK_MESSAGE)
             }
         }
+    }
+
+    /**
+     * 심화 정보를 교체한다. **콘텐츠 재저작 갱신 전용**(기동 시 업서트, [watson.bytecs.problem.infrastructure.ProblemDataLoader]).
+     * 사용자 데이터(세션·풀이 기록)와 무관한 공용 콘텐츠라, 승인 상태·다른 필드에 손대지 않고 자유롭게 교체해도 안전하다.
+     * cascade(ALL)·orphanRemoval이 걸려 있어, 호출 시 이전 심화 정보 행은 고아가 되어 삭제되고 새 행이 저장된다.
+     */
+    fun updateEnrichment(newEnrichment: Enrichment?) {
+        enrichment = newEnrichment
     }
 
     /** 개념 이름을 태깅 순서(대표 개념이 먼저)로 돌려준다. 정답 처리 후 개념 노출에 쓴다. */

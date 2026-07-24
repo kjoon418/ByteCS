@@ -59,15 +59,9 @@ class InterviewPrompt(
      * 어떤 영향도 주지 않는다(무낙인). 면접 질문은 코드 스니펫 개념이 없어 텍스트만 다룬다.
      * 순서는 소유 리스트의 인덱스([OrderColumn])로 보존하며, 미공개 힌트 본문이 새어 나가지 않도록
      * 응답에는 [revealedHints]로 공개분만 잘라 싣는다(no-leak). 선택 필드라 기존 DB 행·기존 시드와 하위 호환된다.
+     * 아래 [hints] 프로퍼티(클래스 본문)로 옮겨 [updateHints]가 재할당할 수 있게 한다(생성자 프로퍼티는 setter 접근 제어자를 못 붙인다 — approvalStatus 관례와 동일).
      */
-    @ElementCollection
-    @CollectionTable(
-        name = "interview_prompt_hint",
-        joinColumns = [JoinColumn(name = "prompt_id")],
-    )
-    @OrderColumn(name = "hint_index")
-    @Column(name = "hint_text", nullable = false, columnDefinition = "text")
-    val hints: List<String> = emptyList(),
+    hints: List<String> = emptyList(),
 
     /**
      * 생성 시점의 승인 상태. 신규 등록(반입·수동)의 기본은 초안이다.
@@ -91,6 +85,16 @@ class InterviewPrompt(
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status", nullable = false)
     var approvalStatus: ApprovalStatus = approvalStatus
+        protected set
+
+    @ElementCollection
+    @CollectionTable(
+        name = "interview_prompt_hint",
+        joinColumns = [JoinColumn(name = "prompt_id")],
+    )
+    @OrderColumn(name = "hint_index")
+    @Column(name = "hint_text", nullable = false, columnDefinition = "text")
+    var hints: List<String> = hints
         protected set
 
     /** 검수를 시작한다. 초안·반려·회수 상태에서만 가능하다(반려·회수는 수정 후 재검수 경로). */
@@ -156,6 +160,16 @@ class InterviewPrompt(
         if (modelAnswer.isBlank()) {
             throw InvalidApprovalStateException(MODEL_ANSWER_REQUIRED_MESSAGE)
         }
+    }
+
+    /**
+     * 점진 공개 힌트를 교체한다. **콘텐츠 재저작 갱신 전용**(기동 시 업서트, [watson.bytecs.interview.infrastructure.InterviewPromptDataLoader]).
+     * 승인 상태·루브릭·개념 귀속 등 다른 필드에는 손대지 않는다. 빈 힌트 항목을 금지하는 생성자 불변식을 재사용해,
+     * 갱신 경로로도 빈 문자열이 새어 들어가지 않게 한다.
+     */
+    fun updateHints(newHints: List<String>) {
+        require(newHints.none { it.isBlank() }) { "면접 질문 힌트 항목은 비어 있을 수 없습니다." }
+        hints = newHints
     }
 
     /** 이 면접 질문의 전체 힌트 수. 0이면 클라이언트가 힌트 진입점을 노출하지 않는다(Problem.hintCount 관례). */

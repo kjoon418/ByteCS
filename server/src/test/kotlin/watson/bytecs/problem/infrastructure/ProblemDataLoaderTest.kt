@@ -7,15 +7,20 @@ import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyIterable
+import org.mockito.ArgumentMatchers.anyList
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.BDDMockito.given
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.times
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.problem.domain.AnswerText
 import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.Concept
+import watson.bytecs.problem.domain.Enrichment
+import watson.bytecs.problem.domain.EnrichmentItem
 import watson.bytecs.problem.domain.InvalidApprovalStateException
 import watson.bytecs.problem.domain.Judgement
 import watson.bytecs.problem.domain.Problem
@@ -403,16 +408,116 @@ class ProblemDataLoaderTest {
         }
     }
 
-    @Test
-    fun 이미_문제가_있으면_로드하지_않는다() {
-        // given
-        given(problemRepository.count()).willReturn(1L)
+    @Nested
+    inner class 기동_시_콘텐츠를_업서트한다 {
 
-        // when
-        problemDataLoader.run()
+        /** 문제 하나만 담은 전용 픽스처(`upsert-single-problem-fixture.json`) — saveAll 미호출 단정처럼 다른 문제 삽입에 흔들리면 안 되는 단정에 쓴다. */
+        private val singleProblemLoader = ProblemDataLoader(
+            conceptRepository,
+            problemRepository,
+            jacksonObjectMapper(),
+            resourcePath = "seed/upsert-single-problem-fixture.json",
+        )
 
-        // then
-        verifyNoInteractions(conceptRepository)
+        /** 앵커 픽스처의 스레드 문제와 질문 텍스트가 정확히 같은 기존 문제(다른 심화 정보로) 하나만 DB에 있다고 가정한다. */
+        private fun existingThreadProblemWithEnrichment(enrichment: Enrichment?): Problem {
+            val stack = Concept(STACK)
+            val processAndThread = Concept(PROCESS_AND_THREAD)
+            return Problem(
+                approvalStatus = ApprovalStatus.APPROVED,
+                questionText = "한 프로세스 안에서 스택 등 일부를 제외한 자원을 공유하며 실행되는 흐름의 단위는?",
+                concepts = listOf(processAndThread, stack),
+                acceptableAnswers = setOf("스레드", "쓰레드", "thread", "스레드 (thread)"),
+                representativeAnswer = "스레드 (thread)",
+                type = ProblemType.DEFINITION_RECALL,
+                enrichment = enrichment,
+            )
+        }
+
+        @Test
+        fun 매칭되는_문제는_심화_정보만_갱신한다() {
+            // given: DB에 이미 있는 문제의 심화 정보가 시드 내용과 다르다.
+            val staleEnrichment = Enrichment(title = "낡은 제목", body = "낡은 본문")
+            val existing = existingThreadProblemWithEnrichment(staleEnrichment)
+            given(problemRepository.count()).willReturn(1L)
+            given(problemRepository.findAllWithEnrichment()).willReturn(listOf(existing))
+            given(conceptRepository.findByName(anyString())).willAnswer { Concept(it.getArgument(0)) }
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            // when
+            fixtureLoader.run()
+
+            // then: 같은 인스턴스의 심화 정보가 시드 내용으로 바뀐다(문제 자체를 새로 저장하지 않는다 — 매칭 발견 시 saveAll에는 신규분만 실린다).
+            assertThat(existing.enrichment?.title).isEqualTo("여러 흐름이 자원을 공유하면?")
+            assertThat(existing.enrichment?.items?.map { it.title }).containsExactly("동기화 도구", "문맥 교환(context switch)")
+        }
+
+        @Test
+        fun 심화_정보가_동일하면_교체하지_않는다() {
+            // given: DB의 심화 정보가 시드와 완전히 같다(제목·본문·항목·인용 전부 일치).
+            val sameEnrichment = Enrichment(
+                title = "여러 흐름이 자원을 공유하면?",
+                body = "한 프로세스 안의 여러 실행 흐름이 같은 데이터를 동시에 건드리면, 실행 순서에 따라 결과가 달라지는 경쟁 상태(race condition)가 생길 수 있다.",
+                items = listOf(
+                    EnrichmentItem("동기화 도구", "락(lock)·세마포어로 '한 번에 하나씩만' 접근하도록 조율해 경쟁 상태를 막는다."),
+                    EnrichmentItem("문맥 교환(context switch)", "여러 흐름이 CPU를 번갈아 쓰도록 상태를 저장하고 복원하는 비용이 든다."),
+                ),
+                quote = null,
+            )
+            val existing = existingThreadProblemWithEnrichment(sameEnrichment)
+            given(problemRepository.count()).willReturn(1L)
+            given(problemRepository.findAllWithEnrichment()).willReturn(listOf(existing))
+            given(conceptRepository.findByName(anyString())).willAnswer { Concept(it.getArgument(0)) }
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            // when: 문제 하나만 담은 전용 픽스처를 구동한다 — 시드의 유일한 문제가 매칭되므로, 무변경이면 신규 삽입도 전혀 없어야 한다.
+            singleProblemLoader.run()
+
+            // then: 내용이 같으므로 참조 자체가 바뀌지 않아야 한다(불필요한 교체·쓰기가 없다는 근거).
+            assertThat(existing.enrichment).isSameAs(sameEnrichment)
+            // 매칭된 기존 문제만 있고 신규 문제가 없으므로 saveAll이 아예 호출되지 않아야 한다.
+            verify(problemRepository, never()).saveAll(anyList())
+        }
+
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun 매칭되지_않는_시드_문제는_신규_삽입한다() {
+            // given: DB가 비어있지 않지만(카운트>0), 앵커 픽스처의 어떤 질문 텍스트와도 일치하는 기존 행이 없다.
+            given(problemRepository.count()).willReturn(1L)
+            given(problemRepository.findAllWithEnrichment()).willReturn(emptyList())
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            fixtureLoader.run()
+
+            val captor = ArgumentCaptor.forClass(List::class.java) as ArgumentCaptor<List<Problem>>
+            verify(problemRepository).saveAll(captor.capture())
+            // 앵커 픽스처의 문제 5개 전부 매칭 실패로 신규 삽입 대상이 된다.
+            assertThat(captor.value).hasSize(5)
+        }
+
+        @Test
+        fun DB에는_있지만_시드에_없는_문제는_삭제하지_않는다() {
+            // given: 시드 어디에도 없는 질문 텍스트를 가진 기존 문제.
+            val orphanProblem = Problem(
+                approvalStatus = ApprovalStatus.APPROVED,
+                questionText = "시드에서 이미 빠진 낡은 질문",
+                concepts = listOf(Concept("낡은 개념")),
+                acceptableAnswers = setOf("답"),
+                representativeAnswer = "답",
+                type = ProblemType.DEFINITION_RECALL,
+            )
+            given(problemRepository.count()).willReturn(1L)
+            given(problemRepository.findAllWithEnrichment()).willReturn(listOf(orphanProblem))
+            given(conceptRepository.findByName(anyString())).willReturn(null)
+            given(conceptRepository.save(any(Concept::class.java))).willAnswer { it.getArgument(0) }
+
+            fixtureLoader.run()
+
+            // then: 삭제 API(delete/deleteAll 등) 호출이 전혀 없어야 한다 — 로그만 남기고 보존.
+            verify(problemRepository, never()).delete(any(Problem::class.java))
+            verify(problemRepository, never()).deleteAll(anyIterable())
+        }
     }
 
     @Test

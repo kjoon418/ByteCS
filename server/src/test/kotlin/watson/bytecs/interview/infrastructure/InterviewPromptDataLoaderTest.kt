@@ -3,12 +3,16 @@ package watson.bytecs.interview.infrastructure
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyIterable
+import org.mockito.ArgumentMatchers.anyList
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.BDDMockito.given
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyNoInteractions
 import watson.bytecs.interview.domain.InterviewPrompt
@@ -103,13 +107,96 @@ class InterviewPromptDataLoaderTest {
         assertThat(saved.map { it.concept.name }.toSet()).hasSize(69)
     }
 
-    @Test
-    fun `이미 면접 질문이 있으면 로드하지 않는다`() {
-        given(interviewPromptRepository.count()).willReturn(1L)
+    @Nested
+    inner class 기동_시_콘텐츠를_업서트한다 {
 
-        loader("seed/interview-prompts-fixture.json").run()
+        @Test
+        fun `매칭되는 개념의 면접 질문은 힌트만 갱신한다`() {
+            // given: DB에 이미 있는 "스택" 면접 질문의 힌트가 시드 내용과 다르다.
+            val stackConcept = Concept("스택")
+            val existing = InterviewPrompt(
+                approvalStatus = ApprovalStatus.APPROVED,
+                concept = stackConcept,
+                question = "스택과 큐의 차이를 설명해보세요.",
+                modelAnswer = "스택은 후입선출(LIFO), 큐는 선입선출(FIFO) 구조다.",
+                rubricPoints = listOf("스택은 LIFO임을 언급", "큐는 FIFO임을 언급"),
+                hints = listOf("낡은 힌트"),
+            )
+            given(interviewPromptRepository.count()).willReturn(1L)
+            given(interviewPromptRepository.findAllWithConcept()).willReturn(listOf(existing))
+            given(conceptRepository.findByName("스택")).willReturn(stackConcept)
 
-        verifyNoInteractions(conceptRepository)
+            loader("seed/interview-prompts-fixture.json").run()
+
+            // then: 같은 인스턴스의 힌트가 시드 내용으로 바뀐다.
+            assertThat(existing.hints).containsExactly(
+                "먼저 넣은 게 먼저 나오는 구조와, 나중에 넣은 게 먼저 나오는 구조를 비교해보세요.",
+                "접시 쌓기와 줄 서기를 떠올려보세요.",
+            )
+        }
+
+        @Test
+        fun `힌트가 동일하면 교체하지 않는다`() {
+            // given: DB의 힌트가 시드와 완전히 같다.
+            val stackConcept = Concept("스택")
+            val sameHints = listOf(
+                "먼저 넣은 게 먼저 나오는 구조와, 나중에 넣은 게 먼저 나오는 구조를 비교해보세요.",
+                "접시 쌓기와 줄 서기를 떠올려보세요.",
+            )
+            val existing = InterviewPrompt(
+                approvalStatus = ApprovalStatus.APPROVED,
+                concept = stackConcept,
+                question = "스택과 큐의 차이를 설명해보세요.",
+                modelAnswer = "스택은 후입선출(LIFO), 큐는 선입선출(FIFO) 구조다.",
+                rubricPoints = listOf("스택은 LIFO임을 언급", "큐는 FIFO임을 언급"),
+                hints = sameHints,
+            )
+            given(interviewPromptRepository.count()).willReturn(1L)
+            given(interviewPromptRepository.findAllWithConcept()).willReturn(listOf(existing))
+            given(conceptRepository.findByName("스택")).willReturn(stackConcept)
+
+            loader("seed/interview-prompts-fixture.json").run()
+
+            // then: 내용이 같으므로 참조 자체가 바뀌지 않아야 한다.
+            assertThat(existing.hints).isSameAs(sameHints)
+            // 매칭된 기존 질문만 있고 신규 질문이 없으므로 saveAll이 아예 호출되지 않아야 한다.
+            verify(interviewPromptRepository, never()).saveAll(anyList())
+        }
+
+        @Test
+        @Suppress("UNCHECKED_CAST")
+        fun `매칭되지 않는 시드 항목은 신규 삽입한다`() {
+            // given: DB가 비어있지 않지만(카운트>0), 시드의 개념 이름과 일치하는 기존 행이 없다.
+            given(interviewPromptRepository.count()).willReturn(1L)
+            given(interviewPromptRepository.findAllWithConcept()).willReturn(emptyList())
+            given(conceptRepository.findByName("스택")).willReturn(Concept("스택"))
+
+            val saved = runAndCapture("seed/interview-prompts-fixture.json")
+
+            assertThat(saved).hasSize(1)
+            assertThat(saved.single().concept.name).isEqualTo("스택")
+        }
+
+        @Test
+        fun `DB에는 있지만 시드에 없는 면접 질문은 삭제하지 않는다`() {
+            // given: 시드 어디에도 없는 개념의 기존 면접 질문.
+            val orphanPrompt = InterviewPrompt(
+                approvalStatus = ApprovalStatus.APPROVED,
+                concept = Concept("시드에서 이미 빠진 개념"),
+                question = "낡은 질문",
+                modelAnswer = "낡은 모범 설명",
+                rubricPoints = listOf("낡은 포인트"),
+            )
+            given(interviewPromptRepository.count()).willReturn(1L)
+            given(interviewPromptRepository.findAllWithConcept()).willReturn(listOf(orphanPrompt))
+            given(conceptRepository.findByName("스택")).willReturn(Concept("스택"))
+
+            loader("seed/interview-prompts-fixture.json").run()
+
+            // then: 삭제 API 호출이 전혀 없어야 한다 — 로그만 남기고 보존.
+            verify(interviewPromptRepository, never()).delete(any(InterviewPrompt::class.java))
+            verify(interviewPromptRepository, never()).deleteAll(anyIterable())
+        }
     }
 
     @Test

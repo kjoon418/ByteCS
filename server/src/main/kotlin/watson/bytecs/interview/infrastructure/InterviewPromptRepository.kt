@@ -31,4 +31,12 @@ interface InterviewPromptRepository : JpaRepository<InterviewPrompt, Long> {
             "and ip.concept.id in :conceptIds",
     )
     fun findApprovedByConceptIdIn(conceptIds: Collection<Long>): List<InterviewPrompt>
+
+    /**
+     * 기동 시 콘텐츠 업서트([watson.bytecs.interview.infrastructure.InterviewPromptDataLoader]) 전용 — 기존 전체
+     * 면접 질문을 개념까지 함께(join fetch) 한 번에 조회한다. 항목별 개별 조회(N+1)를 피하고 메모리에서 개념 이름으로
+     * 매칭하기 위함이다(69건 수준이라 전량 로드가 안전하다). 승인 상태와 무관하게 전체를 대상으로 한다(findAllWithEnrichment 관례).
+     */
+    @Query("select ip from InterviewPrompt ip join fetch ip.concept")
+    fun findAllWithConcept(): List<InterviewPrompt>
 }

@@ -125,4 +125,13 @@ interface ProblemRepository : JpaRepository<Problem, Long> {
         val problemId: Long
         val conceptId: Long
     }
+
+    /**
+     * 기동 시 콘텐츠 업서트([watson.bytecs.problem.infrastructure.ProblemDataLoader]) 전용 — 기존 전체 문제를
+     * 심화 정보까지 함께(join fetch) 한 번에 조회한다. 문제별 개별 조회(N+1)를 피하고 메모리에서 질문 텍스트로
+     * 매칭하기 위함이다(107건 수준이라 전량 로드가 안전하다). 승인 상태와 무관하게 전체를 대상으로 한다 —
+     * 재저작 콘텐츠 갱신은 서빙 게이트와 별개의 관심사다.
+     */
+    @Query("select p from Problem p left join fetch p.enrichment")
+    fun findAllWithEnrichment(): List<Problem>
 }
