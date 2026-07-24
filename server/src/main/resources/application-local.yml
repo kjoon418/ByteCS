@@ -21,3 +21,15 @@ spring:
   flyway:
     # 마이그레이션은 운영(Postgres) 전용이다. local은 인메모리 H2를 create-drop으로 매 기동 초기화한다.
     enabled: false
+
+# 면접 설명 채점(C3): 로컬은 기본으로 무료·오프라인 Fake 채점기를 쓴다(AI API 비용 0 — 오너 최우선 요구 2026-07-24).
+# 실 AI 경로를 비용 없이 검증하려면 provider를 http로 바꾸고 로컬 CLI LLM(OpenAI 호환)을 가리키면 된다. 예(Ollama):
+#   ./gradlew :server:bootRun --args='--spring.profiles.active=local' 로 띄우기 전에 아래를 켠다.
+#   (Ollama라면 `ollama serve` + `ollama pull qwen2.5` 후 아래 주석 해제)
+# bytecs:
+#   interview:
+#     judge:
+#       provider: http
+#       base-url: http://localhost:11434/v1   # Ollama의 OpenAI 호환 엔드포인트
+#       model: qwen2.5
+#       # api-key 없음 — 로컬 CLI LLM은 인증이 필요 없다.

@@ -7,5 +7,16 @@
 # 스키마는 운영과 동일하게 Flyway 마이그레이션이 만들고, ddl-auto=validate(기본)로 검증만 한다.
 #
 # ProblemDataLoader(@Profile("local", "tester"))가 기동 시 문제 0건일 때
-# 테스터용 큐레이션 시드(seed/problems-generated.json)를 채운다. 이 파일의 존재 이유는
-# 그 활성화 자체이며, 기본 설정과 달라지는 프로퍼티는 없다.
+# 테스터용 큐레이션 시드(seed/problems-generated.json)를 채운다.
+
+# 면접 설명 채점(C3): 실 AI를 저비용 클라우드 모델로 붙인다(오너 결정 2026-07-24 — 큐레이터 합격 검토가 별도로 있어
+# 채점 모델 성능 요구가 낮음). Gemini의 OpenAI 호환 엔드포인트를 쓰므로 공급자 중립 어댑터가 그대로 붙는다.
+#   - BYTECS_INTERVIEW_JUDGE_API_KEY: Gemini API 키. 미주입 시 채점은 항상 폴백(모범 설명 공개·준비도 미갱신)으로 흐른다(무크래시).
+#   - 다른 저비용 공급자로 바꾸려면 base-url·model만 교체한다(코드 무변경).
+bytecs:
+  interview:
+    judge:
+      provider: http
+      base-url: ${BYTECS_INTERVIEW_JUDGE_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
+      model: ${BYTECS_INTERVIEW_JUDGE_MODEL:gemini-2.0-flash}
+      api-key: ${BYTECS_INTERVIEW_JUDGE_API_KEY:}
