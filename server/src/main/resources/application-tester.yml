@@ -23,5 +23,7 @@ bytecs:
     judge:
       provider: http
       base-url: ${BYTECS_INTERVIEW_JUDGE_BASE_URL:https://generativelanguage.googleapis.com/v1beta/openai}
-      model: ${BYTECS_INTERVIEW_JUDGE_MODEL:gemini-2.0-flash}
+      # gemini-2.0-flash는 2026-07 기준 생성 호출이 404(퇴역)라, 현행·저비용·안정판 gemini-2.5-flash-lite로 기본값을 둔다.
+      # 모델이 또 퇴역하면 실패 로그(HttpChatExplanationJudge, status=404 body)로 드러나므로 이 값 또는 env만 교체하면 된다.
+      model: ${BYTECS_INTERVIEW_JUDGE_MODEL:gemini-2.5-flash-lite}
       api-key: ${BYTECS_INTERVIEW_JUDGE_API_KEY:}
