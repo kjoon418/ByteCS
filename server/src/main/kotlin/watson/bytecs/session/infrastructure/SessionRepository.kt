@@ -2,8 +2,10 @@ package watson.bytecs.session.infrastructure
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import watson.bytecs.problem.domain.Difficulty
 import watson.bytecs.session.domain.Session
+import java.time.Instant
 import java.time.LocalDate
 
 interface SessionRepository : JpaRepository<Session, Long> {
@@ -93,6 +95,29 @@ interface SessionRepository : JpaRepository<Session, Long> {
             "and later.startedAt is not null",
     )
     fun countUsersStudiedMoreAfterCompletion(): Long
+
+    // ── 기간 한정판(관리자 페이지 기간 집계) — 각 지표의 이벤트 시각([from, to) 반개구간)으로 거른다. ──
+
+    /** 지표 1(기간) — startedAt이 [from, to) 안에 든 DISTINCT 사용자 수. */
+    @Query("select count(distinct s.userId) from Session s where s.startedAt >= :from and s.startedAt < :to")
+    fun countUsersStartedBetween(@Param("from") from: Instant, @Param("to") to: Instant): Long
+
+    /**
+     * 지표 2(기간) — completedAt이 [from, to) 안에 든 DISTINCT 사용자 수.
+     * 전체 기간판은 status로 세지만(완료 시각 도입 전 행 포함), 기간판은 완료 시각([completedAt], V6)으로 거른다.
+     */
+    @Query("select count(distinct s.userId) from Session s where s.completedAt >= :from and s.completedAt < :to")
+    fun countUsersCompletedBetween(@Param("from") from: Instant, @Param("to") to: Instant): Long
+
+    /** 지표 3(기간) — '조금 더 풀기' 재진입(later.startedAt)이 [from, to) 안에 든 DISTINCT 사용자 수. */
+    @Query(
+        "select count(distinct later.userId) from Session completed, Session later " +
+            "where later.userId = completed.userId and later.sessionDate = completed.sessionDate " +
+            "and later.id > completed.id " +
+            "and completed.status = watson.bytecs.session.domain.SessionStatus.COMPLETED " +
+            "and later.startedAt >= :from and later.startedAt < :to",
+    )
+    fun countUsersStudiedMoreAfterCompletionBetween(@Param("from") from: Instant, @Param("to") to: Instant): Long
 
     /**
      * 관리자 지표 ② — 난이도별 '정답 공개(포기)율'의 원자료(2차 적응 조정 임계값 검증 근거).

@@ -49,6 +49,22 @@
     <p class="lead">각 지표는 중복을 제거한 사용자 수(DISTINCT)입니다.</p>
     <p class="note">참고: 풀이 시작 기록은 클라이언트가 진입 시 서버에 별도로 알리는 방식(fire-and-forget)이라, 네트워크 유실 가능성으로 실제보다 적게 집계될 수 있는 하한값입니다.</p>
 
+    <!-- 기간 필터: 시작·종료일을 둘 다 주면 그 기간(KST)으로 아래 4개 참여 지표를 집계한다. 없으면 전체 기간. -->
+    <form method="get" th:action="@{/admin/stats}" style="margin: 0 0 12px; display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;">
+        <label style="font-size: 0.82rem; color: #555;">시작일<br>
+            <input type="date" name="from" th:value="${from}" style="padding: 6px 8px; border: 1px solid #ccd0d6; border-radius: 6px; margin-top: 4px;">
+        </label>
+        <label style="font-size: 0.82rem; color: #555;">종료일<br>
+            <input type="date" name="to" th:value="${to}" style="padding: 6px 8px; border: 1px solid #ccd0d6; border-radius: 6px; margin-top: 4px;">
+        </label>
+        <button type="submit" style="padding: 7px 14px; border: 1px solid #b7c6ff; border-radius: 6px; background: #eef2ff; cursor: pointer;">기간 집계</button>
+        <a th:href="@{/admin/stats}" style="font-size: 0.82rem; color: #3a5bd0; align-self: center; text-decoration: none;">전체 기간으로</a>
+    </form>
+    <p class="note" th:if="${periodApplied}">
+        아래 <b>참여 지표(1~4)</b>는 <b th:text="${from}">시작</b> ~ <b th:text="${to}">종료</b> (KST) 기간의 집계입니다. 규모·난이도 지표는 시점 개념이 없어 전체 기간 기준입니다.
+    </p>
+    <p class="note" th:unless="${periodApplied}">아래 참여 지표는 <b>전체 기간</b> 집계입니다. 위에서 시작·종료일을 지정하면 그 기간만 집계합니다.</p>
+
     <div class="cards">
         <div class="card primary">
             <p class="label">1. 문제 풀이를 시작한 사용자</p>
@@ -64,6 +80,11 @@
             <p class="label">3. 완료 후 더 푼 사용자</p>
             <p class="value"><span th:text="${metrics.studiedMoreUserCount}">0</span><span class="unit">명</span></p>
             <p class="hint">세션 완료 후 '조금 더 풀기'로 추가 학습까지 진입한 사용자</p>
+        </div>
+        <div class="card primary">
+            <p class="label">4. 면접 문제까지 푼 사용자</p>
+            <p class="value"><span th:text="${metrics.interviewAnsweredUserCount}">0</span><span class="unit">명</span></p>
+            <p class="hint">면접 세션에서 설명을 1개 이상 제출한 사용자</p>
         </div>
     </div>
 

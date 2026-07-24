@@ -1,10 +1,13 @@
 package watson.bytecs.admin.presentation
 
 import java.security.Principal
+import java.time.LocalDate
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.stereotype.Controller
 import org.springframework.ui.Model
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import watson.bytecs.admin.application.AdminStatsService
 
 /**
@@ -27,10 +30,22 @@ class AdminController(
     @GetMapping("/login")
     fun loginPage(): String = "admin/login"
 
+    /**
+     * 테스터 지표. [from]·[to](ISO 날짜, KST)를 **둘 다** 주면 그 기간으로 퍼널 지표를 집계하고, 없으면 전체 기간이다.
+     * 하나만 주면 무시하고 전체 기간으로 본다(부분 입력 방어 — 서비스가 둘 다 있을 때만 기간으로 친다).
+     */
     @GetMapping("/stats")
-    fun stats(principal: Principal, model: Model): String {
+    fun stats(
+        principal: Principal,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) from: LocalDate?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) to: LocalDate?,
+        model: Model,
+    ): String {
         model.addAttribute("adminEmail", principal.name)
-        model.addAttribute("metrics", adminStatsService.collectTesterMetrics())
+        model.addAttribute("metrics", adminStatsService.collectTesterMetrics(from, to))
+        model.addAttribute("from", from)
+        model.addAttribute("to", to)
+        model.addAttribute("periodApplied", from != null && to != null)
         return "admin/stats"
     }
 }

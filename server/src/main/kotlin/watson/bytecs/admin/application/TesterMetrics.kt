@@ -11,7 +11,9 @@ data class TesterMetrics(
     val completedUserCount: Long,
     /** 지표 3 — 세션 완료 후 '조금 더 풀기'로 추가 학습까지 진입한 DISTINCT 사용자 수. */
     val studiedMoreUserCount: Long,
-    /** 참고 — 전체 사용자 수(게스트 포함). */
+    /** 지표 4 — 면접 문제까지 풀어본(설명을 1개 이상 제출한) DISTINCT 사용자 수. */
+    val interviewAnsweredUserCount: Long,
+    /** 참고 — 전체 사용자 수(게스트 포함). 기간과 무관한 규모 값이다. */
     val totalUserCount: Long,
     /** 참고 — 지금까지 만들어진 전체 세션 수. */
     val totalSessionCount: Long,

@@ -69,6 +69,28 @@ class SessionMetricsRepositoryTest(
         assertThat(sessionRepository.countUsersStudiedMoreAfterCompletion()).isEqualTo(1)
     }
 
+    @Test
+    fun `기간 지표는 이벤트 시각이 구간 안에 든 사용자만 센다`() {
+        // NOW(2026-07-14 00:10Z)에 시작·완료된 세션들. 시작한 사용자는 둘(진입만·완료), 완료한 사용자는 하나다.
+        startedSession(userId = STARTED_ONLY_USER)
+        completedSession(userId = COMPLETED_USER)
+
+        // 구간을 포함하면 세고, 벗어나면(다른 날) 0이다([from, to) 반개구간).
+        assertThat(sessionRepository.countUsersStartedBetween(DAY_START, NEXT_DAY_START)).isEqualTo(2)
+        assertThat(sessionRepository.countUsersStartedBetween(PAST_START, PAST_END)).isEqualTo(0)
+        assertThat(sessionRepository.countUsersCompletedBetween(DAY_START, NEXT_DAY_START)).isEqualTo(1)
+        assertThat(sessionRepository.countUsersCompletedBetween(PAST_START, PAST_END)).isEqualTo(0)
+    }
+
+    @Test
+    fun `추가 학습 기간 지표는 재진입 시각으로 거른다`() {
+        completedSession(userId = STUDIED_MORE_USER)
+        startedSession(userId = STUDIED_MORE_USER)
+
+        assertThat(sessionRepository.countUsersStudiedMoreAfterCompletionBetween(DAY_START, NEXT_DAY_START)).isEqualTo(1)
+        assertThat(sessionRepository.countUsersStudiedMoreAfterCompletionBetween(PAST_START, PAST_END)).isEqualTo(0)
+    }
+
     /** 배정만 된(진입·완료 시각 없는) 세션을 저장한다. */
     private fun assignedSession(userId: Long): Session =
         sessionRepository.save(Session.assign(userId, TODAY, listOf(PROBLEM_ID)))
@@ -92,6 +114,11 @@ class SessionMetricsRepositoryTest(
     private companion object {
         val TODAY: LocalDate = LocalDate.of(2026, 7, 14)
         val NOW: Instant = Instant.parse("2026-07-14T00:10:00Z")
+        // NOW를 포함하는 당일 구간과, NOW를 벗어난 과거 구간([from, to) 반개구간).
+        val DAY_START: Instant = Instant.parse("2026-07-14T00:00:00Z")
+        val NEXT_DAY_START: Instant = Instant.parse("2026-07-15T00:00:00Z")
+        val PAST_START: Instant = Instant.parse("2026-07-10T00:00:00Z")
+        val PAST_END: Instant = Instant.parse("2026-07-11T00:00:00Z")
         const val PROBLEM_ID = 100L
 
         const val STARTED_ONLY_USER = 1L

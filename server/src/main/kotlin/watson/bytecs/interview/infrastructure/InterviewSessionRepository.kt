@@ -2,13 +2,29 @@ package watson.bytecs.interview.infrastructure
 
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import watson.bytecs.interview.domain.InterviewSession
+import java.time.Instant
 import java.time.LocalDate
 
 interface InterviewSessionRepository : JpaRepository<InterviewSession, Long> {
 
     /** '오늘의 면접 세션' 조회 축 — 그 날짜의 가장 최근 세션(id 내림차순 첫 행). 일반 세션과 같은 관례. */
     fun findTopByUserIdAndSessionDateOrderByIdDesc(userId: Long, sessionDate: LocalDate): InterviewSession?
+
+    /**
+     * 테스터 지표 — 면접 문제를 **실제로 풀어본**(설명을 1개 이상 제출한) DISTINCT 사용자 수.
+     * 답을 제출하면 채점 성공·폴백 관계없이 그 칸의 judgedAt이 채워지므로, 이를 '제출함'의 기준으로 쓴다(세션 생성만으론 세지 않는다).
+     */
+    @Query("select count(distinct s.userId) from InterviewSession s join s.mutableItems item where item.judgedAt is not null")
+    fun countUsersAnswered(): Long
+
+    /** 위 지표의 기간 한정판(judgedAt이 [from, to) 안). 관리자 페이지의 기간 집계에 쓴다. */
+    @Query(
+        "select count(distinct s.userId) from InterviewSession s join s.mutableItems item " +
+            "where item.judgedAt >= :from and item.judgedAt < :to",
+    )
+    fun countUsersAnsweredBetween(@Param("from") from: Instant, @Param("to") to: Instant): Long
 
     /**
      * 그 날짜에 채점 성공(judged=true) 칸을 하나라도 포함한 세션 수(하루 쿼터 차감 기준, 계획 §3.3).
