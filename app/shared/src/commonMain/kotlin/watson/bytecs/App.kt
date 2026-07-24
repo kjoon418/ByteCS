@@ -43,6 +43,8 @@ import watson.bytecs.categoryhistory.CategoryHistoryListViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryProblemDetailScreen
 import watson.bytecs.categoryhistory.CategoryHistoryProblemDetailViewModel
 import watson.bytecs.categoryhistory.CategoryHistoryRepository
+import watson.bytecs.categoryhistory.ReviewProblemScreen
+import watson.bytecs.categoryhistory.ReviewProblemViewModel
 import watson.bytecs.categoryhistory.data.KtorCategoryHistoryRepository
 import io.ktor.http.Url
 import watson.bytecs.interview.InterviewCardViewModel
@@ -219,10 +221,9 @@ private fun AppNavHost(dependencies: AppDependencies) {
                 // Problem 전용이다(POST /api/problems/{id}/reports) — promptId를 그리로 보내면 완전히 다른
                 // 콘텐츠가 신고되는 버그가 된다. 전용 엔드포인트가 생기기 전까지 링크 자체를 숨긴다(null).
                 onReport = null,
-                // '그때 푼 문제 다시 보기'(DI10) — 서버가 reviewProblemId를 아직 안 줘서(위 InterviewDtos.kt
-                // review-todo) 실행 경로에 도달하지 않는다. 서버 지원이 붙으면 이 재사용이 실제로 맞는지
-                // (스크랩 안 된 문제도 열리는지) 재검증 필요.
-                onReviewProblem = { problemId -> navigate(Screen.ScrapDetail(problemId)) },
+                // '그때 푼 문제 다시 보기'(DI10) — 스크랩 여부와 무관하게 '푼 문제'를 단건 재열람한다
+                // (스크랩 상세는 스크랩한 문제만 열려 404가 나므로 재사용하지 않는다 — 전용 재열람 경로).
+                onReviewProblem = { problemId -> navigate(Screen.ReviewProblem(problemId)) },
                 // 완료(또는 이미 완료 상태 진입) → 홈으로 복귀.
                 onFinish = { back() },
             )
@@ -422,6 +423,14 @@ private fun AppNavHost(dependencies: AppDependencies) {
             }
             CategoryHistoryProblemDetailScreen(viewModel = viewModel, onBack = { back() })
         }
+
+        is Screen.ReviewProblem -> {
+            // 면접 결과의 '그때 푼 문제 다시 보기'(DI10) — 문제 id만으로 단건 재열람(카테고리 무관).
+            val viewModel = viewModel(key = detailViewModelKey(screen)) {
+                ReviewProblemViewModel(dependencies.categoryHistoryRepository, screen.problemId)
+            }
+            ReviewProblemScreen(viewModel = viewModel, onBack = { back() })
+        }
     }
 }
 
@@ -560,6 +569,9 @@ sealed interface Screen {
 
     /** 카테고리 이력의 한 문제 상세(읽기 전용, 레벨3). 카테고리([category])와 문제([problemId])를 실어 넘긴다. */
     data class CategoryHistoryProblemDetail(val category: String, val problemId: Long) : Screen
+
+    /** 면접 결과의 '그때 푼 문제 다시 보기'(DI10, 읽기 전용). 재열람할 문제([problemId])만 실어 넘긴다(카테고리 무관). */
+    data class ReviewProblem(val problemId: Long) : Screen
 }
 
 /**
@@ -591,6 +603,7 @@ internal fun detailViewModelKey(screen: Screen): String? = when (screen) {
     is Screen.CategoryHistoryDetail -> "category-history-detail:${screen.category}"
     is Screen.CategoryHistoryProblemDetail ->
         "category-history-problem:${screen.category}:${screen.problemId}"
+    is Screen.ReviewProblem -> "review-problem:${screen.problemId}"
     // ⭐️ key 없으면 전역 ViewModelStore가 클래스 단위로 캐시해, '조금 더 풀기'로 완료 화면을 다시 봐도
     // 이전 인스턴스의 이미 닫힌 난이도 제안 카드 상태(SessionCompleteViewModel)가 재사용된다.
     // summary 내용으로 키를 분리해 완료마다 새 인스턴스를 받게 한다.

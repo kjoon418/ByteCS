@@ -10,6 +10,8 @@ import watson.bytecs.session.application.dto.StreakResponse
  *  - status·position·totalCount·nextQuestion·nextConceptName: 세션 진행 상태. 완료됐으면 둘 다 null.
  *  - practicedConceptCount: 이 제출로 세션이 완료됐을 때만 채워지는 완료 요약("오늘 개념 N개를 면접처럼 설명해봤어요")의 N.
  *  - streak: 이 제출로 세션이 완료됐을 때만 갱신된 스트릭을 싣는다(DI5 — 일반 세션과 OR로 하루 멱등 충족).
+ *  - reviewProblemId: '검증됨' 미달(부분·미검증)일 때만, 그 개념으로 풀었던 주관식 문제의 '다시 보기'(DI10) 대상 id. 검증됨·폴백이면 null.
+ *    클라는 이 값이 있을 때만 '그때 푼 문제 다시 보기' 링크를 그린다(`GET /api/learning-history/problems/{id}` 재열람).
  */
 data class InterviewAnswerResponse(
     val judged: Boolean,
@@ -25,4 +27,5 @@ data class InterviewAnswerResponse(
     val nextPromptId: Long?,
     val practicedConceptCount: Int?,
     val streak: StreakResponse?,
+    val reviewProblemId: Long?,
 )

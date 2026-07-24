@@ -36,6 +36,7 @@ class InterviewResponseMapper {
         judgeResult: JudgeResult?,
         nextPrompt: InterviewPrompt?,
         streak: StudyStreak?,
+        reviewProblemId: Long?,
     ): InterviewAnswerResponse {
         val points = judgeResult?.satisfiedPoints?.mapIndexed { index, satisfied ->
             RubricPointResultResponse(text = submittedPrompt.rubricPoints[index], satisfied = satisfied)
@@ -55,6 +56,7 @@ class InterviewResponseMapper {
             nextPromptId = nextPrompt?.id,
             practicedConceptCount = if (session.isCompleted) session.totalCount else null,
             streak = streak?.let { StreakResponse(count = it.count, lastStudyDate = it.lastStudyDate) },
+            reviewProblemId = reviewProblemId,
         )
     }
 

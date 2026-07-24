@@ -116,12 +116,17 @@ class InterviewSessionService(
 
         val judgeResult = explanationJudge.judge(prompt.rubricPoints, explanation)
         val judgedAt = Instant.now(clock)
+        // '검증됨' 미달 개념의 '그때 푼 문제 다시 보기'(DI10) 대상 — 검증됨·폴백이면 null(그때는 재열람 블록을 그리지 않는다).
+        var reviewProblemId: Long? = null
         if (judgeResult != null) {
             session.recordGraded(explanation, judgeResult.satisfiedPoints, judgeResult.comment, judgedAt)
             updateReadiness(userId, prompt.concept.id, judgeResult.satisfiedPoints, judgedAt)
             val allSatisfied = judgeResult.satisfiedPoints.all { it }
             if (!allSatisfied) {
-                pullReviewForward(userId, prompt.concept.id, today())
+                // '검증됨' 미달 — 그 개념의 숙련도 행에서 복습 시점을 당기고(DI11), 그때 푼 문제를 재열람 대상으로 싣는다(DI10).
+                val mastery = conceptMasteryRepository.findByUserIdAndConceptId(userId, prompt.concept.id)
+                mastery?.pullReviewDateForward(today().plusDays(REVIEW_PULL_FORWARD_DAYS))
+                reviewProblemId = mastery?.lastProblemId
             }
         } else {
             session.recordFallback(explanation, judgedAt)
@@ -135,7 +140,7 @@ class InterviewSessionService(
         }
 
         val nextPrompt = session.currentPromptId()?.let { loadPrompt(it) }
-        return responseMapper.toAnswerResponse(session, prompt, judgeResult, nextPrompt, streak)
+        return responseMapper.toAnswerResponse(session, prompt, judgeResult, nextPrompt, streak, reviewProblemId)
     }
 
     /**
@@ -180,12 +185,6 @@ class InterviewSessionService(
         // updatedAt(lateinit) 미초기화 상태로 INSERT돼 제약 위반이 난다(실서버 스모크로 발견).
         readiness.applyResult(satisfiedPoints.count { it }, satisfiedPoints.size, updatedAt)
         interviewReadinessRepository.save(readiness)
-    }
-
-    /** 복습 시점을 면접일+1일로 당긴다(당김 전용, DI11) — 그 개념의 숙련도 행이 없으면(있어야 정상이나) 조용히 건너뛴다. */
-    private fun pullReviewForward(userId: Long, conceptId: Long, interviewDate: LocalDate) {
-        conceptMasteryRepository.findByUserIdAndConceptId(userId, conceptId)
-            ?.pullReviewDateForward(interviewDate.plusDays(REVIEW_PULL_FORWARD_DAYS))
     }
 
     private fun requireMember(user: User) {

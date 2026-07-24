@@ -4,10 +4,13 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import watson.bytecs.account.domain.UserNotFoundException
 import watson.bytecs.account.infrastructure.UserRepository
+import watson.bytecs.problem.domain.ApprovalStatus
 import watson.bytecs.problem.domain.ProblemCategory
+import watson.bytecs.problem.domain.ProblemNotFoundException
 import watson.bytecs.problem.infrastructure.ProblemRepository
 import watson.bytecs.session.infrastructure.SessionRepository
 import watson.bytecs.study.LearningHistory
+import watson.bytecs.study.application.dto.CategoryHistoryItemResponse
 import watson.bytecs.study.application.dto.CategoryHistoryResponse
 
 /**
@@ -53,5 +56,26 @@ class CategoryHistoryService(
                 submittedAnswersByProblemId,
             )
         }
+    }
+
+    /**
+     * 본인이 **푼** 문제 하나를 id로 읽기 전용 재열람한다(면접 결과의 '그때 푼 문제 다시 보기' — DI10).
+     * 카테고리 분류(대표 개념 category)와 무관하게 동작한다 — 미분류 개념의 문제도 열려야 하므로 카테고리 그룹핑에 기대지 않는다.
+     * 본인이 풀지 않은 문제는 404다(스크랩 상세와 같은 사용자 격리 — 타인·미풀이 문제의 존재를 흘리지 않는다).
+     * 미승인(회수 등)이 된 문제도 404다(서빙 게이트, 수용 기준 15). 삭제된 사용자의 토큰도 404다.
+     */
+    fun findSolvedProblem(userId: Long, problemId: Long): CategoryHistoryItemResponse {
+        if (!userRepository.existsById(userId)) {
+            throw UserNotFoundException.byId(userId)
+        }
+        if (problemId !in learningHistory.findSolvedProblemIds(userId)) {
+            throw ProblemNotFoundException.byId(problemId)
+        }
+        val problem = problemRepository.findAllByIdWithConceptsAndEnrichment(listOf(problemId))
+            .firstOrNull { it.approvalStatus == ApprovalStatus.APPROVED }
+            ?: throw ProblemNotFoundException.byId(problemId)
+        val submittedAnswer = sessionRepository.findSolvedItemAnswers(userId)
+            .lastOrNull { it.problemId == problemId }?.submittedAnswer
+        return responseMapper.toItemResponse(problem, submittedAnswer)
     }
 }

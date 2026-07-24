@@ -115,6 +115,68 @@ class CategoryHistoryControllerIntegrationTest(
             }
     }
 
+    // --- DI10: 그때 푼 문제 다시 보기(단건 재열람, 카테고리 무관) ---
+
+    @Test
+    fun `푼 문제를 id로 재열람하면 문제·개념·모범답안이 온다`() {
+        val solvedId = solveCurrentSessionItem()
+
+        getProblem(token, solvedId).andExpect {
+            status { isOk() }
+            jsonPath("$.problemId") { value(solvedId) }
+            jsonPath("$.result") { value("CORRECT") }
+            jsonPath("$.concepts[0]") { exists() }
+            jsonPath("$.representativeAnswer") { value(answersById.getValue(solvedId)) }
+            jsonPath("$.submittedAnswer") { value(answersById.getValue(solvedId)) }
+        }
+    }
+
+    @Test
+    fun `풀지 않은 문제를 재열람하면 404다`() {
+        val solvedId = solveCurrentSessionItem()
+        val unsolvedId = if (solvedId == p1) p2 else p1
+
+        getProblem(token, unsolvedId).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
+        }
+    }
+
+    @Test
+    fun `다른 사용자가 푼 문제는 재열람할 수 없다(사용자 격리)`() {
+        val solvedId = solveCurrentSessionItem()
+
+        val otherUser = userRepository.save(User.createGuest())
+        val otherToken = jwtTokenProvider.issue(otherUser.id, UserRole.GUEST)
+
+        getProblem(otherToken, solvedId).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
+        }
+    }
+
+    @Test
+    fun `인증 없이 재열람하면 401을 반환한다`() {
+        mockMvc.get("/api/learning-history/problems/1")
+            .andExpect {
+                status { isUnauthorized() }
+                jsonPath("$.errorCode") { value("UNAUTHORIZED") }
+            }
+    }
+
+    @Test
+    fun `풀었어도 회수된 문제는 재열람할 수 없다(서빙 게이트)`() {
+        val solvedId = solveCurrentSessionItem()
+        // 승인 상태로 풀어 이력에 남았지만 이후 회수(승인 해제)되면, 삭제된 문제와 동일하게 재열람할 수 없다(수용 기준 15).
+        val problem = problemRepository.findById(solvedId).orElseThrow().apply { retract() }
+        problemRepository.save(problem)
+
+        getProblem(token, solvedId).andExpect {
+            status { isNotFound() }
+            jsonPath("$.errorCode") { value("PROBLEM_NOT_FOUND") }
+        }
+    }
+
     @Test
     fun `계정을 삭제한 뒤 그 토큰으로 조회하면 404를 반환한다`() {
         mockMvc.delete("/api/users/me") {
@@ -156,6 +218,11 @@ class CategoryHistoryControllerIntegrationTest(
 
     private fun getCategories(bearer: String): ResultActionsDsl =
         mockMvc.get("/api/learning-history/categories") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
+        }
+
+    private fun getProblem(bearer: String, problemId: Long): ResultActionsDsl =
+        mockMvc.get("/api/learning-history/problems/$problemId") {
             header(HttpHeaders.AUTHORIZATION, "Bearer $bearer")
         }
 

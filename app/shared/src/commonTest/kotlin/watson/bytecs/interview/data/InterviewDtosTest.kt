@@ -23,6 +23,7 @@ class InterviewDtosTest {
         nextPromptId: Long? = null,
         practicedConceptCount: Int? = null,
         streak: InterviewStreakDto? = null,
+        reviewProblemId: Long? = null,
     ) = InterviewAnswerResponseDto(
         judged = judged,
         points = points,
@@ -37,6 +38,7 @@ class InterviewDtosTest {
         nextPromptId = nextPromptId,
         practicedConceptCount = practicedConceptCount,
         streak = streak,
+        reviewProblemId = reviewProblemId,
     )
 
     @Test
@@ -81,7 +83,31 @@ class InterviewDtosTest {
         assertEquals(InterviewReadiness.UNVERIFIED, outcome.result.readiness)
         assertEquals(0, outcome.result.points.size)
         assertEquals("모범 설명", outcome.modelAnswer)
-        // no-leak: DI10 미제공이라 항상 null.
+        // 폴백이면 서버가 재열람 대상을 싣지 않는다(DI10은 채점 성공·미달일 때만).
+        assertNull(outcome.reviewProblemId)
+    }
+
+    @Test
+    fun 검증됨_미달이면_재열람_대상이_매핑된다() {
+        val outcome = answer(
+            judged = true,
+            points = listOf(RubricPointResultDto("p1", true), RubricPointResultDto("p2", false)),
+            reviewProblemId = 42L,
+        ).toDomain()
+
+        assertEquals(InterviewReadiness.PARTIAL, outcome.result.readiness)
+        assertEquals(42L, outcome.reviewProblemId)
+    }
+
+    @Test
+    fun 검증됨이면_재열람_대상이_없다() {
+        val outcome = answer(
+            judged = true,
+            points = listOf(RubricPointResultDto("p1", true)),
+            reviewProblemId = null,
+        ).toDomain()
+
+        assertTrue(outcome.result.verified)
         assertNull(outcome.reviewProblemId)
     }
 

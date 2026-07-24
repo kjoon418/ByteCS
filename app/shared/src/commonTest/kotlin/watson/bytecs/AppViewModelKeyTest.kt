@@ -41,6 +41,24 @@ class AppViewModelKeyTest {
     }
 
     @Test
+    fun 서로_다른_재열람_문제는_다른_키를_얻는다() {
+        // DI10 '그때 푼 문제 다시 보기' — problemId가 다르면 키가 달라야 한다(첫 문제 고정 방지).
+        assertNotEquals(
+            detailViewModelKey(Screen.ReviewProblem(1L)),
+            detailViewModelKey(Screen.ReviewProblem(2L)),
+        )
+    }
+
+    @Test
+    fun 재열람과_스크랩_상세는_같은_problemId여도_키가_충돌하지_않는다() {
+        // 접두사가 달라(review-problem vs scrap-detail) 같은 id여도 종류 간 캐시가 섞이지 않는다.
+        assertNotEquals(
+            detailViewModelKey(Screen.ReviewProblem(1L)),
+            detailViewModelKey(Screen.ScrapDetail(1L)),
+        )
+    }
+
+    @Test
     fun 서로_다른_신고_대상은_다른_키를_얻는다() {
         assertNotEquals(
             detailViewModelKey(Screen.Report(1L, ReportCategory.WRONG_ANSWER)),

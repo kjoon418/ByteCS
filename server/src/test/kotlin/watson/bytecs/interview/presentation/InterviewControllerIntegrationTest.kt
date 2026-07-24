@@ -141,6 +141,21 @@ class InterviewControllerIntegrationTest(
             jsonPath("$.nextQuestion") { doesNotExist() }
             jsonPath("$.practicedConceptCount") { value(1) }
             jsonPath("$.streak.count") { value(greaterThanOrEqualTo(1)) }
+            // '검증됨'(전 포인트 충족)이면 재열람 대상을 싣지 않는다(DI10 — 미달일 때만).
+            jsonPath("$.reviewProblemId") { doesNotExist() }
+        }
+    }
+
+    @Test
+    fun `설명이 검증됨에 못 미치면 그때 푼 문제 다시 보기 id를 싣는다`() {
+        createSession(memberToken)
+
+        // 루브릭 포인트("실행 단위")를 짚지 못한 설명 → 부분/미검증(미달) → 그 개념으로 푼 문제(lastProblemId=1) 재열람 대상을 싣는다(DI10).
+        submit(memberToken, "잘 기억나지 않아요").andExpect {
+            status { isOk() }
+            jsonPath("$.judged") { value(true) }
+            jsonPath("$.points[0].satisfied") { value(false) }
+            jsonPath("$.reviewProblemId") { value(1) }
         }
     }
 

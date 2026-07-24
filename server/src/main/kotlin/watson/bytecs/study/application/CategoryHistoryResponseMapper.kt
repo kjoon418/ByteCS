@@ -28,7 +28,8 @@ class CategoryHistoryResponseMapper {
                 .map { toItemResponse(it, submittedAnswersByProblemId[it.id]) },
         )
 
-    private fun toItemResponse(problem: Problem, submittedAnswer: String?): CategoryHistoryItemResponse =
+    /** 푼 문제 하나를 재열람 항목 응답으로 변환한다(카테고리 그룹 항목·DI10 단건 재열람이 같은 형태를 공유). */
+    fun toItemResponse(problem: Problem, submittedAnswer: String?): CategoryHistoryItemResponse =
         CategoryHistoryItemResponse(
             problemId = problem.id,
             question = problem.questionText,

@@ -15,10 +15,6 @@ import watson.bytecs.session.Streak
 /**
  * 백엔드 `/api/interview` 계약과 1:1 대응하는 유선(wire) DTO. 도메인 모델과 분리해, API 형태가 바뀌어도
  * 매핑 한곳만 고치면 되게 한다(session·categoryhistory 슬라이스와 같은 관례).
- *
- * [review-todo] `reviewProblemId`(DI10 — '그때 푼 문제 다시 보기')는 서버가 아직 내려주지 않는다.
- * 매핑은 항상 null로 채운다 — [watson.bytecs.interview.ReviewNudge]가 이미 null을 무낙인으로 처리한다
- * (링크 없이 "복습에서도 곧 다시 만나요" 문구만). 서버가 지원을 추가하면 이 파일만 고치면 된다.
  */
 
 /**
@@ -110,6 +106,8 @@ internal data class InterviewAnswerResponseDto(
     val nextPromptId: Long? = null,
     val practicedConceptCount: Int? = null,
     val streak: InterviewStreakDto? = null,
+    // '검증됨' 미달일 때만 채워지는 '그때 푼 문제 다시 보기'(DI10) 대상 id. 검증됨·폴백이면 null(서버 생략 시 기본값).
+    val reviewProblemId: Long? = null,
 ) {
     fun toDomain(): ExplanationOutcome {
         val domainPoints = points.map { it.toDomain() }
@@ -129,8 +127,8 @@ internal data class InterviewAnswerResponseDto(
             ),
             modelAnswer = modelAnswer,
             conceptName = conceptName,
-            // [review-todo] DI10 미제공 — 항상 null(위 파일 KDoc 참고).
-            reviewProblemId = null,
+            // '검증됨' 미달일 때 서버가 실어 준 재열람 대상(DI10) — 없으면 null이라 화면은 링크를 숨긴다.
+            reviewProblemId = reviewProblemId,
             status = InterviewSessionStatus.from(status),
             nextItem = nextQuestion?.let {
                 InterviewItem(
