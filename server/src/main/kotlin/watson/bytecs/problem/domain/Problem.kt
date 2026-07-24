@@ -225,7 +225,9 @@ class Problem(
         val normalizedAnswers = acceptableAnswers.map { AnswerText(it).value }
         val curatedTexts = hints.map { it.text } + misconceptionHints.map { it.message }
         curatedTexts.forEach { text ->
-            val normalizedText = text.lowercase()
+            // 답 정규화(AnswerText)와 같은 기준으로 검사한다 — 띄어쓰기 무시가 적용된 뒤엔 힌트도 공백 제거 기준으로 봐야
+            // "해시 충돌" 힌트가 "해시충돌" 답을 흘리는 것을 잡는다(정확 일치와 유출 검사가 같은 정규화를 공유).
+            val normalizedText = AnswerText(text).value
             if (normalizedAnswers.any { it in normalizedText }) {
                 throw InvalidApprovalStateException(ANSWER_LEAK_MESSAGE)
             }

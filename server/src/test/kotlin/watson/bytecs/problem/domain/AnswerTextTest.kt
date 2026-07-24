@@ -26,10 +26,17 @@ class AnswerTextTest {
         }
 
         @Test
-        fun 내부_연속_공백을_하나로_축약한다() {
+        fun 내부_공백을_전부_제거한다() {
             val answer = AnswerText("해시   충돌")
 
-            assertThat(answer.value).isEqualTo("해시 충돌")
+            assertThat(answer.value).isEqualTo("해시충돌")
+        }
+
+        @Test
+        fun 띄어쓰기_여부와_무관하게_같은_답으로_본다() {
+            // 오너 결정(2026-07-24): 띄어쓰기가 맞았는지는 정답 여부와 무관하다.
+            assertThat(AnswerText("해시충돌")).isEqualTo(AnswerText("해시 충돌"))
+            assertThat(AnswerText("가상 메모리")).isEqualTo(AnswerText("가상메모리"))
         }
 
         @Test
